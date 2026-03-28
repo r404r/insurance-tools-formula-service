@@ -56,11 +56,18 @@ func (ve ValidationError) Error() string {
 	return ve.Message
 }
 
+// TableResolver resolves lookup table data by table ID. It returns a map
+// from lookup key (as string) to the column value (as string-encoded decimal).
+type TableResolver interface {
+	ResolveTable(ctx context.Context, tableID string, column string) (map[string]string, error)
+}
+
 // EngineConfig holds configuration for the default engine implementation.
 type EngineConfig struct {
-	Workers   int
-	Precision PrecisionConfig
-	CacheSize int
+	Workers       int
+	Precision     PrecisionConfig
+	CacheSize     int
+	TableResolver TableResolver
 }
 
 // DefaultEngineConfig returns a sensible default configuration.
@@ -74,17 +81,19 @@ func DefaultEngineConfig() EngineConfig {
 
 // defaultEngine is the production implementation of Engine.
 type defaultEngine struct {
-	executor *Executor
-	cache    *ResultCache
-	config   EngineConfig
+	executor      *Executor
+	cache         *ResultCache
+	config        EngineConfig
+	tableResolver TableResolver
 }
 
 // NewEngine creates a new Engine with the given configuration.
 func NewEngine(cfg EngineConfig) Engine {
 	return &defaultEngine{
-		executor: NewExecutor(cfg.Workers, cfg.Precision),
-		cache:    NewResultCache(cfg.CacheSize),
-		config:   cfg,
+		executor:      NewExecutor(cfg.Workers, cfg.Precision),
+		cache:         NewResultCache(cfg.CacheSize),
+		config:        cfg,
+		tableResolver: cfg.TableResolver,
 	}
 }
 
@@ -102,6 +111,13 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 	plan, err := BuildPlan(graph)
 	if err != nil {
 		return nil, fmt.Errorf("build plan: %w", err)
+	}
+
+	// Pre-load table data for any tableLookup nodes.
+	if e.tableResolver != nil {
+		if err := e.preloadTableData(ctx, graph, decInputs); err != nil {
+			return nil, fmt.Errorf("preload table data: %w", err)
+		}
 	}
 
 	// Execute the plan.
@@ -201,6 +217,33 @@ func (e *defaultEngine) Validate(graph *domain.FormulaGraph) []ValidationError {
 	errs = append(errs, validateRequiredPorts(graph, dag)...)
 
 	return errs
+}
+
+// preloadTableData finds all tableLookup nodes in the graph and pre-loads
+// their table data into the inputs map with "table:<key>" entries so that
+// the evaluator can resolve them during execution.
+func (e *defaultEngine) preloadTableData(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]Decimal) error {
+	for _, node := range graph.Nodes {
+		if node.Type != domain.NodeTableLookup {
+			continue
+		}
+		var cfg domain.TableLookupConfig
+		if err := json.Unmarshal(node.Config, &cfg); err != nil {
+			return fmt.Errorf("node %s: invalid tableLookup config: %w", node.ID, err)
+		}
+		tableData, err := e.tableResolver.ResolveTable(ctx, cfg.TableID, cfg.Column)
+		if err != nil {
+			return fmt.Errorf("node %s: resolve table %s: %w", node.ID, cfg.TableID, err)
+		}
+		for key, val := range tableData {
+			d, err := decimal.NewFromString(val)
+			if err != nil {
+				return fmt.Errorf("table %s key %s: invalid decimal value %q: %w", cfg.TableID, key, val, err)
+			}
+			inputs["table:"+key] = d
+		}
+	}
+	return nil
 }
 
 // parseInputs converts string input values to Decimals.

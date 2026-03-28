@@ -14,6 +14,8 @@ type RouterConfig struct {
 	FormulaHandler *FormulaHandler
 	VersionHandler *VersionHandler
 	CalcHandler    *CalcHandler
+	TableHandler   *TableHandler
+	UserHandler    *UserHandler
 	JWTManager     *auth.JWTManager
 	Logger         zerolog.Logger
 	CORSOrigins    []string
@@ -80,6 +82,21 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 				r.Post("/", cfg.CalcHandler.Calculate)
 				r.Post("/batch", cfg.CalcHandler.BatchCalculate)
 				r.Post("/validate", cfg.CalcHandler.Validate)
+			})
+
+			// Lookup table endpoints.
+			r.Route("/tables", func(r chi.Router) {
+				r.Get("/", cfg.TableHandler.List)
+				r.With(auth.RequirePermission(auth.PermTableManage)).
+					Post("/", cfg.TableHandler.Create)
+				r.Get("/{id}", cfg.TableHandler.Get)
+			})
+
+			// User management endpoints (admin only).
+			r.Route("/users", func(r chi.Router) {
+				r.Use(auth.RequirePermission(auth.PermUserManage))
+				r.Get("/", cfg.UserHandler.List)
+				r.Patch("/{id}/role", cfg.UserHandler.UpdateRole)
 			})
 		})
 	})

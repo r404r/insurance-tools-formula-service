@@ -56,13 +56,16 @@ func run(logger zerolog.Logger) error {
 	// Initialize subsystems.
 	jwtMgr := auth.NewJWTManager(cfg.Auth.JWTSecret, cfg.Auth.TokenExpiry)
 
+	tableResolver := &engine.StoreTableResolver{Tables: store.Tables()}
+
 	eng := engine.NewEngine(engine.EngineConfig{
 		Workers: cfg.Engine.MaxWorkers,
 		Precision: engine.PrecisionConfig{
 			IntermediatePrecision: cfg.Engine.IntermediatePrecision,
 			OutputPrecision:       cfg.Engine.OutputPrecision,
 		},
-		CacheSize: cfg.Engine.CacheSize,
+		CacheSize:     cfg.Engine.CacheSize,
+		TableResolver: tableResolver,
 	})
 
 	// Create handlers.
@@ -84,12 +87,21 @@ func run(logger zerolog.Logger) error {
 		Tables:   store.Tables(),
 	}
 
+	tableHandler := &api.TableHandler{
+		Tables: store.Tables(),
+	}
+	userHandler := &api.UserHandler{
+		Users: store.Users(),
+	}
+
 	// Build the router.
 	router := api.NewRouter(api.RouterConfig{
 		AuthHandler:    authHandler,
 		FormulaHandler: formulaHandler,
 		VersionHandler: versionHandler,
 		CalcHandler:    calcHandler,
+		TableHandler:   tableHandler,
+		UserHandler:    userHandler,
 		JWTManager:     jwtMgr,
 		Logger:         logger,
 		CORSOrigins:    cfg.Server.CORSOrigins,

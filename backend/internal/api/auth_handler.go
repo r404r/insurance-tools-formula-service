@@ -86,23 +86,30 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Determine role: first user becomes admin, all others get viewer.
-	role := domain.RoleViewer
-	users, _ := h.Users.List(r.Context())
-	if len(users) == 0 {
-		role = domain.RoleAdmin
-	}
-
+	// We use an optimistic approach: create with viewer role, then check
+	// if this is the first user and upgrade to admin. The unique username
+	// constraint prevents duplicates; the worst case in a race is two
+	// viewers (no privilege escalation).
 	user := &domain.User{
 		ID:        uuid.New().String(),
 		Username:  req.Username,
 		Password:  string(hashed),
-		Role:      role,
+		Role:      domain.RoleViewer,
 		CreatedAt: time.Now().UTC(),
 	}
 
 	if err := h.Users.Create(r.Context(), user); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create user", Code: http.StatusInternalServerError})
 		return
+	}
+
+	// After successfully creating the user, check if they are the only user.
+	// If so, promote to admin. This avoids the race condition where two
+	// concurrent registrations both see zero users.
+	users, _ := h.Users.List(r.Context())
+	if len(users) == 1 && users[0].ID == user.ID {
+		_ = h.Users.UpdateRole(r.Context(), user.ID, domain.RoleAdmin)
+		user.Role = domain.RoleAdmin
 	}
 
 	token, err := h.JWTMgr.Generate(user)

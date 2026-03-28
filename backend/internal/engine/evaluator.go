@@ -40,6 +40,12 @@ func (ev *Evaluator) EvaluateNode(node *domain.FormulaNode, inputs map[string]De
 		return ev.evalConditional(node, inputs)
 	case domain.NodeAggregate:
 		return ev.evalAggregate(node, inputs)
+	case domain.NodeSubFormula:
+		// Sub-formula nodes are evaluated by the engine layer which resolves
+		// the referenced formula and recursively calculates it. By the time
+		// the evaluator sees this node, the result should already be seeded
+		// as the "in" port by the executor.
+		return ev.evalSubFormula(node, inputs)
 	default:
 		return Zero, fmt.Errorf("unsupported node type %q for node %s", node.Type, node.ID)
 	}
@@ -336,6 +342,17 @@ func collectItems(inputs map[string]Decimal) []Decimal {
 		}
 	}
 	return items
+}
+
+// evalSubFormula handles sub-formula reference nodes. The actual recursive
+// calculation is done at the engine level; by the time the evaluator sees this
+// node, the result should be provided as the "in" input port.
+func (ev *Evaluator) evalSubFormula(node *domain.FormulaNode, inputs map[string]Decimal) (Decimal, error) {
+	val, ok := inputs["in"]
+	if !ok {
+		return Zero, fmt.Errorf("node %s: sub-formula result not provided (missing 'in' input)", node.ID)
+	}
+	return val, nil
 }
 
 // decimalPow raises base to the power of exp. For integer exponents it uses
