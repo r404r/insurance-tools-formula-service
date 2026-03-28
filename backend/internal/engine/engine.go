@@ -1,0 +1,402 @@
+package engine
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/shopspring/decimal"
+
+	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
+)
+
+// Engine is the interface for calculating insurance formulas.
+type Engine interface {
+	// Calculate evaluates the formula graph with the given string-encoded
+	// input values and returns the results.
+	Calculate(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]string) (*CalculationResult, error)
+
+	// Validate checks the formula graph for structural errors without
+	// executing it.
+	Validate(graph *domain.FormulaGraph) []ValidationError
+}
+
+// CalculationResult holds the output of a formula evaluation.
+type CalculationResult struct {
+	// Outputs contains the final output values, keyed by output node ID,
+	// encoded as decimal strings.
+	Outputs map[string]string `json:"outputs"`
+
+	// Intermediates contains the computed value for every node in the graph,
+	// useful for debugging and audit trails. Keyed by node ID.
+	Intermediates map[string]string `json:"intermediates"`
+
+	// NodesEvaluated is the total number of nodes that were computed.
+	NodesEvaluated int `json:"nodesEvaluated"`
+
+	// ParallelLevels is the number of topological levels in the execution plan.
+	ParallelLevels int `json:"parallelLevels"`
+
+	// ExecutionTime is the wall-clock duration of the calculation.
+	ExecutionTime time.Duration `json:"executionTime"`
+}
+
+// ValidationError describes a structural problem with a formula graph.
+type ValidationError struct {
+	NodeID  string `json:"nodeId"`
+	Message string `json:"message"`
+}
+
+// Error implements the error interface for ValidationError.
+func (ve ValidationError) Error() string {
+	if ve.NodeID != "" {
+		return fmt.Sprintf("node %s: %s", ve.NodeID, ve.Message)
+	}
+	return ve.Message
+}
+
+// EngineConfig holds configuration for the default engine implementation.
+type EngineConfig struct {
+	Workers   int
+	Precision PrecisionConfig
+	CacheSize int
+}
+
+// DefaultEngineConfig returns a sensible default configuration.
+func DefaultEngineConfig() EngineConfig {
+	return EngineConfig{
+		Workers:   4,
+		Precision: DefaultPrecision(),
+		CacheSize: 1000,
+	}
+}
+
+// defaultEngine is the production implementation of Engine.
+type defaultEngine struct {
+	executor *Executor
+	cache    *ResultCache
+	config   EngineConfig
+}
+
+// NewEngine creates a new Engine with the given configuration.
+func NewEngine(cfg EngineConfig) Engine {
+	return &defaultEngine{
+		executor: NewExecutor(cfg.Workers, cfg.Precision),
+		cache:    NewResultCache(cfg.CacheSize),
+		config:   cfg,
+	}
+}
+
+// Calculate implements Engine.Calculate.
+func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]string) (*CalculationResult, error) {
+	start := time.Now()
+
+	// Parse string inputs to Decimal.
+	decInputs, err := parseInputs(inputs)
+	if err != nil {
+		return nil, fmt.Errorf("parse inputs: %w", err)
+	}
+
+	// Build the execution plan (includes DAG construction and cycle detection).
+	plan, err := BuildPlan(graph)
+	if err != nil {
+		return nil, fmt.Errorf("build plan: %w", err)
+	}
+
+	// Execute the plan.
+	allResults, err := e.executor.Execute(ctx, plan, decInputs)
+	if err != nil {
+		return nil, fmt.Errorf("execute: %w", err)
+	}
+
+	// Collect outputs.
+	outputs := make(map[string]string, len(plan.DAG.OutputNodes()))
+	for _, outID := range plan.DAG.OutputNodes() {
+		if val, ok := allResults[outID]; ok {
+			rounded := e.config.Precision.RoundOutput(val)
+			outputs[outID] = rounded.String()
+		}
+	}
+
+	// Collect all intermediates.
+	intermediates := make(map[string]string, len(allResults))
+	for k, v := range allResults {
+		intermediates[k] = v.String()
+	}
+
+	return &CalculationResult{
+		Outputs:        outputs,
+		Intermediates:  intermediates,
+		NodesEvaluated: len(allResults),
+		ParallelLevels: len(plan.Levels),
+		ExecutionTime:  time.Since(start),
+	}, nil
+}
+
+// Validate implements Engine.Validate. It checks the graph for structural
+// errors without executing any computation.
+func (e *defaultEngine) Validate(graph *domain.FormulaGraph) []ValidationError {
+	var errs []ValidationError
+
+	// 1. Cycle detection.
+	_, dagErr := BuildDAG(graph)
+	if dagErr != nil {
+		errs = append(errs, ValidationError{
+			Message: dagErr.Error(),
+		})
+		// If we can't build the DAG, further validation is unreliable.
+		return errs
+	}
+
+	dag, _ := BuildDAG(graph)
+
+	// 2. Check that all declared outputs exist in the graph.
+	nodeIDs := make(map[string]bool, len(graph.Nodes))
+	for _, n := range graph.Nodes {
+		nodeIDs[n.ID] = true
+	}
+	for _, outID := range graph.Outputs {
+		if !nodeIDs[outID] {
+			errs = append(errs, ValidationError{
+				NodeID:  outID,
+				Message: "declared output node does not exist in graph",
+			})
+		}
+	}
+
+	// 3. Check that output nodes have no outgoing edges (they are terminal).
+	for _, outID := range graph.Outputs {
+		if succs := dag.forward[outID]; len(succs) > 0 {
+			errs = append(errs, ValidationError{
+				NodeID:  outID,
+				Message: "output node has outgoing edges; it should be a terminal node",
+			})
+		}
+	}
+
+	// 4. Check that input variable nodes have no incoming edges.
+	for _, n := range graph.Nodes {
+		if n.Type == domain.NodeVariable {
+			if dag.inDegree[n.ID] > 0 {
+				errs = append(errs, ValidationError{
+					NodeID:  n.ID,
+					Message: "variable node should not have incoming edges",
+				})
+			}
+		}
+	}
+
+	// 5. Check node configs are valid JSON and type-compatible.
+	for _, n := range graph.Nodes {
+		if cfgErr := validateNodeConfig(n); cfgErr != nil {
+			errs = append(errs, ValidationError{
+				NodeID:  n.ID,
+				Message: cfgErr.Error(),
+			})
+		}
+	}
+
+	// 6. Check that operator/function nodes have the required input ports connected.
+	errs = append(errs, validateRequiredPorts(graph, dag)...)
+
+	return errs
+}
+
+// parseInputs converts string input values to Decimals.
+func parseInputs(inputs map[string]string) (map[string]Decimal, error) {
+	result := make(map[string]Decimal, len(inputs))
+	for k, v := range inputs {
+		d, err := decimal.NewFromString(v)
+		if err != nil {
+			return nil, fmt.Errorf("input %q: cannot parse %q as decimal: %w", k, v, err)
+		}
+		result[k] = d
+	}
+	return result, nil
+}
+
+// validateNodeConfig checks that a node's config can be unmarshalled into
+// the appropriate config struct for its type.
+func validateNodeConfig(node domain.FormulaNode) error {
+	if node.Config == nil {
+		return fmt.Errorf("missing config")
+	}
+
+	switch node.Type {
+	case domain.NodeVariable:
+		var cfg domain.VariableConfig
+		if err := json.Unmarshal(node.Config, &cfg); err != nil {
+			return fmt.Errorf("invalid variable config: %w", err)
+		}
+		if cfg.Name == "" {
+			return fmt.Errorf("variable config missing name")
+		}
+
+	case domain.NodeConstant:
+		var cfg domain.ConstantConfig
+		if err := json.Unmarshal(node.Config, &cfg); err != nil {
+			return fmt.Errorf("invalid constant config: %w", err)
+		}
+		if cfg.Value == "" {
+			return fmt.Errorf("constant config missing value")
+		}
+		if _, err := decimal.NewFromString(cfg.Value); err != nil {
+			return fmt.Errorf("constant value %q is not a valid number", cfg.Value)
+		}
+
+	case domain.NodeOperator:
+		var cfg domain.OperatorConfig
+		if err := json.Unmarshal(node.Config, &cfg); err != nil {
+			return fmt.Errorf("invalid operator config: %w", err)
+		}
+		validOps := map[string]bool{
+			"add": true, "subtract": true, "multiply": true,
+			"divide": true, "power": true, "modulo": true,
+		}
+		if !validOps[cfg.Op] {
+			return fmt.Errorf("unknown operator %q", cfg.Op)
+		}
+
+	case domain.NodeFunction:
+		var cfg domain.FunctionConfig
+		if err := json.Unmarshal(node.Config, &cfg); err != nil {
+			return fmt.Errorf("invalid function config: %w", err)
+		}
+		validFns := map[string]bool{
+			"round": true, "floor": true, "ceil": true, "abs": true,
+			"min": true, "max": true, "sqrt": true, "ln": true, "exp": true,
+		}
+		if !validFns[cfg.Fn] {
+			return fmt.Errorf("unknown function %q", cfg.Fn)
+		}
+
+	case domain.NodeConditional:
+		var cfg domain.ConditionalConfig
+		if err := json.Unmarshal(node.Config, &cfg); err != nil {
+			return fmt.Errorf("invalid conditional config: %w", err)
+		}
+		validComps := map[string]bool{
+			"eq": true, "ne": true, "gt": true, "ge": true, "lt": true, "le": true,
+		}
+		if !validComps[cfg.Comparator] {
+			return fmt.Errorf("unknown comparator %q", cfg.Comparator)
+		}
+
+	case domain.NodeAggregate:
+		var cfg domain.AggregateConfig
+		if err := json.Unmarshal(node.Config, &cfg); err != nil {
+			return fmt.Errorf("invalid aggregate config: %w", err)
+		}
+		validAggs := map[string]bool{
+			"sum": true, "product": true, "count": true, "avg": true,
+		}
+		if !validAggs[cfg.Fn] {
+			return fmt.Errorf("unknown aggregate function %q", cfg.Fn)
+		}
+
+	case domain.NodeTableLookup:
+		var cfg domain.TableLookupConfig
+		if err := json.Unmarshal(node.Config, &cfg); err != nil {
+			return fmt.Errorf("invalid tableLookup config: %w", err)
+		}
+		if cfg.TableID == "" {
+			return fmt.Errorf("tableLookup config missing tableId")
+		}
+
+	case domain.NodeSubFormula:
+		var cfg domain.SubFormulaConfig
+		if err := json.Unmarshal(node.Config, &cfg); err != nil {
+			return fmt.Errorf("invalid subFormula config: %w", err)
+		}
+		if cfg.FormulaID == "" {
+			return fmt.Errorf("subFormula config missing formulaId")
+		}
+	}
+
+	return nil
+}
+
+// validateRequiredPorts checks that nodes with known input port requirements
+// have those ports connected by edges.
+func validateRequiredPorts(graph *domain.FormulaGraph, dag *DAG) []ValidationError {
+	var errs []ValidationError
+
+	// Build a map of nodeID -> set of connected target ports.
+	connectedPorts := make(map[string]map[string]bool)
+	for _, e := range graph.Edges {
+		if connectedPorts[e.Target] == nil {
+			connectedPorts[e.Target] = make(map[string]bool)
+		}
+		port := e.TargetPort
+		if port == "" {
+			port = "in"
+		}
+		connectedPorts[e.Target][port] = true
+	}
+
+	for _, n := range graph.Nodes {
+		ports := connectedPorts[n.ID]
+		hasPort := func(name string) bool {
+			return ports != nil && ports[name]
+		}
+
+		switch n.Type {
+		case domain.NodeOperator:
+			if !hasPort("left") {
+				errs = append(errs, ValidationError{
+					NodeID:  n.ID,
+					Message: "operator node missing 'left' input connection",
+				})
+			}
+			if !hasPort("right") {
+				errs = append(errs, ValidationError{
+					NodeID:  n.ID,
+					Message: "operator node missing 'right' input connection",
+				})
+			}
+
+		case domain.NodeFunction:
+			var cfg domain.FunctionConfig
+			if err := json.Unmarshal(n.Config, &cfg); err != nil {
+				continue
+			}
+			switch cfg.Fn {
+			case "min", "max":
+				if !hasPort("left") || !hasPort("right") {
+					errs = append(errs, ValidationError{
+						NodeID:  n.ID,
+						Message: fmt.Sprintf("function %q requires 'left' and 'right' input connections", cfg.Fn),
+					})
+				}
+			default:
+				if !hasPort("in") {
+					errs = append(errs, ValidationError{
+						NodeID:  n.ID,
+						Message: fmt.Sprintf("function %q requires 'in' input connection", cfg.Fn),
+					})
+				}
+			}
+
+		case domain.NodeConditional:
+			for _, port := range []string{"condition", "conditionRight", "thenValue", "elseValue"} {
+				if !hasPort(port) {
+					errs = append(errs, ValidationError{
+						NodeID:  n.ID,
+						Message: fmt.Sprintf("conditional node missing '%s' input connection", port),
+					})
+				}
+			}
+
+		case domain.NodeTableLookup:
+			if !hasPort("key") {
+				errs = append(errs, ValidationError{
+					NodeID:  n.ID,
+					Message: "tableLookup node missing 'key' input connection",
+				})
+			}
+		}
+	}
+
+	return errs
+}
