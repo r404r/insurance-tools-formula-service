@@ -85,6 +85,7 @@ export default function FormulaEditorPage() {
   const [textValue, setTextValue] = useState('')
   const [testInputs, setTestInputs] = useState<Record<string, string>>({})
   const [testResult, setTestResult] = useState<Record<string, string> | null>(null)
+  const [isTestPanelCollapsed, setIsTestPanelCollapsed] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
@@ -219,7 +220,7 @@ export default function FormulaEditorPage() {
       </div>
 
       {/* Editor Area */}
-      <div className="min-h-[520px] flex-1 overflow-x-scroll overflow-y-scroll">
+      <div className={`min-h-[520px] flex-1 overflow-x-scroll overflow-y-scroll ${isTestPanelCollapsed ? 'pb-20' : 'pb-44'}`}>
         {editorMode === 'visual' ? (
           <div className="flex min-h-[520px] min-w-[1180px]">
             <NodePalette />
@@ -240,26 +241,46 @@ export default function FormulaEditorPage() {
       </div>
 
       {/* Test Panel */}
-      <div className="shrink-0 border-t border-gray-200 bg-gray-50 p-3">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-medium text-gray-600">{t('editor.test')}:</span>
-          <input
-            className="min-w-[320px] flex-1 text-sm border border-gray-300 rounded px-2 py-1"
-            placeholder={`${t('calc.inputs')} (JSON): {"age": "35", "sumAssured": "1000000"}`}
-            onChange={(e) => {
-              try { setTestInputs(JSON.parse(e.target.value)) } catch { /* ignore */ }
-            }}
-          />
-          <button
-            onClick={handleTest}
-            className="bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700"
-          >
-            {t('calc.calculate')}
-          </button>
-          {testResult && (
-            <span className="max-w-full overflow-auto text-xs font-mono text-gray-700 bg-white border rounded px-2 py-1">
-              {JSON.stringify(testResult)}
-            </span>
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 px-3 pb-3 sm:px-4">
+        <div className="pointer-events-auto mx-auto max-w-[1440px] rounded-t-xl border border-gray-200 bg-gray-50/95 shadow-[0_-12px_28px_rgba(15,23,42,0.16)] backdrop-blur supports-[backdrop-filter]:bg-gray-50/90">
+          <div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-gray-700">{t('editor.test')}</span>
+              <span className="text-xs text-gray-400">
+                {isTestPanelCollapsed ? 'Collapsed' : 'Expanded'}
+              </span>
+            </div>
+            <button
+              onClick={() => setIsTestPanelCollapsed((prev) => !prev)}
+              className="rounded border border-gray-300 bg-white px-3 py-1 text-xs text-gray-600 hover:bg-gray-100"
+            >
+              {isTestPanelCollapsed ? 'Expand' : 'Collapse'}
+            </button>
+          </div>
+
+          {!isTestPanelCollapsed && (
+            <div className="max-h-[45vh] overflow-auto px-4 py-3">
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  className="min-w-[320px] flex-1 text-sm border border-gray-300 rounded px-2 py-1"
+                  placeholder={`${t('calc.inputs')} (JSON): {"age": "35", "sumAssured": "1000000"}`}
+                  onChange={(e) => {
+                    try { setTestInputs(JSON.parse(e.target.value)) } catch { /* ignore */ }
+                  }}
+                />
+                <button
+                  onClick={handleTest}
+                  className="bg-green-600 text-white px-4 py-1.5 rounded text-sm hover:bg-green-700"
+                >
+                  {t('calc.calculate')}
+                </button>
+              </div>
+              {testResult && (
+                <div className="mt-3 overflow-auto rounded border bg-white p-2 text-xs font-mono text-gray-700">
+                  {JSON.stringify(testResult)}
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>
