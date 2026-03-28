@@ -88,6 +88,7 @@ export default function FormulaEditorPage() {
   const [isTestPanelCollapsed, setIsTestPanelCollapsed] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null
 
   const { data: formula } = useQuery({
@@ -108,6 +109,7 @@ export default function FormulaEditorPage() {
     if (formula) setCurrentFormula(formula)
     if (latestVersion) {
       setCurrentVersion(latestVersion)
+      setActiveVersionNumber(latestVersion.version)
       if (latestVersion.graph) {
         const { nodes: n, edges: e } = apiToReactFlow(latestVersion.graph)
         setNodes(n)
@@ -146,10 +148,12 @@ export default function FormulaEditorPage() {
         .filter((n) => edges.every((e) => e.source !== n.id))
         .map((n) => n.id)
       const graph = reactFlowToApi(nodes, edges, outputNodes)
-      await api.post(`/formulas/${id}/versions`, {
+      const savedVersion = await api.post<FormulaVersion>(`/formulas/${id}/versions`, {
         graph,
         changeNote: 'Updated via editor',
       })
+      setCurrentVersion(savedVersion)
+      setActiveVersionNumber(savedVersion.version)
       await queryClient.invalidateQueries({ queryKey: ['versions', id] })
       setSaveMessage(t('editor.saved'))
       setTimeout(() => setSaveMessage(null), 3000)
@@ -165,6 +169,7 @@ export default function FormulaEditorPage() {
     try {
       const res = await api.post<{ result: Record<string, string> }>('/calculate', {
         formulaId: id,
+        version: activeVersionNumber ?? latestVersion?.version,
         inputs: testInputs,
       })
       setTestResult(res.result)
