@@ -26,50 +26,41 @@ export type FunctionKind =
 export type AggregateKind = 'sum' | 'avg' | 'min' | 'max' | 'count'
 
 export interface VariableConfig {
-  variableName: string
-  dataType: 'number' | 'string' | 'boolean'
-  defaultValue?: string
-  description?: string
+  name: string
+  dataType: 'integer' | 'decimal' | 'string' | 'boolean'
 }
 
 export interface ConstantConfig {
   value: string
-  dataType: 'number' | 'string' | 'boolean'
 }
 
 export interface OperatorConfig {
-  operator: OperatorKind
+  op: OperatorKind
 }
 
 export interface FunctionConfig {
-  function: FunctionKind
-  precision?: number
+  fn: FunctionKind
+  args?: Record<string, string>
 }
 
 export interface SubFormulaConfig {
   formulaId: string
-  versionNumber?: number
+  version?: number
 }
 
 export interface TableLookupConfig {
   tableId: string
-  lookupColumns: string[]
-  resultColumn: string
-  interpolation: 'none' | 'linear'
+  lookupKey: string
+  column: string
 }
 
 export interface ConditionalConfig {
-  conditions: ConditionalBranch[]
-}
-
-export interface ConditionalBranch {
-  comparison: 'eq' | 'ne' | 'gt' | 'gte' | 'lt' | 'lte'
-  value: string
-  resultNodeId: string
+  comparator: 'eq' | 'ne' | 'gt' | 'ge' | 'lt' | 'le'
 }
 
 export interface AggregateConfig {
-  aggregation: AggregateKind
+  fn: 'sum' | 'product' | 'count' | 'avg'
+  range: string
 }
 
 export type NodeConfig =
@@ -81,51 +72,52 @@ export type NodeConfig =
   | TableLookupConfig
   | ConditionalConfig
   | AggregateConfig
+  | Record<string, unknown>
 
 export interface Position {
   x: number
   y: number
 }
 
+// Matches backend domain.FormulaNode (config is json.RawMessage, no label/position on node)
 export interface FormulaNode {
   id: string
   type: NodeType
-  label: string
-  config: NodeConfig
-  position: Position
+  config: Record<string, unknown>
 }
 
+// Matches backend domain.FormulaEdge (source/target, not sourceId/targetId)
 export interface FormulaEdge {
-  id: string
-  sourceId: string
-  targetId: string
-  sourcePort?: string
-  targetPort?: string
+  source: string
+  target: string
+  sourcePort: string
+  targetPort: string
 }
 
+// Matches backend domain.GraphLayout (positions stored here, not on nodes)
 export interface GraphLayout {
-  autoLayout: boolean
-  direction: 'TB' | 'LR'
+  positions: Record<string, Position>
 }
 
 export interface FormulaGraph {
   nodes: FormulaNode[]
   edges: FormulaEdge[]
   outputs: string[]
-  layout: GraphLayout
+  layout?: GraphLayout
 }
 
 export type VersionState = 'draft' | 'published' | 'archived'
 
+// Matches backend domain.FormulaVersion (field is "version", not "versionNumber")
 export interface FormulaVersion {
+  id: string
   formulaId: string
-  versionNumber: number
+  version: number
   state: VersionState
   graph: FormulaGraph
   changeNote: string
   createdBy: string
   createdAt: string
-  publishedAt?: string
 }
 
 export interface Formula {
@@ -133,13 +125,12 @@ export interface Formula {
   name: string
   domain: InsuranceDomain
   description: string
-  currentVersion: number
   createdBy: string
   createdAt: string
   updatedAt: string
 }
 
-export type Role = 'admin' | 'editor' | 'viewer'
+export type Role = 'admin' | 'editor' | 'reviewer' | 'viewer'
 
 export interface User {
   id: string
@@ -152,28 +143,21 @@ export interface LookupTable {
   id: string
   name: string
   domain: InsuranceDomain
-  columns: LookupColumn[]
-  rows: Record<string, string>[]
-  createdBy: string
+  tableType: string
+  data: unknown
   createdAt: string
-  updatedAt: string
-}
-
-export interface LookupColumn {
-  name: string
-  dataType: 'number' | 'string'
-  isKey: boolean
 }
 
 export interface CalculationRequest {
   formulaId: string
-  versionNumber?: number
+  version?: number
   inputs: Record<string, string>
   precision?: number
 }
 
 export interface CalculationResult {
-  outputs: Record<string, string>
+  result: Record<string, string>
+  intermediates: Record<string, string>
   executionTimeMs: number
   nodesEvaluated: number
   parallelLevels: number
@@ -181,14 +165,12 @@ export interface CalculationResult {
 
 export interface BatchCalculationRequest {
   formulaId: string
-  versionNumber?: number
+  version?: number
   inputSets: Record<string, string>[]
-  precision?: number
 }
 
 export interface BatchCalculationResult {
   results: CalculationResult[]
-  totalTimeMs: number
 }
 
 export interface ValidationResult {

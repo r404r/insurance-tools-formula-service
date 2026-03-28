@@ -36,14 +36,6 @@ export default function NodePropertiesPanel({ node, onChange }: Props) {
           <label className="block text-xs text-gray-500 mb-1">Type</label>
           <input className="w-full text-xs bg-gray-100 rounded px-2 py-1" value={nodeType} disabled />
         </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">Label</label>
-          <input
-            className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-            value={(node.data.label as string) ?? ''}
-            onChange={(e) => onChange(node.id, { ...node.data, label: e.target.value })}
-          />
-        </div>
 
         {nodeType === 'variable' && (
           <>
@@ -51,18 +43,19 @@ export default function NodePropertiesPanel({ node, onChange }: Props) {
               <label className="block text-xs text-gray-500 mb-1">{t('formula.name')}</label>
               <input
                 className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-                value={(config.variableName as string) ?? ''}
-                onChange={(e) => updateConfig('variableName', e.target.value)}
+                value={(config.name as string) ?? ''}
+                onChange={(e) => updateConfig('name', e.target.value)}
               />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Data Type</label>
               <select
                 className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-                value={(config.dataType as string) ?? 'number'}
+                value={(config.dataType as string) ?? 'decimal'}
                 onChange={(e) => updateConfig('dataType', e.target.value)}
               >
-                <option value="number">Number</option>
+                <option value="integer">Integer</option>
+                <option value="decimal">Decimal</option>
                 <option value="string">String</option>
                 <option value="boolean">Boolean</option>
               </select>
@@ -86,8 +79,8 @@ export default function NodePropertiesPanel({ node, onChange }: Props) {
             <label className="block text-xs text-gray-500 mb-1">Operator</label>
             <select
               className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-              value={(config.operator as string) ?? 'add'}
-              onChange={(e) => updateConfig('operator', e.target.value)}
+              value={(config.op as string) ?? 'add'}
+              onChange={(e) => updateConfig('op', e.target.value)}
             >
               <option value="add">+ Add</option>
               <option value="subtract">- Subtract</option>
@@ -104,8 +97,8 @@ export default function NodePropertiesPanel({ node, onChange }: Props) {
             <label className="block text-xs text-gray-500 mb-1">Function</label>
             <select
               className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-              value={(config.function as string) ?? 'round'}
-              onChange={(e) => updateConfig('function', e.target.value)}
+              value={(config.fn as string) ?? 'round'}
+              onChange={(e) => updateConfig('fn', e.target.value)}
             >
               {['round', 'floor', 'ceil', 'abs', 'min', 'max', 'sqrt', 'ln', 'exp'].map((fn) => (
                 <option key={fn} value={fn}>{fn}</option>
@@ -125,11 +118,19 @@ export default function NodePropertiesPanel({ node, onChange }: Props) {
               />
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Result Column</label>
+              <label className="block text-xs text-gray-500 mb-1">Lookup Key</label>
               <input
                 className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-                value={(config.resultColumn as string) ?? ''}
-                onChange={(e) => updateConfig('resultColumn', e.target.value)}
+                value={(config.lookupKey as string) ?? ''}
+                onChange={(e) => updateConfig('lookupKey', e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Column</label>
+              <input
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                value={(config.column as string) ?? ''}
+                onChange={(e) => updateConfig('column', e.target.value)}
               />
             </div>
           </>
@@ -140,15 +141,15 @@ export default function NodePropertiesPanel({ node, onChange }: Props) {
             <label className="block text-xs text-gray-500 mb-1">Comparator</label>
             <select
               className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-              value={(config.comparison as string) ?? 'gt'}
-              onChange={(e) => updateConfig('comparison', e.target.value)}
+              value={(config.comparator as string) ?? 'gt'}
+              onChange={(e) => updateConfig('comparator', e.target.value)}
             >
               <option value="eq">== Equal</option>
               <option value="ne">!= Not Equal</option>
               <option value="gt">&gt; Greater</option>
-              <option value="gte">&gt;= Greater/Equal</option>
+              <option value="ge">&gt;= Greater/Equal</option>
               <option value="lt">&lt; Less</option>
-              <option value="lte">&lt;= Less/Equal</option>
+              <option value="le">&lt;= Less/Equal</option>
             </select>
           </div>
         )}
@@ -158,14 +159,13 @@ export default function NodePropertiesPanel({ node, onChange }: Props) {
             <label className="block text-xs text-gray-500 mb-1">Aggregation</label>
             <select
               className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-              value={(config.aggregation as string) ?? 'sum'}
-              onChange={(e) => updateConfig('aggregation', e.target.value)}
+              value={(config.fn as string) ?? 'sum'}
+              onChange={(e) => updateConfig('fn', e.target.value)}
             >
               <option value="sum">Sum</option>
               <option value="avg">Average</option>
               <option value="count">Count</option>
-              <option value="min">Min</option>
-              <option value="max">Max</option>
+              <option value="product">Product</option>
             </select>
           </div>
         )}

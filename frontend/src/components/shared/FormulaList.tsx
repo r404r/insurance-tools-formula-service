@@ -30,7 +30,7 @@ export default function FormulaList() {
       if (search) params.set('search', search)
       if (domainFilter !== 'all') params.set('domain', domainFilter)
       const qs = params.toString()
-      return api.get<Formula[]>(`/formulas${qs ? `?${qs}` : ''}`)
+      return api.get<{ formulas: Formula[]; total: number }>(`/formulas${qs ? `?${qs}` : ''}`).then((r) => r.formulas)
     },
   })
 

@@ -96,7 +96,7 @@ export default function FormulaEditorPage() {
             {formula?.domain ? t(`domain.${formula.domain}`) : ''}
           </span>
           {latestVersion && (
-            <span className="text-xs text-gray-400">v{latestVersion.versionNumber}</span>
+            <span className="text-xs text-gray-400">v{latestVersion.version}</span>
           )}
         </div>
         <div className="flex items-center gap-2">

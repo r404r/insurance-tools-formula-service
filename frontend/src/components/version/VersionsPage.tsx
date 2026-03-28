@@ -49,9 +49,9 @@ export default function VersionsPage() {
       ) : (
         <div className="space-y-3">
           {versions.map((v) => (
-            <div key={v.versionNumber} className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between">
+            <div key={v.version} className="bg-white rounded-lg border border-gray-200 p-4 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <span className="text-lg font-mono font-bold text-gray-700">v{v.versionNumber}</span>
+                <span className="text-lg font-mono font-bold text-gray-700">v{v.version}</span>
                 <span className={`px-2 py-0.5 rounded text-xs font-medium ${stateBadge[v.state] ?? ''}`}>
                   {t(`version.${v.state}`)}
                 </span>
@@ -63,7 +63,7 @@ export default function VersionsPage() {
               <div className="flex items-center gap-2">
                 {v.state === 'draft' && (
                   <button
-                    onClick={() => updateState.mutate({ ver: v.versionNumber, state: 'published' })}
+                    onClick={() => updateState.mutate({ ver: v.version, state: 'published' })}
                     className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
                   >
                     {t('version.publish')}
@@ -71,7 +71,7 @@ export default function VersionsPage() {
                 )}
                 {(v.state === 'draft' || v.state === 'published') && (
                   <button
-                    onClick={() => updateState.mutate({ ver: v.versionNumber, state: 'archived' })}
+                    onClick={() => updateState.mutate({ ver: v.version, state: 'archived' })}
                     className="text-xs bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300"
                   >
                     {t('version.archive')}
