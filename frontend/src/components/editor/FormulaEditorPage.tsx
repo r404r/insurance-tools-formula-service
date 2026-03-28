@@ -78,7 +78,10 @@ export default function FormulaEditorPage() {
   const { id } = useParams<{ id: string }>()
   const { t } = useTranslation()
   const queryClient = useQueryClient()
-  const { editorMode, setEditorMode, setCurrentFormula, setCurrentVersion } = useFormulaStore()
+  const editorMode = useFormulaStore((state) => state.editorMode)
+  const setEditorMode = useFormulaStore((state) => state.setEditorMode)
+  const setCurrentFormula = useFormulaStore((state) => state.setCurrentFormula)
+  const setCurrentVersion = useFormulaStore((state) => state.setCurrentVersion)
 
   const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>([])
@@ -152,24 +155,38 @@ export default function FormulaEditorPage() {
   )
 
   useEffect(() => {
-    if (formula) setCurrentFormula(formula)
-    if (latestVersion) {
-      setCurrentVersion(latestVersion)
-      setActiveVersionNumber(latestVersion.version)
-      if (latestVersion.graph) {
-        const { nodes: n, edges: e } = apiToReactFlow(latestVersion.graph)
-        const hydratedNodes = enrichSubFormulaNodes(n)
-        setNodes(hydratedNodes)
-        setEdges(e)
-        try {
-          setTextValue(reactFlowToText(hydratedNodes, e))
-        } catch (err) {
-          setTextValue(`// ${(err as Error).message}`)
-        }
-        setSelectedNodeId(null)
-      }
+    if (!formula) {
+      return
     }
-  }, [enrichSubFormulaNodes, formula, latestVersion, setCurrentFormula, setCurrentVersion])
+
+    setCurrentFormula(formula)
+  }, [formula?.id, formula?.updatedAt, formula, setCurrentFormula])
+
+  useEffect(() => {
+    if (!latestVersion) {
+      return
+    }
+
+    setCurrentVersion(latestVersion)
+    setActiveVersionNumber(latestVersion.version)
+  }, [latestVersion?.id, latestVersion?.version, latestVersion, setCurrentVersion])
+
+  useEffect(() => {
+    if (!latestVersion?.graph) {
+      return
+    }
+
+    const { nodes: n, edges: e } = apiToReactFlow(latestVersion.graph)
+    const hydratedNodes = enrichSubFormulaNodes(n)
+    setNodes(hydratedNodes)
+    setEdges(e)
+    try {
+      setTextValue(reactFlowToText(hydratedNodes, e))
+    } catch (err) {
+      setTextValue(`// ${(err as Error).message}`)
+    }
+    setSelectedNodeId(null)
+  }, [enrichSubFormulaNodes, latestVersion?.id, latestVersion?.graph])
 
   useEffect(() => {
     if (allFormulas.length === 0) {
