@@ -1,0 +1,76 @@
+{
+  "app": { "title": "保険計算式エンジン" },
+  "nav": { "formulas": "計算式管理", "tables": "ルックアップテーブル", "users": "ユーザー管理", "logout": "ログアウト" },
+  "auth": {
+    "login": "ログイン",
+    "register": "登録",
+    "username": "ユーザー名",
+    "password": "パスワード",
+    "loginTitle": "ユーザーログイン",
+    "registerTitle": "ユーザー登録",
+    "noAccount": "アカウントをお持ちでないですか？",
+    "hasAccount": "すでにアカウントをお持ちですか？"
+  },
+  "formula": {
+    "create": "新規計算式",
+    "name": "計算式名",
+    "domain": "保険分野",
+    "description": "説明",
+    "edit": "編集",
+    "delete": "削除",
+    "list": "計算式一覧",
+    "search": "計算式を検索..."
+  },
+  "domain": { "life": "生命保険", "property": "損害保険", "auto": "自動車保険" },
+  "version": {
+    "versions": "バージョン履歴",
+    "create": "新規バージョン",
+    "publish": "公開",
+    "archive": "アーカイブ",
+    "rollback": "ロールバック",
+    "draft": "下書き",
+    "published": "公開済み",
+    "archived": "アーカイブ済み",
+    "changeNote": "変更メモ",
+    "diff": "バージョン比較"
+  },
+  "editor": {
+    "visual": "ビジュアルエディタ",
+    "text": "テキストエディタ",
+    "test": "テスト",
+    "validate": "検証",
+    "save": "保存",
+    "autoLayout": "自動レイアウト",
+    "nodeTypes": "ノードタイプ",
+    "properties": "プロパティ"
+  },
+  "node": {
+    "variable": "変数",
+    "constant": "定数",
+    "operator": "演算子",
+    "function": "関数",
+    "subFormula": "サブ計算式",
+    "tableLookup": "テーブル参照",
+    "conditional": "条件",
+    "aggregate": "集約"
+  },
+  "calc": {
+    "calculate": "計算",
+    "batch": "一括計算",
+    "result": "計算結果",
+    "inputs": "入力パラメータ",
+    "precision": "精度",
+    "executionTime": "実行時間",
+    "nodesEvaluated": "評価ノード数",
+    "parallelLevels": "並列レベル"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "loading": "読み込み中...",
+    "error": "エラー",
+    "success": "成功",
+    "noData": "データなし"
+  }
+}

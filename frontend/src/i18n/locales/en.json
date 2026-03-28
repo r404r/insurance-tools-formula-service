@@ -1,0 +1,76 @@
+{
+  "app": { "title": "Insurance Formula Engine" },
+  "nav": { "formulas": "Formulas", "tables": "Lookup Tables", "users": "Users", "logout": "Logout" },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "username": "Username",
+    "password": "Password",
+    "loginTitle": "User Login",
+    "registerTitle": "User Registration",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?"
+  },
+  "formula": {
+    "create": "New Formula",
+    "name": "Formula Name",
+    "domain": "Insurance Domain",
+    "description": "Description",
+    "edit": "Edit",
+    "delete": "Delete",
+    "list": "Formula List",
+    "search": "Search formulas..."
+  },
+  "domain": { "life": "Life Insurance", "property": "Property Insurance", "auto": "Auto Insurance" },
+  "version": {
+    "versions": "Version History",
+    "create": "New Version",
+    "publish": "Publish",
+    "archive": "Archive",
+    "rollback": "Rollback",
+    "draft": "Draft",
+    "published": "Published",
+    "archived": "Archived",
+    "changeNote": "Change Note",
+    "diff": "Version Diff"
+  },
+  "editor": {
+    "visual": "Visual Editor",
+    "text": "Text Editor",
+    "test": "Test",
+    "validate": "Validate",
+    "save": "Save",
+    "autoLayout": "Auto Layout",
+    "nodeTypes": "Node Types",
+    "properties": "Properties"
+  },
+  "node": {
+    "variable": "Variable",
+    "constant": "Constant",
+    "operator": "Operator",
+    "function": "Function",
+    "subFormula": "Sub-formula",
+    "tableLookup": "Table Lookup",
+    "conditional": "Conditional",
+    "aggregate": "Aggregate"
+  },
+  "calc": {
+    "calculate": "Calculate",
+    "batch": "Batch Calculate",
+    "result": "Result",
+    "inputs": "Input Parameters",
+    "precision": "Precision",
+    "executionTime": "Execution Time",
+    "nodesEvaluated": "Nodes Evaluated",
+    "parallelLevels": "Parallel Levels"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "noData": "No Data"
+  }
+}

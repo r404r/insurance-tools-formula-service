@@ -1,0 +1,76 @@
+{
+  "app": { "title": "保险公式计算引擎" },
+  "nav": { "formulas": "公式管理", "tables": "查找表", "users": "用户管理", "logout": "退出登录" },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "username": "用户名",
+    "password": "密码",
+    "loginTitle": "用户登录",
+    "registerTitle": "用户注册",
+    "noAccount": "没有账号？",
+    "hasAccount": "已有账号？"
+  },
+  "formula": {
+    "create": "新建公式",
+    "name": "公式名称",
+    "domain": "保险领域",
+    "description": "描述",
+    "edit": "编辑",
+    "delete": "删除",
+    "list": "公式列表",
+    "search": "搜索公式..."
+  },
+  "domain": { "life": "人寿保险", "property": "财产保险", "auto": "车险" },
+  "version": {
+    "versions": "版本历史",
+    "create": "新建版本",
+    "publish": "发布",
+    "archive": "归档",
+    "rollback": "回滚",
+    "draft": "草稿",
+    "published": "已发布",
+    "archived": "已归档",
+    "changeNote": "变更说明",
+    "diff": "版本对比"
+  },
+  "editor": {
+    "visual": "可视化编辑",
+    "text": "文本编辑",
+    "test": "测试",
+    "validate": "验证",
+    "save": "保存",
+    "autoLayout": "自动布局",
+    "nodeTypes": "节点类型",
+    "properties": "属性"
+  },
+  "node": {
+    "variable": "变量",
+    "constant": "常量",
+    "operator": "运算符",
+    "function": "函数",
+    "subFormula": "子公式",
+    "tableLookup": "查表",
+    "conditional": "条件",
+    "aggregate": "聚合"
+  },
+  "calc": {
+    "calculate": "计算",
+    "batch": "批量计算",
+    "result": "计算结果",
+    "inputs": "输入参数",
+    "precision": "精度",
+    "executionTime": "执行时间",
+    "nodesEvaluated": "计算节点数",
+    "parallelLevels": "并行层级"
+  },
+  "common": {
+    "save": "保存",
+    "cancel": "取消",
+    "confirm": "确认",
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功",
+    "noData": "暂无数据"
+  }
+}
