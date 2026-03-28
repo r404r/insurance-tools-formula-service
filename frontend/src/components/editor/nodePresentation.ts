@@ -20,6 +20,11 @@ const OP_SYMBOLS: Record<string, string> = {
   modulo: '%',
 }
 
+function shortenIdentifier(value: unknown): string {
+  const text = String(value ?? '?')
+  return text.length > 10 ? `${text.slice(0, 8)}...` : text
+}
+
 export interface FormulaNodeData {
   [key: string]: unknown
   label: string
@@ -56,7 +61,7 @@ export function nodeLabel(type: string, config: Record<string, unknown>): string
       return places ? `${fn}(${places})` : fn
     }
     case 'subFormula':
-      return `sub:${config.formulaId ?? '?'}`
+      return `sub:${shortenIdentifier(config.formulaId)}`
     case 'tableLookup':
       return `lookup(${config.column ?? '?'})`
     case 'conditional':
@@ -66,6 +71,10 @@ export function nodeLabel(type: string, config: Record<string, unknown>): string
     default:
       return type
   }
+}
+
+export function subFormulaName(config: Record<string, unknown>): string {
+  return String(config.formulaName ?? '').trim()
 }
 
 export function createNodeData(type: NodeType, config: Record<string, unknown>): FormulaNodeData {

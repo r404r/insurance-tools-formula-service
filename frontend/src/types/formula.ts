@@ -45,6 +45,7 @@ export interface FunctionConfig {
 
 export interface SubFormulaConfig {
   formulaId: string
+  formulaName?: string
   version?: number
 }
 

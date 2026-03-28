@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { NODE_COLORS, getInputPorts, type FormulaNodeData } from './nodePresentation'
+import { NODE_COLORS, getInputPorts, subFormulaName, type FormulaNodeData } from './nodePresentation'
 
 function PortLabel({ side, top, label }: { side: 'left' | 'right'; top: string; label: string }) {
   return (
@@ -18,10 +18,11 @@ export default function FormulaNode({ data, selected }: NodeProps) {
   const config = nodeData.config ?? {}
   const colors = NODE_COLORS[nodeType] ?? { bg: '#f3f4f6', border: '#9ca3af' }
   const inputPorts = getInputPorts(nodeType, config)
+  const subFormulaTitle = nodeType === 'subFormula' ? subFormulaName(config) : ''
 
   return (
     <div
-      className="relative min-w-[108px] rounded-lg px-7 py-4 text-center text-[13px] font-semibold shadow-sm"
+      className="relative min-w-[108px] rounded-lg px-7 py-4 text-center shadow-sm"
       style={{
         background: colors.bg,
         border: `2px solid ${selected ? '#2563eb' : colors.border}`,
@@ -39,7 +40,14 @@ export default function FormulaNode({ data, selected }: NodeProps) {
         </div>
       ))}
 
-      <div className="pointer-events-none text-slate-800">{nodeData.label}</div>
+      <div className="pointer-events-none">
+        <div className="text-[13px] font-semibold text-slate-800">{nodeData.label}</div>
+        {subFormulaTitle && (
+          <div className="mt-1 max-w-[160px] truncate text-[11px] font-medium text-slate-600" title={subFormulaTitle}>
+            {subFormulaTitle}
+          </div>
+        )}
+      </div>
 
       <PortLabel side="right" top="50%" label="Out" />
       <Handle

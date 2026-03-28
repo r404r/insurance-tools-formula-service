@@ -1,13 +1,36 @@
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { Node } from '@xyflow/react'
+import { api } from '../../api/client'
+import type { Formula, FormulaVersion } from '../../types/formula'
 
 interface Props {
   node: Node | null
   onChange: (id: string, data: Record<string, unknown>) => void
+  currentFormulaId?: string | null
 }
 
-export default function NodePropertiesPanel({ node, onChange }: Props) {
+export default function NodePropertiesPanel({ node, onChange, currentFormulaId }: Props) {
   const { t } = useTranslation()
+  const config = ((node?.data.config as Record<string, unknown> | undefined) ?? {})
+  const selectedFormulaId = String(config.formulaId ?? '')
+
+  const { data: formulas = [] } = useQuery({
+    queryKey: ['formulas', 'subformula-options'],
+    queryFn: () =>
+      api
+        .get<{ formulas: Formula[]; total: number }>('/formulas')
+        .then((response) => response.formulas ?? []),
+  })
+
+  const { data: formulaVersions = [] } = useQuery({
+    queryKey: ['versions', selectedFormulaId],
+    queryFn: () =>
+      api
+        .get<{ versions: FormulaVersion[] }>(`/formulas/${selectedFormulaId}/versions`)
+        .then((response) => response.versions ?? []),
+    enabled: !!selectedFormulaId,
+  })
 
   if (!node) {
     return (
@@ -18,7 +41,6 @@ export default function NodePropertiesPanel({ node, onChange }: Props) {
   }
 
   const nodeType = (node.data.nodeType as string) ?? node.type
-  const config = (node.data.config as Record<string, unknown>) ?? {}
 
   const updateConfig = (key: string, value: unknown) => {
     onChange(node.id, { ...node.data, config: { ...config, [key]: value } })
@@ -160,6 +182,58 @@ export default function NodePropertiesPanel({ node, onChange }: Props) {
                 value={(config.column as string) ?? ''}
                 onChange={(e) => updateConfig('column', e.target.value)}
               />
+            </div>
+          </>
+        )}
+
+        {nodeType === 'subFormula' && (
+          <>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">{t('formula.id')}</label>
+              <select
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                value={selectedFormulaId}
+                onChange={(e) => {
+                  const nextFormulaId = e.target.value
+                  const nextFormula = formulas.find((formula) => formula.id === nextFormulaId)
+                  onChange(node.id, {
+                    ...node.data,
+                    config: {
+                      ...config,
+                      formulaId: nextFormulaId,
+                      formulaName: nextFormula?.name ?? '',
+                      version: undefined,
+                    },
+                  })
+                }}
+              >
+                <option value="">Select formula</option>
+                {formulas
+                  .filter((formula) => formula.id !== currentFormulaId)
+                  .map((formula) => (
+                    <option key={formula.id} value={formula.id}>
+                      {formula.name} ({formula.id})
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">{t('version.versions')}</label>
+              <select
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                value={config.version === undefined || config.version === null ? '' : String(config.version)}
+                onChange={(e) =>
+                  updateConfig('version', e.target.value ? Number(e.target.value) : undefined)
+                }
+                disabled={!selectedFormulaId}
+              >
+                <option value="">{t('version.published')}</option>
+                {formulaVersions.map((version) => (
+                  <option key={version.version} value={version.version}>
+                    v{version.version} ({version.state})
+                  </option>
+                ))}
+              </select>
             </div>
           </>
         )}
