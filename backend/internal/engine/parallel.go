@@ -24,23 +24,27 @@ type ExecutionPlan struct {
 	DAG *DAG
 }
 
+type SubFormulaRunner func(ctx context.Context, node *domain.FormulaNode, nodeInputs map[string]Decimal, seedInputs map[string]Decimal) (Decimal, error)
+
 // Executor evaluates a formula graph using level-based parallelism.
 type Executor struct {
 	workers   int
 	precision PrecisionConfig
 	evaluator *Evaluator
+	subFormulaRunner SubFormulaRunner
 }
 
 // NewExecutor creates an Executor with the given worker count and precision
 // configuration. If workers <= 0 it defaults to 1.
-func NewExecutor(workers int, precision PrecisionConfig) *Executor {
+func NewExecutor(workers int, precision PrecisionConfig, subFormulaRunner SubFormulaRunner) *Executor {
 	if workers <= 0 {
 		workers = 1
 	}
 	return &Executor{
-		workers:   workers,
-		precision: precision,
-		evaluator: NewEvaluator(precision),
+		workers:          workers,
+		precision:        precision,
+		evaluator:        NewEvaluator(precision),
+		subFormulaRunner: subFormulaRunner,
 	}
 }
 
@@ -79,11 +83,11 @@ func (ex *Executor) Execute(ctx context.Context, plan *ExecutionPlan, inputs map
 		}
 
 		if len(level) >= parallelThreshold && ex.workers > 1 {
-			if err := ex.executeParallel(ctx, plan, level, results); err != nil {
+			if err := ex.executeParallel(ctx, plan, level, results, inputs); err != nil {
 				return nil, err
 			}
 		} else {
-			if err := ex.executeSequential(ctx, plan, level, results); err != nil {
+			if err := ex.executeSequential(ctx, plan, level, results, inputs); err != nil {
 				return nil, err
 			}
 		}
@@ -93,12 +97,12 @@ func (ex *Executor) Execute(ctx context.Context, plan *ExecutionPlan, inputs map
 }
 
 // executeSequential evaluates all nodes in the level one at a time.
-func (ex *Executor) executeSequential(ctx context.Context, plan *ExecutionPlan, level []string, results *sync.Map) error {
+func (ex *Executor) executeSequential(ctx context.Context, plan *ExecutionPlan, level []string, results *sync.Map, seedInputs map[string]Decimal) error {
 	for _, nodeID := range level {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		if err := ex.evaluateAndStore(plan, nodeID, results); err != nil {
+		if err := ex.evaluateAndStore(ctx, plan, nodeID, results, seedInputs); err != nil {
 			return err
 		}
 	}
@@ -107,7 +111,7 @@ func (ex *Executor) executeSequential(ctx context.Context, plan *ExecutionPlan, 
 
 // executeParallel evaluates all nodes in the level concurrently, limited by
 // the executor's worker count.
-func (ex *Executor) executeParallel(ctx context.Context, plan *ExecutionPlan, level []string, results *sync.Map) error {
+func (ex *Executor) executeParallel(ctx context.Context, plan *ExecutionPlan, level []string, results *sync.Map, seedInputs map[string]Decimal) error {
 	g, ctx := errgroup.WithContext(ctx)
 	g.SetLimit(ex.workers)
 
@@ -117,7 +121,7 @@ func (ex *Executor) executeParallel(ctx context.Context, plan *ExecutionPlan, le
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			return ex.evaluateAndStore(plan, id, results)
+			return ex.evaluateAndStore(ctx, plan, id, results, seedInputs)
 		})
 	}
 	return g.Wait()
@@ -125,7 +129,7 @@ func (ex *Executor) executeParallel(ctx context.Context, plan *ExecutionPlan, le
 
 // evaluateAndStore resolves the inputs for a node from the results map,
 // evaluates it, and stores the result.
-func (ex *Executor) evaluateAndStore(plan *ExecutionPlan, nodeID string, results *sync.Map) error {
+func (ex *Executor) evaluateAndStore(ctx context.Context, plan *ExecutionPlan, nodeID string, results *sync.Map, seedInputs map[string]Decimal) error {
 	node := plan.DAG.Node(nodeID)
 	if node == nil {
 		return fmt.Errorf("node %s not found in DAG", nodeID)
@@ -151,9 +155,17 @@ func (ex *Executor) evaluateAndStore(plan *ExecutionPlan, nodeID string, results
 		return err
 	}
 
-	val, err := ex.evaluator.EvaluateNode(node, nodeInputs)
-	if err != nil {
-		return fmt.Errorf("evaluate node %s: %w", nodeID, err)
+	var val Decimal
+	if node.Type == domain.NodeSubFormula && ex.subFormulaRunner != nil {
+		val, err = ex.subFormulaRunner(ctx, node, nodeInputs, seedInputs)
+		if err != nil {
+			return fmt.Errorf("evaluate node %s: %w", nodeID, err)
+		}
+	} else {
+		val, err = ex.evaluator.EvaluateNode(node, nodeInputs)
+		if err != nil {
+			return fmt.Errorf("evaluate node %s: %w", nodeID, err)
+		}
 	}
 
 	results.Store(nodeID, val)

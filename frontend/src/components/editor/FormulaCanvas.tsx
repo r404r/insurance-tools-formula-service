@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -15,7 +15,6 @@ import {
   type OnConnect,
   type Connection,
   type IsValidConnection,
-  type ReactFlowInstance,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useAutoLayout } from './hooks/useAutoLayout'
@@ -42,7 +41,6 @@ const nodeTypes = {
 
 export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeSelect }: Props) {
   const autoLayout = useAutoLayout()
-  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance<Node, Edge> | null>(null)
   const scrollContainerRef = useRef<HTMLDivElement | null>(null)
   const workspaceSize = useMemo(() => {
     let maxRight = 720
@@ -211,13 +209,10 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
   const handleAutoLayout = useCallback(() => {
     const laid = autoLayout(nodes, edges)
     onNodesChange(laid)
-    requestAnimationFrame(() => {
-      reactFlowInstance?.fitView({ padding: 0.2, duration: 250 })
-    })
-  }, [nodes, edges, autoLayout, onNodesChange, reactFlowInstance])
+  }, [nodes, edges, autoLayout, onNodesChange])
 
   return (
-    <div ref={scrollContainerRef} className="relative min-h-[520px] min-w-[720px] flex-1 overflow-scroll bg-slate-50">
+    <div ref={scrollContainerRef} className="relative h-full min-h-[520px] min-w-[720px] flex-1 overflow-scroll bg-slate-50">
       <div className="pointer-events-none absolute top-2 right-2 z-10">
         <button
           onClick={handleAutoLayout}
@@ -231,7 +226,6 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
         nodeTypes={nodeTypes}
         nodes={nodes}
         edges={edges}
-        onInit={setReactFlowInstance}
         isValidConnection={isValidConnection}
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}

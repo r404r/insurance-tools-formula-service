@@ -67,6 +67,7 @@ func run(logger zerolog.Logger) error {
 	jwtMgr := auth.NewJWTManager(cfg.Auth.JWTSecret, cfg.Auth.TokenExpiry)
 
 	tableResolver := &engine.StoreTableResolver{Tables: store.Tables()}
+	formulaResolver := &engine.StoreFormulaResolver{Versions: store.Versions()}
 
 	eng := engine.NewEngine(engine.EngineConfig{
 		Workers: cfg.Engine.MaxWorkers,
@@ -74,8 +75,9 @@ func run(logger zerolog.Logger) error {
 			IntermediatePrecision: cfg.Engine.IntermediatePrecision,
 			OutputPrecision:       cfg.Engine.OutputPrecision,
 		},
-		CacheSize:     cfg.Engine.CacheSize,
-		TableResolver: tableResolver,
+		CacheSize:       cfg.Engine.CacheSize,
+		TableResolver:   tableResolver,
+		FormulaResolver: formulaResolver,
 	})
 
 	// Create handlers.

@@ -68,6 +68,7 @@ type EngineConfig struct {
 	Precision     PrecisionConfig
 	CacheSize     int
 	TableResolver TableResolver
+	FormulaResolver FormulaResolver
 }
 
 // DefaultEngineConfig returns a sensible default configuration.
@@ -85,16 +86,19 @@ type defaultEngine struct {
 	cache         *ResultCache
 	config        EngineConfig
 	tableResolver TableResolver
+	formulaResolver FormulaResolver
 }
 
 // NewEngine creates a new Engine with the given configuration.
 func NewEngine(cfg EngineConfig) Engine {
-	return &defaultEngine{
-		executor:      NewExecutor(cfg.Workers, cfg.Precision),
-		cache:         NewResultCache(cfg.CacheSize),
-		config:        cfg,
-		tableResolver: cfg.TableResolver,
+	engine := &defaultEngine{
+		cache:           NewResultCache(cfg.CacheSize),
+		config:          cfg,
+		tableResolver:   cfg.TableResolver,
+		formulaResolver: cfg.FormulaResolver,
 	}
+	engine.executor = NewExecutor(cfg.Workers, cfg.Precision, engine.executeSubFormula)
+	return engine
 }
 
 // Calculate implements Engine.Calculate.
@@ -107,32 +111,17 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 		return nil, fmt.Errorf("parse inputs: %w", err)
 	}
 
-	// Build the execution plan (includes DAG construction and cycle detection).
-	plan, err := BuildPlan(graph)
+	plan, allResults, err := e.calculateGraph(ctx, graph, decInputs)
 	if err != nil {
-		return nil, fmt.Errorf("build plan: %w", err)
-	}
-
-	// Pre-load table data for any tableLookup nodes.
-	if e.tableResolver != nil {
-		if err := e.preloadTableData(ctx, graph, decInputs); err != nil {
-			return nil, fmt.Errorf("preload table data: %w", err)
-		}
-	}
-
-	// Execute the plan.
-	allResults, err := e.executor.Execute(ctx, plan, decInputs)
-	if err != nil {
-		return nil, fmt.Errorf("execute: %w", err)
+		return nil, err
 	}
 
 	// Collect outputs.
-	outputs := make(map[string]string, len(plan.DAG.OutputNodes()))
-	for _, outID := range plan.DAG.OutputNodes() {
-		if val, ok := allResults[outID]; ok {
+	outputValues := collectOutputValues(plan, allResults)
+	outputs := make(map[string]string, len(outputValues))
+	for outID, val := range outputValues {
 			rounded := e.config.Precision.RoundOutput(val)
 			outputs[outID] = rounded.String()
-		}
 	}
 
 	// Collect all intermediates.
@@ -148,6 +137,95 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 		ParallelLevels: len(plan.Levels),
 		ExecutionTime:  time.Since(start),
 	}, nil
+}
+
+func (e *defaultEngine) calculateGraph(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]Decimal) (*ExecutionPlan, map[string]Decimal, error) {
+	plan, err := BuildPlan(graph)
+	if err != nil {
+		return nil, nil, fmt.Errorf("build plan: %w", err)
+	}
+
+	workingInputs := cloneDecimalMap(inputs)
+	if e.tableResolver != nil {
+		if err := e.preloadTableData(ctx, graph, workingInputs); err != nil {
+			return nil, nil, fmt.Errorf("preload table data: %w", err)
+		}
+	}
+
+	allResults, err := e.executor.Execute(ctx, plan, workingInputs)
+	if err != nil {
+		return nil, nil, fmt.Errorf("execute: %w", err)
+	}
+
+	return plan, allResults, nil
+}
+
+func (e *defaultEngine) executeSubFormula(ctx context.Context, node *domain.FormulaNode, nodeInputs map[string]Decimal, seedInputs map[string]Decimal) (Decimal, error) {
+	if e.formulaResolver == nil {
+		return e.executor.evaluator.EvaluateNode(node, nodeInputs)
+	}
+
+	var cfg domain.SubFormulaConfig
+	if err := json.Unmarshal(node.Config, &cfg); err != nil {
+		return Zero, fmt.Errorf("node %s: invalid subFormula config: %w", node.ID, err)
+	}
+
+	if cfg.FormulaID == "" {
+		return Zero, fmt.Errorf("node %s: subFormula config missing formulaId", node.ID)
+	}
+
+	version, err := e.formulaResolver.ResolveFormula(ctx, cfg.FormulaID, cfg.Version)
+	if err != nil {
+		return Zero, fmt.Errorf("node %s: resolve sub-formula: %w", node.ID, err)
+	}
+
+	childInputs := cloneDecimalMap(seedInputs)
+	if in, ok := nodeInputs["in"]; ok {
+		childInputs["in"] = in
+	}
+
+	childCtx, err := withSubFormulaCall(ctx, cfg.FormulaID, version.Version)
+	if err != nil {
+		return Zero, fmt.Errorf("node %s: %w", node.ID, err)
+	}
+
+	plan, allResults, err := e.calculateGraph(childCtx, &version.Graph, childInputs)
+	if err != nil {
+		return Zero, fmt.Errorf("node %s: calculate sub-formula %s v%d: %w", node.ID, cfg.FormulaID, version.Version, err)
+	}
+
+	outputs := collectOutputValues(plan, allResults)
+	if len(outputs) == 0 {
+		return Zero, fmt.Errorf("node %s: sub-formula %s produced no outputs", node.ID, cfg.FormulaID)
+	}
+
+	if len(outputs) > 1 {
+		return Zero, fmt.Errorf("node %s: sub-formula %s must have exactly one output", node.ID, cfg.FormulaID)
+	}
+
+	for _, value := range outputs {
+		return value, nil
+	}
+
+	return Zero, fmt.Errorf("node %s: sub-formula %s output resolution failed", node.ID, cfg.FormulaID)
+}
+
+func collectOutputValues(plan *ExecutionPlan, allResults map[string]Decimal) map[string]Decimal {
+	outputs := make(map[string]Decimal, len(plan.DAG.OutputNodes()))
+	for _, outID := range plan.DAG.OutputNodes() {
+		if val, ok := allResults[outID]; ok {
+			outputs[outID] = val
+		}
+	}
+	return outputs
+}
+
+func cloneDecimalMap(inputs map[string]Decimal) map[string]Decimal {
+	cloned := make(map[string]Decimal, len(inputs))
+	for key, value := range inputs {
+		cloned[key] = value
+	}
+	return cloned
 }
 
 // Validate implements Engine.Validate. It checks the graph for structural

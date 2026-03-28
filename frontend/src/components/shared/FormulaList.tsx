@@ -108,6 +108,7 @@ export default function FormulaList() {
             <thead className="border-b border-gray-200 bg-gray-50">
               <tr>
                 <th className="px-6 py-3 font-medium text-gray-600">{t('formula.name')}</th>
+                <th className="px-6 py-3 font-medium text-gray-600">{t('formula.id')}</th>
                 <th className="px-6 py-3 font-medium text-gray-600">{t('formula.domain')}</th>
                 <th className="px-6 py-3 font-medium text-gray-600">{t('formula.description')}</th>
                 <th className="px-6 py-3 font-medium text-gray-600">{t('formula.createdAt')}</th>
@@ -121,6 +122,7 @@ export default function FormulaList() {
                   className="cursor-pointer transition hover:bg-gray-50"
                 >
                   <td className="px-6 py-4 font-medium text-gray-900">{f.name}</td>
+                  <td className="px-6 py-4 font-mono text-xs text-gray-500">{f.id}</td>
                   <td className="px-6 py-4">
                     <span className="inline-block rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-medium text-indigo-700">
                       {t(`formula.${f.domain}`)}

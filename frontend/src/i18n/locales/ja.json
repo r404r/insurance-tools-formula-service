@@ -16,6 +16,7 @@
   },
   "formula": {
     "create": "新規計算式",
+    "id": "計算式ID",
     "name": "計算式名",
     "domain": "保険分野",
     "description": "説明",
@@ -51,6 +52,9 @@
     "validate": "検証",
     "save": "保存",
     "saved": "保存しました",
+    "latexPreview": "LaTeX プレビュー",
+    "latexPreviewEmpty": "数式を入力するとここにレンダリング結果が表示されます",
+    "latexPreviewError": "数式をレンダリングできません",
     "autoLayout": "自動レイアウト",
     "nodeTypes": "ノードタイプ",
     "properties": "プロパティ"

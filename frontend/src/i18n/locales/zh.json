@@ -16,6 +16,7 @@
   },
   "formula": {
     "create": "新建公式",
+    "id": "公式ID",
     "name": "公式名称",
     "domain": "保险领域",
     "description": "描述",
@@ -51,6 +52,9 @@
     "validate": "验证",
     "save": "保存",
     "saved": "已保存",
+    "latexPreview": "LaTeX 预览",
+    "latexPreviewEmpty": "输入公式后将在这里显示渲染效果",
+    "latexPreviewError": "公式渲染失败",
     "autoLayout": "自动布局",
     "nodeTypes": "节点类型",
     "properties": "属性"
