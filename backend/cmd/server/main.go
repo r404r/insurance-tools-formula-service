@@ -237,28 +237,28 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			{ID: "n2", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "qx", "dataType": "decimal"})},
 			{ID: "n3", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "interestRate", "dataType": "decimal"})},
 			{ID: "n4", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "1"})},
-			{ID: "n5", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "add"})},       // 1 + interestRate
-			{ID: "n6", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "divide"})},    // v = 1 / (1 + interestRate)
-			{ID: "n7", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},  // sumAssured * qx
-			{ID: "n8", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},  // (sumAssured * qx) * v
+			{ID: "n5", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "add"})},      // 1 + interestRate
+			{ID: "n6", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "divide"})},   // v = 1 / (1 + interestRate)
+			{ID: "n7", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})}, // sumAssured * qx
+			{ID: "n8", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})}, // (sumAssured * qx) * v
 			{ID: "n9", Type: domain.NodeFunction, Config: mustJSON(map[string]any{"fn": "round", "args": map[string]string{"places": "18"}})},
 		},
 		Edges: []domain.FormulaEdge{
-			{Source: "n4", Target: "n5", SourcePort: "out", TargetPort: "left"},   // 1 → add.left
-			{Source: "n3", Target: "n5", SourcePort: "out", TargetPort: "right"},  // interestRate → add.right
-			{Source: "n4", Target: "n6", SourcePort: "out", TargetPort: "left"},   // 1 → divide.left
-			{Source: "n5", Target: "n6", SourcePort: "out", TargetPort: "right"},  // (1+rate) → divide.right
-			{Source: "n1", Target: "n7", SourcePort: "out", TargetPort: "left"},   // sumAssured → mul.left
-			{Source: "n2", Target: "n7", SourcePort: "out", TargetPort: "right"},  // qx → mul.right
-			{Source: "n7", Target: "n8", SourcePort: "out", TargetPort: "left"},   // sumAssured*qx → mul.left
-			{Source: "n6", Target: "n8", SourcePort: "out", TargetPort: "right"},  // v → mul.right
-			{Source: "n8", Target: "n9", SourcePort: "out", TargetPort: "in"},     // result → round
+			{Source: "n4", Target: "n5", SourcePort: "out", TargetPort: "left"},  // 1 → add.left
+			{Source: "n3", Target: "n5", SourcePort: "out", TargetPort: "right"}, // interestRate → add.right
+			{Source: "n4", Target: "n6", SourcePort: "out", TargetPort: "left"},  // 1 → divide.left
+			{Source: "n5", Target: "n6", SourcePort: "out", TargetPort: "right"}, // (1+rate) → divide.right
+			{Source: "n1", Target: "n7", SourcePort: "out", TargetPort: "left"},  // sumAssured → mul.left
+			{Source: "n2", Target: "n7", SourcePort: "out", TargetPort: "right"}, // qx → mul.right
+			{Source: "n7", Target: "n8", SourcePort: "out", TargetPort: "left"},  // sumAssured*qx → mul.left
+			{Source: "n6", Target: "n8", SourcePort: "out", TargetPort: "right"}, // v → mul.right
+			{Source: "n8", Target: "n9", SourcePort: "out", TargetPort: "in"},    // result → round
 		},
 		Outputs: []string{"n9"},
 		Layout: &domain.GraphLayout{
 			Positions: map[string]domain.Position{
-				"n1": {X: 50, Y: 50},   "n2": {X: 50, Y: 150},
-				"n3": {X: 50, Y: 250},  "n4": {X: 50, Y: 350},
+				"n1": {X: 50, Y: 50}, "n2": {X: 50, Y: 150},
+				"n3": {X: 50, Y: 250}, "n4": {X: 50, Y: 350},
 				"n5": {X: 250, Y: 300}, "n6": {X: 450, Y: 300},
 				"n7": {X: 250, Y: 100}, "n8": {X: 550, Y: 150},
 				"n9": {X: 700, Y: 150},
@@ -271,6 +271,180 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 		return err
 	}
 
+	// --- Japan Life Insurance: Equivalence Principle Premium ---
+	// Formula: basePremium = deathBenefit * expectedDeaths / policyCount
+	japanEquivalenceGraph := domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "n1", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "deathBenefit", "dataType": "decimal"})},
+			{ID: "n2", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "expectedDeaths", "dataType": "decimal"})},
+			{ID: "n3", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "policyCount", "dataType": "decimal"})},
+			{ID: "n4", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},
+			{ID: "n5", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "divide"})},
+			{ID: "n6", Type: domain.NodeFunction, Config: mustJSON(map[string]any{"fn": "round", "args": map[string]string{"places": "2"}})},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "n1", Target: "n4", SourcePort: "out", TargetPort: "left"},
+			{Source: "n2", Target: "n4", SourcePort: "out", TargetPort: "right"},
+			{Source: "n4", Target: "n5", SourcePort: "out", TargetPort: "left"},
+			{Source: "n3", Target: "n5", SourcePort: "out", TargetPort: "right"},
+			{Source: "n5", Target: "n6", SourcePort: "out", TargetPort: "in"},
+		},
+		Outputs: []string{"n6"},
+		Layout: &domain.GraphLayout{
+			Positions: map[string]domain.Position{
+				"n1": {X: 60, Y: 60},
+				"n2": {X: 60, Y: 180},
+				"n3": {X: 60, Y: 300},
+				"n4": {X: 300, Y: 120},
+				"n5": {X: 540, Y: 180},
+				"n6": {X: 780, Y: 180},
+			},
+		},
+	}
+	if err := seedFormula("日本生命保険 収支相等純保険料", domain.DomainLife,
+		"Pure premium approximation under the equivalence principle. 输入: deathBenefit(保険金額), expectedDeaths(想定死亡件数), policyCount(契約件数)",
+		japanEquivalenceGraph); err != nil {
+		return err
+	}
+
+	// --- Japan Life Insurance: Gross Premium Decomposition ---
+	// Formula: grossPremium = netPremium + acquisitionExpense + collectionExpense + maintenanceExpense
+	japanGrossPremiumGraph := domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "n1", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "netPremium", "dataType": "decimal"})},
+			{ID: "n2", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "acquisitionExpense", "dataType": "decimal"})},
+			{ID: "n3", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "collectionExpense", "dataType": "decimal"})},
+			{ID: "n4", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "maintenanceExpense", "dataType": "decimal"})},
+			{ID: "n5", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "add"})},
+			{ID: "n6", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "add"})},
+			{ID: "n7", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "add"})},
+			{ID: "n8", Type: domain.NodeFunction, Config: mustJSON(map[string]any{"fn": "round", "args": map[string]string{"places": "2"}})},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "n1", Target: "n5", SourcePort: "out", TargetPort: "left"},
+			{Source: "n2", Target: "n5", SourcePort: "out", TargetPort: "right"},
+			{Source: "n5", Target: "n6", SourcePort: "out", TargetPort: "left"},
+			{Source: "n3", Target: "n6", SourcePort: "out", TargetPort: "right"},
+			{Source: "n6", Target: "n7", SourcePort: "out", TargetPort: "left"},
+			{Source: "n4", Target: "n7", SourcePort: "out", TargetPort: "right"},
+			{Source: "n7", Target: "n8", SourcePort: "out", TargetPort: "in"},
+		},
+		Outputs: []string{"n8"},
+		Layout: &domain.GraphLayout{
+			Positions: map[string]domain.Position{
+				"n1": {X: 60, Y: 60},
+				"n2": {X: 60, Y: 180},
+				"n3": {X: 60, Y: 300},
+				"n4": {X: 60, Y: 420},
+				"n5": {X: 320, Y: 120},
+				"n6": {X: 560, Y: 210},
+				"n7": {X: 800, Y: 255},
+				"n8": {X: 1040, Y: 255},
+			},
+		},
+	}
+	if err := seedFormula("日本生命保険 粗保険料分解", domain.DomainLife,
+		"Gross premium decomposition based on net premium plus expense loadings. 输入: netPremium(純保険料), acquisitionExpense(新契約費), collectionExpense(集金費), maintenanceExpense(維持費)",
+		japanGrossPremiumGraph); err != nil {
+		return err
+	}
+
+	// --- Japan Life Insurance: Reserve Roll-Forward Approximation ---
+	// Formula: reserveEnd = reserveBegin * (1 + assumedInterestRate) + levelPremium - expectedBenefit - maintenanceExpense
+	japanReserveGraph := domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "n1", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "reserveBegin", "dataType": "decimal"})},
+			{ID: "n2", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "assumedInterestRate", "dataType": "decimal"})},
+			{ID: "n3", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "levelPremium", "dataType": "decimal"})},
+			{ID: "n4", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "expectedBenefit", "dataType": "decimal"})},
+			{ID: "n5", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "maintenanceExpense", "dataType": "decimal"})},
+			{ID: "n6", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "1"})},
+			{ID: "n7", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "add"})},
+			{ID: "n8", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},
+			{ID: "n9", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "add"})},
+			{ID: "n10", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "subtract"})},
+			{ID: "n11", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "subtract"})},
+			{ID: "n12", Type: domain.NodeFunction, Config: mustJSON(map[string]any{"fn": "round", "args": map[string]string{"places": "2"}})},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "n6", Target: "n7", SourcePort: "out", TargetPort: "left"},
+			{Source: "n2", Target: "n7", SourcePort: "out", TargetPort: "right"},
+			{Source: "n1", Target: "n8", SourcePort: "out", TargetPort: "left"},
+			{Source: "n7", Target: "n8", SourcePort: "out", TargetPort: "right"},
+			{Source: "n8", Target: "n9", SourcePort: "out", TargetPort: "left"},
+			{Source: "n3", Target: "n9", SourcePort: "out", TargetPort: "right"},
+			{Source: "n9", Target: "n10", SourcePort: "out", TargetPort: "left"},
+			{Source: "n4", Target: "n10", SourcePort: "out", TargetPort: "right"},
+			{Source: "n10", Target: "n11", SourcePort: "out", TargetPort: "left"},
+			{Source: "n5", Target: "n11", SourcePort: "out", TargetPort: "right"},
+			{Source: "n11", Target: "n12", SourcePort: "out", TargetPort: "in"},
+		},
+		Outputs: []string{"n12"},
+		Layout: &domain.GraphLayout{
+			Positions: map[string]domain.Position{
+				"n1":  {X: 60, Y: 60},
+				"n2":  {X: 60, Y: 180},
+				"n3":  {X: 60, Y: 300},
+				"n4":  {X: 60, Y: 420},
+				"n5":  {X: 60, Y: 540},
+				"n6":  {X: 300, Y: 180},
+				"n7":  {X: 540, Y: 180},
+				"n8":  {X: 780, Y: 120},
+				"n9":  {X: 1020, Y: 210},
+				"n10": {X: 1260, Y: 255},
+				"n11": {X: 1500, Y: 300},
+				"n12": {X: 1740, Y: 300},
+			},
+		},
+	}
+	if err := seedFormula("日本生命保険 責任準備金ロールフォワード", domain.DomainLife,
+		"Reserve roll-forward approximation using level premium accumulation. 输入: reserveBegin(期初責任準備金), assumedInterestRate(予定利率), levelPremium(平準保険料), expectedBenefit(想定保険金), maintenanceExpense(維持費)",
+		japanReserveGraph); err != nil {
+		return err
+	}
+
+	// --- Japan Life Insurance: Surrender Value Approximation ---
+	// Formula: surrenderValue = max(netPremiumReserve - deathBenefit * surrenderChargeRate, 0)
+	japanSurrenderGraph := domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "n1", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "netPremiumReserve", "dataType": "decimal"})},
+			{ID: "n2", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "deathBenefit", "dataType": "decimal"})},
+			{ID: "n3", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "surrenderChargeRate", "dataType": "decimal"})},
+			{ID: "n4", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "0"})},
+			{ID: "n5", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},
+			{ID: "n6", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "subtract"})},
+			{ID: "n7", Type: domain.NodeFunction, Config: mustJSON(map[string]any{"fn": "max", "args": map[string]string{}})},
+			{ID: "n8", Type: domain.NodeFunction, Config: mustJSON(map[string]any{"fn": "round", "args": map[string]string{"places": "2"}})},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "n2", Target: "n5", SourcePort: "out", TargetPort: "left"},
+			{Source: "n3", Target: "n5", SourcePort: "out", TargetPort: "right"},
+			{Source: "n1", Target: "n6", SourcePort: "out", TargetPort: "left"},
+			{Source: "n5", Target: "n6", SourcePort: "out", TargetPort: "right"},
+			{Source: "n6", Target: "n7", SourcePort: "out", TargetPort: "left"},
+			{Source: "n4", Target: "n7", SourcePort: "out", TargetPort: "right"},
+			{Source: "n7", Target: "n8", SourcePort: "out", TargetPort: "in"},
+		},
+		Outputs: []string{"n8"},
+		Layout: &domain.GraphLayout{
+			Positions: map[string]domain.Position{
+				"n1": {X: 60, Y: 60},
+				"n2": {X: 60, Y: 180},
+				"n3": {X: 60, Y: 300},
+				"n4": {X: 300, Y: 300},
+				"n5": {X: 360, Y: 210},
+				"n6": {X: 600, Y: 135},
+				"n7": {X: 840, Y: 180},
+				"n8": {X: 1080, Y: 180},
+			},
+		},
+	}
+	if err := seedFormula("日本生命保険 解約返戻金近似", domain.DomainLife,
+		"Surrender value approximation using reserve less a surrender charge amount, floored at zero. 输入: netPremiumReserve(純保険料式保険料積立金), deathBenefit(保険金額), surrenderChargeRate(控除率)",
+		japanSurrenderGraph); err != nil {
+		return err
+	}
+
 	// --- Property Insurance: Premium Rating ---
 	// Formula: premium = baseRate * riskScore * sumInsured * (1 - discount)
 	propGraph := domain.FormulaGraph{
@@ -280,10 +454,10 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			{ID: "n3", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "sumInsured", "dataType": "decimal"})},
 			{ID: "n4", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "discount", "dataType": "decimal"})},
 			{ID: "n5", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "1"})},
-			{ID: "n6", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "subtract"})},  // 1 - discount
-			{ID: "n7", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},  // baseRate * riskScore
-			{ID: "n8", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},  // (baseRate * riskScore) * sumInsured
-			{ID: "n9", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},  // * (1 - discount)
+			{ID: "n6", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "subtract"})}, // 1 - discount
+			{ID: "n7", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})}, // baseRate * riskScore
+			{ID: "n8", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})}, // (baseRate * riskScore) * sumInsured
+			{ID: "n9", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})}, // * (1 - discount)
 			{ID: "n10", Type: domain.NodeFunction, Config: mustJSON(map[string]any{"fn": "round", "args": map[string]string{"places": "2"}})},
 		},
 		Edges: []domain.FormulaEdge{
@@ -300,8 +474,8 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 		Outputs: []string{"n10"},
 		Layout: &domain.GraphLayout{
 			Positions: map[string]domain.Position{
-				"n1": {X: 50, Y: 50},   "n2": {X: 50, Y: 150},
-				"n3": {X: 50, Y: 250},  "n4": {X: 50, Y: 350},
+				"n1": {X: 50, Y: 50}, "n2": {X: 50, Y: 150},
+				"n3": {X: 50, Y: 250}, "n4": {X: 50, Y: 350},
 				"n5": {X: 250, Y: 350}, "n6": {X: 450, Y: 350},
 				"n7": {X: 250, Y: 100}, "n8": {X: 450, Y: 150},
 				"n9": {X: 600, Y: 200}, "n10": {X: 750, Y: 200},
@@ -322,9 +496,9 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			{ID: "n2", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "vehicleFactor", "dataType": "decimal"})},
 			{ID: "n3", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "driverFactor", "dataType": "decimal"})},
 			{ID: "n4", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "ncdDiscount", "dataType": "decimal"})},
-			{ID: "n5", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},  // basePremium * vehicleFactor
-			{ID: "n6", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},  // * driverFactor
-			{ID: "n7", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},  // * ncdDiscount
+			{ID: "n5", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})}, // basePremium * vehicleFactor
+			{ID: "n6", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})}, // * driverFactor
+			{ID: "n7", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})}, // * ncdDiscount
 			{ID: "n8", Type: domain.NodeFunction, Config: mustJSON(map[string]any{"fn": "round", "args": map[string]string{"places": "2"}})},
 		},
 		Edges: []domain.FormulaEdge{
@@ -339,7 +513,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 		Outputs: []string{"n8"},
 		Layout: &domain.GraphLayout{
 			Positions: map[string]domain.Position{
-				"n1": {X: 50, Y: 50},  "n2": {X: 50, Y: 150},
+				"n1": {X: 50, Y: 50}, "n2": {X: 50, Y: 150},
 				"n3": {X: 50, Y: 250}, "n4": {X: 50, Y: 350},
 				"n5": {X: 250, Y: 100}, "n6": {X: 450, Y: 175},
 				"n7": {X: 600, Y: 200}, "n8": {X: 750, Y: 200},
