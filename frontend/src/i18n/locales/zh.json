@@ -9,7 +9,10 @@
     "loginTitle": "用户登录",
     "registerTitle": "用户注册",
     "noAccount": "没有账号？",
-    "hasAccount": "已有账号？"
+    "hasAccount": "已有账号？",
+    "loginLink": "去登录",
+    "registerLink": "去注册",
+    "confirmPassword": "确认密码"
   },
   "formula": {
     "create": "新建公式",
@@ -19,7 +22,14 @@
     "edit": "编辑",
     "delete": "删除",
     "list": "公式列表",
-    "search": "搜索公式..."
+    "search": "搜索公式...",
+    "all": "全部",
+    "life": "人寿保险",
+    "property": "财产保险",
+    "auto": "车险",
+    "createTitle": "新建公式",
+    "cancel": "取消",
+    "createdAt": "创建时间"
   },
   "domain": { "life": "人寿保险", "property": "财产保险", "auto": "车险" },
   "version": {
@@ -40,6 +50,7 @@
     "test": "测试",
     "validate": "验证",
     "save": "保存",
+    "saved": "已保存",
     "autoLayout": "自动布局",
     "nodeTypes": "节点类型",
     "properties": "属性"

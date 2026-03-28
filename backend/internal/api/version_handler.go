@@ -36,6 +36,9 @@ func (h *VersionHandler) List(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to list versions", Code: http.StatusInternalServerError})
 		return
 	}
+	if versions == nil {
+		versions = []*domain.FormulaVersion{}
+	}
 
 	writeJSON(w, http.StatusOK, map[string]any{"versions": versions})
 }

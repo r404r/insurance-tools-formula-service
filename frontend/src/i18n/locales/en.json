@@ -9,7 +9,10 @@
     "loginTitle": "User Login",
     "registerTitle": "User Registration",
     "noAccount": "Don't have an account?",
-    "hasAccount": "Already have an account?"
+    "hasAccount": "Already have an account?",
+    "loginLink": "Log in",
+    "registerLink": "Register",
+    "confirmPassword": "Confirm Password"
   },
   "formula": {
     "create": "New Formula",
@@ -19,7 +22,14 @@
     "edit": "Edit",
     "delete": "Delete",
     "list": "Formula List",
-    "search": "Search formulas..."
+    "search": "Search formulas...",
+    "all": "All",
+    "life": "Life Insurance",
+    "property": "Property Insurance",
+    "auto": "Auto Insurance",
+    "createTitle": "Create Formula",
+    "cancel": "Cancel",
+    "createdAt": "Created At"
   },
   "domain": { "life": "Life Insurance", "property": "Property Insurance", "auto": "Auto Insurance" },
   "version": {
@@ -40,6 +50,7 @@
     "test": "Test",
     "validate": "Validate",
     "save": "Save",
+    "saved": "Saved",
     "autoLayout": "Auto Layout",
     "nodeTypes": "Node Types",
     "properties": "Properties"

@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Node, Edge } from '@xyflow/react'
 import { useFormulaStore } from '../../store/formulaStore'
 import { api } from '../../api/client'
@@ -15,6 +15,7 @@ import type { Formula, FormulaVersion } from '../../types/formula'
 export default function FormulaEditorPage() {
   const { id } = useParams<{ id: string }>()
   const { t } = useTranslation()
+  const queryClient = useQueryClient()
   const { editorMode, setEditorMode, setCurrentFormula, setCurrentVersion } = useFormulaStore()
 
   const [nodes, setNodes] = useState<Node[]>([])
@@ -24,6 +25,7 @@ export default function FormulaEditorPage() {
   const [testInputs, setTestInputs] = useState<Record<string, string>>({})
   const [testResult, setTestResult] = useState<Record<string, string> | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
 
   const { data: formula } = useQuery({
     queryKey: ['formula', id],
@@ -33,7 +35,7 @@ export default function FormulaEditorPage() {
 
   const { data: versions } = useQuery({
     queryKey: ['versions', id],
-    queryFn: () => api.get<{ versions: FormulaVersion[] }>(`/formulas/${id}/versions`).then((r) => r.versions),
+    queryFn: () => api.get<{ versions: FormulaVersion[] }>(`/formulas/${id}/versions`).then((r) => r.versions ?? []),
     enabled: !!id,
   })
 
@@ -61,12 +63,21 @@ export default function FormulaEditorPage() {
   const handleSave = async () => {
     if (!id) return
     setIsSaving(true)
+    setSaveMessage(null)
     try {
-      const graph = reactFlowToApi(nodes, edges, nodes.filter((n) => edges.every((e) => e.source !== n.id)).map((n) => n.id))
+      const outputNodes = nodes
+        .filter((n) => edges.every((e) => e.source !== n.id))
+        .map((n) => n.id)
+      const graph = reactFlowToApi(nodes, edges, outputNodes)
       await api.post(`/formulas/${id}/versions`, {
         graph,
         changeNote: 'Updated via editor',
       })
+      await queryClient.invalidateQueries({ queryKey: ['versions', id] })
+      setSaveMessage(t('editor.saved'))
+      setTimeout(() => setSaveMessage(null), 3000)
+    } catch (err) {
+      setSaveMessage((err as Error).message)
     } finally {
       setIsSaving(false)
     }
@@ -120,6 +131,9 @@ export default function FormulaEditorPage() {
           >
             {t('version.versions')}
           </Link>
+          {saveMessage && (
+            <span className="text-xs text-green-600">{saveMessage}</span>
+          )}
           <button
             onClick={handleSave}
             disabled={isSaving}

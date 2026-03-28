@@ -84,6 +84,34 @@
 | conditional | condition, thenValue, elseValue | out | comparator |
 | aggregate | items | out | fn (sum/product/count/avg), range |
 
+## 2.5 Formula Creation & Editing Workflow
+
+```
+用户(Admin/Editor)
+    │
+    ├─ 1. 公式列表页 → 点击「新建公式」
+    │     └─ 弹窗输入: 名称、领域(life/property/auto)、描述
+    │     └─ POST /api/v1/formulas → 创建公式(无版本)
+    │     └─ 跳转到编辑器 /formulas/:id
+    │
+    ├─ 2. 可视化编辑器
+    │     ├─ 左侧: NodePalette(8种节点类型拖拽)
+    │     ├─ 中央: FormulaCanvas(react-flow画布)
+    │     │     └─ 拖入节点 → 连线 → 自动布局
+    │     ├─ 右侧: NodePropertiesPanel(选中节点配置)
+    │     └─ 底部: 测试面板(JSON输入 → 计算结果)
+    │
+    ├─ 3. 保存 → POST /api/v1/formulas/:id/versions
+    │     └─ 前端将 react-flow 图转为 API DAG JSON
+    │     └─ 位置信息存储在 layout.positions 中
+    │     └─ 自动计算输出节点(无出边的节点)
+    │     └─ 创建新版本(Draft状态)，版本号自动递增
+    │
+    └─ 4. 发布流程
+          └─ 版本页面 → 发布(Draft→Published) / 归档(→Archived)
+          └─ 同一公式只有一个 Published 版本
+```
+
 ## 3. Dual-Mode Editor Design
 
 ### 3.1 Visual Mode (react-flow)

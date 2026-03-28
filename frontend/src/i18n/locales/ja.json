@@ -9,7 +9,10 @@
     "loginTitle": "ユーザーログイン",
     "registerTitle": "ユーザー登録",
     "noAccount": "アカウントをお持ちでないですか？",
-    "hasAccount": "すでにアカウントをお持ちですか？"
+    "hasAccount": "すでにアカウントをお持ちですか？",
+    "loginLink": "ログイン",
+    "registerLink": "登録",
+    "confirmPassword": "パスワード確認"
   },
   "formula": {
     "create": "新規計算式",
@@ -19,7 +22,14 @@
     "edit": "編集",
     "delete": "削除",
     "list": "計算式一覧",
-    "search": "計算式を検索..."
+    "search": "計算式を検索...",
+    "all": "すべて",
+    "life": "生命保険",
+    "property": "損害保険",
+    "auto": "自動車保険",
+    "createTitle": "新規計算式作成",
+    "cancel": "キャンセル",
+    "createdAt": "作成日時"
   },
   "domain": { "life": "生命保険", "property": "損害保険", "auto": "自動車保険" },
   "version": {
@@ -40,6 +50,7 @@
     "test": "テスト",
     "validate": "検証",
     "save": "保存",
+    "saved": "保存しました",
     "autoLayout": "自動レイアウト",
     "nodeTypes": "ノードタイプ",
     "properties": "プロパティ"
