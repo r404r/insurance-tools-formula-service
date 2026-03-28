@@ -50,6 +50,9 @@ func (h *FormulaHandler) List(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to list formulas", Code: http.StatusInternalServerError})
 		return
 	}
+	if formulas == nil {
+		formulas = []*domain.Formula{}
+	}
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"formulas": formulas,
