@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 interface Props {
@@ -9,6 +9,10 @@ interface Props {
 export default function TextEditor({ value, onChange }: Props) {
   const { t } = useTranslation()
   const [localValue, setLocalValue] = useState(value)
+
+  useEffect(() => {
+    setLocalValue(value)
+  }, [value])
 
   const handleApply = () => {
     onChange(localValue)

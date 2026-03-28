@@ -6,6 +6,7 @@ import type { Node, Edge } from '@xyflow/react'
 import { useFormulaStore } from '../../store/formulaStore'
 import { api } from '../../api/client'
 import { apiToReactFlow, reactFlowToApi } from '../../utils/graphSerializer'
+import { reactFlowToText } from '../../utils/graphText'
 import FormulaCanvas from './FormulaCanvas'
 import TextEditor from './TextEditor'
 import NodePalette from './NodePalette'
@@ -114,10 +115,27 @@ export default function FormulaEditorPage() {
         const { nodes: n, edges: e } = apiToReactFlow(latestVersion.graph)
         setNodes(n)
         setEdges(e)
+        try {
+          setTextValue(reactFlowToText(n, e))
+        } catch (err) {
+          setTextValue(`// ${(err as Error).message}`)
+        }
         setSelectedNodeId(null)
       }
     }
   }, [formula, latestVersion, setCurrentFormula, setCurrentVersion])
+
+  useEffect(() => {
+    if (editorMode !== 'text') {
+      return
+    }
+
+    try {
+      setTextValue(reactFlowToText(nodes, edges))
+    } catch (err) {
+      setTextValue(`// ${(err as Error).message}`)
+    }
+  }, [editorMode, nodes, edges])
 
   const handleNodeDataChange = useCallback(
     (nodeId: string, data: Record<string, unknown>) => {
