@@ -81,13 +81,14 @@ export default function FormulaEditorPage() {
 
   const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>([])
-  const [selectedNode, setSelectedNode] = useState<Node | null>(null)
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [textValue, setTextValue] = useState('')
   const [testInputs, setTestInputs] = useState<Record<string, string>>({})
   const [testResult, setTestResult] = useState<Record<string, string> | null>(null)
   const [isTestPanelCollapsed, setIsTestPanelCollapsed] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null
 
   const { data: formula } = useQuery({
     queryKey: ['formula', id],
@@ -111,6 +112,7 @@ export default function FormulaEditorPage() {
         const { nodes: n, edges: e } = apiToReactFlow(latestVersion.graph)
         setNodes(n)
         setEdges(e)
+        setSelectedNodeId(null)
       }
     }
   }, [formula, latestVersion, setCurrentFormula, setCurrentVersion])
@@ -220,21 +222,21 @@ export default function FormulaEditorPage() {
       </div>
 
       {/* Editor Area */}
-      <div className={`min-h-[520px] flex-1 overflow-x-scroll overflow-y-scroll ${isTestPanelCollapsed ? 'pb-20' : 'pb-44'}`}>
+      <div className={`min-h-[520px] flex-[1_0_520px] overflow-x-scroll overflow-y-scroll ${isTestPanelCollapsed ? 'pb-20' : 'pb-44'}`}>
         {editorMode === 'visual' ? (
-          <div className="flex min-h-[520px] min-w-[1180px]">
+          <div className="flex h-full min-h-[520px] min-w-[1180px]">
             <NodePalette />
             <FormulaCanvas
               nodes={nodes}
               edges={edges}
               onNodesChange={setNodes}
               onEdgesChange={setEdges}
-              onNodeSelect={setSelectedNode}
+              onNodeSelect={(node) => setSelectedNodeId(node?.id ?? null)}
             />
             <NodePropertiesPanel node={selectedNode} onChange={handleNodeDataChange} />
           </div>
         ) : (
-          <div className="min-h-[520px] min-w-[820px]">
+          <div className="h-full min-h-[520px] min-w-[820px]">
             <TextEditor value={textValue} onChange={setTextValue} />
           </div>
         )}
