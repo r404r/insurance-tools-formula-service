@@ -24,6 +24,20 @@ export default function NodePropertiesPanel({ node, onChange }: Props) {
     onChange(node.id, { ...node.data, config: { ...config, [key]: value } })
   }
 
+  const updateFunctionArg = (key: string, value: string) => {
+    const args = (config.args as Record<string, string> | undefined) ?? {}
+    onChange(node.id, {
+      ...node.data,
+      config: {
+        ...config,
+        args: {
+          ...args,
+          [key]: value,
+        },
+      },
+    })
+  }
+
   return (
     <div className="w-64 border-l border-gray-200 bg-gray-50 p-4 overflow-y-auto">
       <h3 className="text-sm font-semibold text-gray-600 mb-3">{t('editor.properties')}</h3>
@@ -93,18 +107,32 @@ export default function NodePropertiesPanel({ node, onChange }: Props) {
         )}
 
         {nodeType === 'function' && (
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Function</label>
-            <select
-              className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-              value={(config.fn as string) ?? 'round'}
-              onChange={(e) => updateConfig('fn', e.target.value)}
-            >
-              {['round', 'floor', 'ceil', 'abs', 'min', 'max', 'sqrt', 'ln', 'exp'].map((fn) => (
-                <option key={fn} value={fn}>{fn}</option>
-              ))}
-            </select>
-          </div>
+          <>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Function</label>
+              <select
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                value={(config.fn as string) ?? 'round'}
+                onChange={(e) => updateConfig('fn', e.target.value)}
+              >
+                {['round', 'floor', 'ceil', 'abs', 'min', 'max', 'sqrt', 'ln', 'exp'].map((fn) => (
+                  <option key={fn} value={fn}>{fn}</option>
+                ))}
+              </select>
+            </div>
+
+            {(config.fn as string) === 'round' && (
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Places</label>
+                <input
+                  className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                  value={((config.args as Record<string, string> | undefined)?.places) ?? '18'}
+                  onChange={(e) => updateFunctionArg('places', e.target.value)}
+                  placeholder="18"
+                />
+              </div>
+            )}
+          </>
         )}
 
         {nodeType === 'tableLookup' && (
