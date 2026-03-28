@@ -33,6 +33,14 @@ export interface PortDef {
   label: string
 }
 
+export function estimateNodeSize(nodeType: string, config: Record<string, unknown>) {
+  const inputCount = getInputPorts(nodeType, config).length
+  return {
+    width: 140,
+    height: Math.max(64, 44 + inputCount * 22),
+  }
+}
+
 export function nodeLabel(type: string, config: Record<string, unknown>): string {
   switch (type) {
     case 'variable':

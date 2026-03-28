@@ -1,6 +1,6 @@
 import dagre from '@dagrejs/dagre'
 import type { Node, Edge } from '@xyflow/react'
-import { getInputPorts } from '../nodePresentation'
+import { estimateNodeSize as estimateNodeDimensions } from '../nodePresentation'
 
 function estimateNodeSize(node: Node) {
   const measuredWidth = node.measured?.width ?? node.width
@@ -11,12 +11,7 @@ function estimateNodeSize(node: Node) {
 
   const nodeType = String(node.data.nodeType ?? node.type)
   const config = (node.data.config as Record<string, unknown>) ?? {}
-  const inputCount = getInputPorts(nodeType, config).length
-
-  return {
-    width: 140,
-    height: Math.max(64, 44 + inputCount * 22),
-  }
+  return estimateNodeDimensions(nodeType, config)
 }
 
 export function useAutoLayout() {
