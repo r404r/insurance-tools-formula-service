@@ -49,15 +49,22 @@ export default function TextEditor({ value, onChange }: Props) {
           {t('editor.validate')}
         </button>
       </div>
-      <div className="grid min-h-0 flex-1 gap-0 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-        <textarea
-          value={localValue}
-          onChange={(e) => setLocalValue(e.target.value)}
-          className="min-h-[280px] w-full border-r border-gray-200 p-4 font-mono text-sm resize-none focus:outline-none"
-          placeholder="round(lookup(mortalityTable, age) * sumAssured, 18)"
-          spellCheck={false}
-        />
-        <div className="flex min-h-[280px] flex-col bg-white">
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-[1.15] flex-col border-b border-gray-200 bg-white">
+          <div className="border-b border-gray-200 px-4 py-3">
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+              {t('editor.text')}
+            </div>
+          </div>
+          <textarea
+            value={localValue}
+            onChange={(e) => setLocalValue(e.target.value)}
+            className="min-h-[280px] flex-1 w-full overflow-auto p-4 font-mono text-sm resize-none focus:outline-none"
+            placeholder="round(lookup(mortalityTable, age) * sumAssured, 18)"
+            spellCheck={false}
+          />
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col bg-white">
           <div className="border-b border-gray-200 px-4 py-3">
             <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
               {t('editor.latexPreview')}
