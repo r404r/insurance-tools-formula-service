@@ -1,52 +1,41 @@
 import { MarkerType, type Node, type Edge } from '@xyflow/react'
 import type { FormulaGraph } from '../types/formula'
+import { createNodeData, getInputPorts } from '../components/editor/nodePresentation'
 
 export interface ReactFlowData {
   nodes: Node[]
   edges: Edge[]
 }
 
-const OP_SYMBOLS: Record<string, string> = {
-  add: '+', subtract: '−', multiply: '×', divide: '÷', power: '^', modulo: '%',
-}
+function inferEdgeTargetPorts(graph: FormulaGraph): string[] {
+  const nodeMap = new Map(
+    graph.nodes.map((node) => [node.id, node] as const)
+  )
+  const assignedPorts = new Map<string, string[]>()
 
-const NODE_COLORS: Record<string, { bg: string; border: string }> = {
-  variable:    { bg: '#dbeafe', border: '#3b82f6' },  // blue
-  constant:    { bg: '#fef3c7', border: '#f59e0b' },  // amber
-  operator:    { bg: '#fce7f3', border: '#ec4899' },  // pink
-  function:    { bg: '#d1fae5', border: '#10b981' },  // green
-  subFormula:  { bg: '#e0e7ff', border: '#6366f1' },  // indigo
-  tableLookup: { bg: '#fae8ff', border: '#a855f7' },  // purple
-  conditional: { bg: '#ffedd5', border: '#f97316' },  // orange
-  aggregate:   { bg: '#ccfbf1', border: '#14b8a6' },  // teal
-}
-
-/** Generate a human-readable label from node type + config */
-function nodeLabel(type: string, config: Record<string, unknown>): string {
-  switch (type) {
-    case 'variable':
-      return `${config.name ?? 'var'}`
-    case 'constant':
-      return `${config.value ?? '?'}`
-    case 'operator':
-      return OP_SYMBOLS[config.op as string] ?? (config.op as string) ?? '?'
-    case 'function': {
-      const fn = (config.fn as string) ?? '?'
-      const args = config.args as Record<string, string> | undefined
-      const places = args?.places
-      return places ? `${fn}(${places})` : fn
+  return graph.edges.map((edge) => {
+    if (edge.targetPort) {
+      const current = assignedPorts.get(edge.target) ?? []
+      current.push(edge.targetPort)
+      assignedPorts.set(edge.target, current)
+      return edge.targetPort
     }
-    case 'subFormula':
-      return `sub:${config.formulaId ?? '?'}`
-    case 'tableLookup':
-      return `lookup(${config.column ?? '?'})`
-    case 'conditional':
-      return `if ${config.comparator ?? '?'}`
-    case 'aggregate':
-      return `Σ ${config.fn ?? '?'}`
-    default:
-      return type
-  }
+
+    const targetNode = nodeMap.get(edge.target)
+    if (!targetNode) {
+      return 'in'
+    }
+
+    const candidatePorts = getInputPorts(targetNode.type, targetNode.config).map((port) => port.id)
+    if (candidatePorts.length === 0) {
+      return 'in'
+    }
+
+    const usedPorts = assignedPorts.get(edge.target) ?? []
+    const inferredPort = candidatePorts.find((port) => !usedPorts.includes(port)) ?? candidatePorts[candidatePorts.length - 1]
+    assignedPorts.set(edge.target, [...usedPorts, inferredPort])
+    return inferredPort
+  })
 }
 
 /**
@@ -54,36 +43,23 @@ function nodeLabel(type: string, config: Record<string, unknown>): string {
  */
 export function apiToReactFlow(graph: FormulaGraph): ReactFlowData {
   const positions = graph.layout?.positions ?? {}
+  const targetPorts = inferEdgeTargetPorts(graph)
 
   const nodes: Node[] = graph.nodes.map((node) => {
-    const colors = NODE_COLORS[node.type] ?? { bg: '#f3f4f6', border: '#9ca3af' }
     return {
       id: node.id,
-      type: 'default',
+      type: 'formulaNode',
       position: positions[node.id] ?? { x: 0, y: 0 },
-      data: {
-        label: nodeLabel(node.type, node.config),
-        nodeType: node.type,
-        config: node.config,
-      },
-      style: {
-        background: colors.bg,
-        border: `2px solid ${colors.border}`,
-        borderRadius: 8,
-        fontSize: 13,
-        fontWeight: 600,
-        padding: '4px 8px',
-        minWidth: 60,
-        textAlign: 'center' as const,
-      },
+      data: createNodeData(node.type, node.config),
     }
   })
 
-  // Don't set sourceHandle/targetHandle — default nodes only have unnamed handles.
   const edges: Edge[] = graph.edges.map((edge, i) => ({
     id: `edge_${i}`,
     source: edge.source,
     target: edge.target,
+    sourceHandle: edge.sourcePort || 'out',
+    targetHandle: targetPorts[i] || 'in',
     animated: false,
     style: { stroke: '#64748b', strokeWidth: 2 },
     markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },

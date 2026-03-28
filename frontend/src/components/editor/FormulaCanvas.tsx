@@ -13,10 +13,15 @@ import {
   type OnNodesChange,
   type OnEdgesChange,
   type OnConnect,
+  type Connection,
+  type IsValidConnection,
+  type ReactFlowInstance,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useAutoLayout } from './hooks/useAutoLayout'
 import type { NodeType } from '../../types/formula'
+import FormulaNode from './FormulaNode'
+import { createNodeData, defaultNodeConfig, getInputPorts } from './nodePresentation'
 
 interface Props {
   nodes: Node[]
@@ -31,9 +36,59 @@ function nextId() {
   return `node_${Date.now()}_${idCounter++}`
 }
 
+const nodeTypes = {
+  formulaNode: FormulaNode,
+}
+
 export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeSelect }: Props) {
-  const [selectedNode, setSelectedNode] = useState<string | null>(null)
   const autoLayout = useAutoLayout()
+  const [reactFlowInstance, setReactFlowInstance] = useState<ReactFlowInstance<Node, Edge> | null>(null)
+
+  const isValidConnection: IsValidConnection = useCallback(
+    (connection: Connection | Edge) => {
+      if (!connection.source || !connection.target || !connection.sourceHandle || !connection.targetHandle) {
+        return false
+      }
+
+      if (connection.source === connection.target) {
+        return false
+      }
+
+      if (connection.sourceHandle !== 'out') {
+        return false
+      }
+
+      const targetNode = nodes.find((node) => node.id === connection.target)
+      if (!targetNode) {
+        return false
+      }
+
+      const config = (targetNode.data.config as Record<string, unknown>) ?? {}
+      const validTargetPorts = new Set(getInputPorts(String(targetNode.data.nodeType ?? targetNode.type), config).map((port) => port.id))
+      if (!validTargetPorts.has(connection.targetHandle)) {
+        return false
+      }
+
+      const targetPortAlreadyUsed = edges.some(
+        (edge) =>
+          edge.target === connection.target &&
+          edge.targetHandle === connection.targetHandle
+      )
+      if (targetPortAlreadyUsed) {
+        return false
+      }
+
+      const duplicateEdge = edges.some(
+        (edge) =>
+          edge.source === connection.source &&
+          edge.target === connection.target &&
+          edge.sourceHandle === connection.sourceHandle &&
+          edge.targetHandle === connection.targetHandle
+      )
+      return !duplicateEdge
+    },
+    [edges, nodes]
+  )
 
   const handleNodesChange: OnNodesChange = useCallback(
     (changes) => {
@@ -53,6 +108,9 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
 
   const handleConnect: OnConnect = useCallback(
     (params) => {
+      if (!isValidConnection(params)) {
+        return
+      }
       const updated = addEdge({
         ...params,
         id: `edge_${Date.now()}`,
@@ -66,14 +124,12 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
 
   const handleNodeClick = useCallback(
     (_: React.MouseEvent, node: Node) => {
-      setSelectedNode(node.id)
       onNodeSelect(node)
     },
     [onNodeSelect]
   )
 
   const handlePaneClick = useCallback(() => {
-    setSelectedNode(null)
     onNodeSelect(null)
   }, [onNodeSelect])
 
@@ -91,33 +147,11 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
         y: event.clientY - bounds.top,
       }
 
-      const NODE_COLORS: Record<string, { bg: string; border: string }> = {
-        variable:    { bg: '#dbeafe', border: '#3b82f6' },
-        constant:    { bg: '#fef3c7', border: '#f59e0b' },
-        operator:    { bg: '#fce7f3', border: '#ec4899' },
-        function:    { bg: '#d1fae5', border: '#10b981' },
-        subFormula:  { bg: '#e0e7ff', border: '#6366f1' },
-        tableLookup: { bg: '#fae8ff', border: '#a855f7' },
-        conditional: { bg: '#ffedd5', border: '#f97316' },
-        aggregate:   { bg: '#ccfbf1', border: '#14b8a6' },
-      }
-      const colors = NODE_COLORS[type] ?? { bg: '#f3f4f6', border: '#9ca3af' }
-
       const newNode: Node = {
         id: nextId(),
-        type: 'default',
+        type: 'formulaNode',
         position,
-        data: { label: type, nodeType: type, config: {} },
-        style: {
-          background: colors.bg,
-          border: `2px solid ${colors.border}`,
-          borderRadius: 8,
-          fontSize: 13,
-          fontWeight: 600,
-          padding: '4px 8px',
-          minWidth: 60,
-          textAlign: 'center' as const,
-        },
+        data: createNodeData(type, defaultNodeConfig(type)),
       }
 
       onNodesChange([...nodes, newNode])
@@ -133,7 +167,10 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
   const handleAutoLayout = useCallback(() => {
     const laid = autoLayout(nodes, edges)
     onNodesChange(laid)
-  }, [nodes, edges, autoLayout, onNodesChange])
+    requestAnimationFrame(() => {
+      reactFlowInstance?.fitView({ padding: 0.2, duration: 250 })
+    })
+  }, [nodes, edges, autoLayout, onNodesChange, reactFlowInstance])
 
   return (
     <div className="flex-1 relative">
@@ -146,14 +183,11 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
         </button>
       </div>
       <ReactFlow
-        nodes={nodes.map((n) => ({
-          ...n,
-          style: {
-            ...n.style,
-            ...(n.id === selectedNode ? { boxShadow: '0 0 0 3px #3b82f6' } : {}),
-          },
-        }))}
+        nodeTypes={nodeTypes}
+        nodes={nodes}
         edges={edges}
+        onInit={setReactFlowInstance}
+        isValidConnection={isValidConnection}
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
         onConnect={handleConnect}

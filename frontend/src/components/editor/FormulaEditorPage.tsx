@@ -10,7 +10,68 @@ import FormulaCanvas from './FormulaCanvas'
 import TextEditor from './TextEditor'
 import NodePalette from './NodePalette'
 import NodePropertiesPanel from './NodePropertiesPanel'
-import type { Formula, FormulaVersion } from '../../types/formula'
+import type { Formula, FormulaVersion, NodeType } from '../../types/formula'
+import { createNodeData, getInputPorts } from './nodePresentation'
+
+function validateGraph(nodes: Node[], edges: Edge[]): string | null {
+  if (nodes.length === 0) return 'Graph is empty'
+
+  const connectedPorts = new Map<string, Set<string>>()
+  for (const edge of edges) {
+    if (!edge.source || !edge.target) return 'Edge is missing source or target'
+    if (!edge.sourceHandle) return `Edge from ${edge.source} is missing source port`
+    if (!edge.targetHandle) return `Edge into ${edge.target} is missing target port`
+    if (edge.source === edge.target) return `Node ${edge.source} cannot connect to itself`
+
+    const ports = connectedPorts.get(edge.target) ?? new Set<string>()
+    if (ports.has(edge.targetHandle)) return `Node ${edge.target} already has a connection on ${edge.targetHandle}`
+    ports.add(edge.targetHandle)
+    connectedPorts.set(edge.target, ports)
+  }
+
+  for (const node of nodes) {
+    const nodeType = String(node.data.nodeType ?? node.type)
+    const config = (node.data.config as Record<string, unknown>) ?? {}
+    const ports = connectedPorts.get(node.id) ?? new Set<string>()
+    const validTargetPorts = new Set(getInputPorts(nodeType, config).map((port) => port.id))
+
+    for (const port of ports) {
+      if (!validTargetPorts.has(port)) return `Node ${node.id} has invalid input port ${port}`
+    }
+
+    switch (nodeType) {
+      case 'operator':
+        if (!ports.has('left') || !ports.has('right')) return `Operator node ${node.id} must have left and right inputs`
+        break
+      case 'function':
+        if (config.fn === 'min' || config.fn === 'max') {
+          if (!ports.has('left') || !ports.has('right')) return `Function node ${node.id} must have left and right inputs`
+        } else if (!ports.has('in')) {
+          return `Function node ${node.id} must have an in input`
+        }
+        break
+      case 'subFormula':
+        if (!ports.has('in')) return `Sub-formula node ${node.id} must have an in input`
+        break
+      case 'tableLookup':
+        if (!ports.has('key')) return `Table lookup node ${node.id} must have a key input`
+        break
+      case 'conditional':
+        for (const port of ['condition', 'conditionRight', 'thenValue', 'elseValue']) {
+          if (!ports.has(port)) return `Conditional node ${node.id} must have ${port} input`
+        }
+        break
+      case 'aggregate':
+        if (!ports.has('items')) return `Aggregate node ${node.id} must have an items input`
+        break
+    }
+  }
+
+  const outputNodes = nodes.filter((n) => edges.every((e) => e.source !== n.id))
+  if (outputNodes.length === 0) return 'Graph must contain at least one output node'
+
+  return null
+}
 
 export default function FormulaEditorPage() {
   const { id } = useParams<{ id: string }>()
@@ -55,7 +116,14 @@ export default function FormulaEditorPage() {
 
   const handleNodeDataChange = useCallback(
     (nodeId: string, data: Record<string, unknown>) => {
-      setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, data } : n)))
+      setNodes((prev) =>
+        prev.map((n) => {
+          if (n.id !== nodeId) return n
+          const nodeType = String(data.nodeType ?? n.data.nodeType ?? n.type) as NodeType
+          const config = (data.config as Record<string, unknown>) ?? {}
+          return { ...n, data: createNodeData(nodeType, config) }
+        })
+      )
     },
     []
   )
@@ -65,6 +133,12 @@ export default function FormulaEditorPage() {
     setIsSaving(true)
     setSaveMessage(null)
     try {
+      const validationError = validateGraph(nodes, edges)
+      if (validationError) {
+        setSaveMessage(validationError)
+        return
+      }
+
       const outputNodes = nodes
         .filter((n) => edges.every((e) => e.source !== n.id))
         .map((n) => n.id)
