@@ -52,7 +52,7 @@ function validateGraph(nodes: Node[], edges: Edge[]): string | null {
         }
         break
       case 'subFormula':
-        if (!ports.has('in')) return `Sub-formula node ${node.id} must have an in input`
+        if (!String(config.formulaId ?? '').trim()) return `Sub-formula node ${node.id} must reference a formula`
         break
       case 'tableLookup':
         if (!ports.has('key')) return `Table lookup node ${node.id} must have a key input`
@@ -88,6 +88,9 @@ export default function FormulaEditorPage() {
   const [testResult, setTestResult] = useState<Record<string, string> | null>(null)
   const [isTestPanelCollapsed, setIsTestPanelCollapsed] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [isRenaming, setIsRenaming] = useState(false)
+  const [isEditingName, setIsEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null
@@ -124,6 +127,10 @@ export default function FormulaEditorPage() {
       }
     }
   }, [formula, latestVersion, setCurrentFormula, setCurrentVersion])
+
+  useEffect(() => {
+    setNameDraft(formula?.name ?? '')
+  }, [formula?.name])
 
   useEffect(() => {
     if (editorMode !== 'text') {
@@ -182,6 +189,45 @@ export default function FormulaEditorPage() {
     }
   }
 
+  const handleNameSave = useCallback(async () => {
+    if (!id || !formula) return
+
+    const trimmedName = nameDraft.trim()
+    if (!trimmedName) {
+      setNameDraft(formula.name)
+      setIsEditingName(false)
+      setSaveMessage('Formula name is required')
+      return
+    }
+
+    if (trimmedName === formula.name) {
+      setIsEditingName(false)
+      return
+    }
+
+    setIsRenaming(true)
+    setSaveMessage(null)
+    try {
+      const updatedFormula = await api.put<Formula>(`/formulas/${id}`, {
+        name: trimmedName,
+      })
+      setCurrentFormula(updatedFormula)
+      setNameDraft(updatedFormula.name)
+      setIsEditingName(false)
+      setSaveMessage(t('editor.saved'))
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['formula', id] }),
+        queryClient.invalidateQueries({ queryKey: ['formulas'] }),
+      ])
+      setTimeout(() => setSaveMessage(null), 3000)
+    } catch (err) {
+      setSaveMessage((err as Error).message)
+      setNameDraft(formula.name)
+    } finally {
+      setIsRenaming(false)
+    }
+  }, [formula, id, nameDraft, queryClient, setCurrentFormula, t])
+
   const handleTest = async () => {
     if (!id) return
     try {
@@ -202,7 +248,45 @@ export default function FormulaEditorPage() {
       <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-white px-4 py-2">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <Link to="/" className="text-gray-400 hover:text-gray-600">&larr;</Link>
-          <h1 className="min-w-0 text-lg font-semibold">{formula?.name ?? '...'}</h1>
+          {isEditingName ? (
+            <input
+              autoFocus
+              value={nameDraft}
+              onChange={(e) => setNameDraft(e.target.value)}
+              onBlur={() => {
+                void handleNameSave()
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault()
+                  void handleNameSave()
+                }
+                if (e.key === 'Escape') {
+                  setNameDraft(formula?.name ?? '')
+                  setIsEditingName(false)
+                }
+              }}
+              disabled={isRenaming}
+              className="min-w-[220px] max-w-[420px] rounded border border-blue-300 bg-white px-2 py-1 text-lg font-semibold text-slate-900 shadow-sm outline-none ring-2 ring-blue-100"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setNameDraft(formula?.name ?? '')
+                setIsEditingName(true)
+              }}
+              className="min-w-0 truncate rounded px-1 text-left text-lg font-semibold text-slate-900 hover:bg-slate-100"
+              title={formula?.name ?? ''}
+            >
+              {formula?.name ?? '...'}
+            </button>
+          )}
+          {formula?.id && (
+            <span className="max-w-[360px] truncate rounded bg-slate-100 px-2 py-0.5 font-mono text-[11px] text-slate-600">
+              ID: {formula.id}
+            </span>
+          )}
           <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
             {formula?.domain ? t(`domain.${formula.domain}`) : ''}
           </span>
@@ -232,7 +316,7 @@ export default function FormulaEditorPage() {
             {t('version.versions')}
           </Link>
           {saveMessage && (
-            <span className="text-xs text-green-600">{saveMessage}</span>
+            <span className={`text-xs ${saveMessage === t('editor.saved') ? 'text-green-600' : 'text-red-600'}`}>{saveMessage}</span>
           )}
           <button
             onClick={handleSave}
@@ -256,7 +340,7 @@ export default function FormulaEditorPage() {
               onEdgesChange={setEdges}
               onNodeSelect={(node) => setSelectedNodeId(node?.id ?? null)}
             />
-            <NodePropertiesPanel node={selectedNode} onChange={handleNodeDataChange} />
+            <NodePropertiesPanel node={selectedNode} onChange={handleNodeDataChange} currentFormulaId={id ?? null} />
           </div>
         ) : (
           <div className="h-full min-h-[520px] min-w-[820px]">
