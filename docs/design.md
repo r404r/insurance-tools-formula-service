@@ -78,11 +78,78 @@
 | variable | (none) | out | name, dataType |
 | constant | (none) | out | value |
 | operator | left, right | out | op (add/subtract/multiply/divide/power/modulo) |
-| function | in (+ args) | out | fn, args |
-| subFormula | (mapped) | out | formulaId, version |
+| function | `in` or (`left`, `right`) depending on `fn` | out | fn, args |
+| subFormula | in | out | formulaId, version |
 | tableLookup | key | out | tableId, lookupKey, column |
-| conditional | condition, thenValue, elseValue | out | comparator |
+| conditional | condition, conditionRight, thenValue, elseValue | out | comparator |
 | aggregate | items | out | fn (sum/product/count/avg), range |
+
+### 2.3 Port Vocabulary and Runtime Semantics
+
+`targetPort` is part of the runtime contract, not just a frontend drawing detail.
+The execution engine resolves node inputs by `targetPort`, so port names must be
+preserved when a graph is saved, loaded, validated, or converted.
+
+If `targetPort` is omitted, the backend currently treats it as `in`.
+That fallback is only safe for unary-style nodes and should not be relied on for
+binary or multi-input nodes.
+
+#### 2.3.1 Canonical Input Ports by Node Type
+
+| Node Type | Canonical Input Ports | Notes |
+|-----------|-----------------------|-------|
+| `variable` | none | Value is resolved from request `inputs` by variable name |
+| `constant` | none | Value comes from node config |
+| `operator` | `left`, `right` | Required for all operators |
+| `function` | `in` | Used by `round`, `floor`, `ceil`, `abs`, `sqrt`, `ln`, `exp` |
+| `function` | `left`, `right` | Used by `min`, `max` |
+| `subFormula` | `in` | Current engine expects the referenced result to be provided through `in` |
+| `tableLookup` | `key` | Lookup key value comes from this port |
+| `conditional` | `condition`, `conditionRight`, `thenValue`, `elseValue` | Comparator is defined in config |
+| `aggregate` | `items` | Backend also tolerates indexed `items:0`, `items:1`, ... during evaluation |
+
+#### 2.3.2 Output Port Policy
+
+All node types currently emit a single output and should use `sourcePort = out`.
+
+The backend does not currently branch behavior by `sourcePort`, but the value
+should still be preserved in serialized graphs so future multi-output node types
+can be introduced without redesigning the edge model.
+
+#### 2.3.3 Validation Rules
+
+The backend validator currently enforces the following required input ports:
+
+- `operator`: `left`, `right`
+- `function(min|max)`: `left`, `right`
+- other `function` nodes: `in`
+- `conditional`: `condition`, `conditionRight`, `thenValue`, `elseValue`
+- `tableLookup`: `key`
+
+The backend currently does not enforce required ports for:
+
+- `subFormula`
+- `aggregate`
+
+These two node types are therefore structurally looser today and should be
+treated as areas for follow-up tightening.
+
+### 2.4 Support Status by Node Type
+
+The table below distinguishes backend execution support from frontend editor
+ergonomics. A node can be executable in the backend while still being weakly
+represented in the current editor.
+
+| Node Type | Backend Execution | Backend Validation | Current Editor Modeling | Notes |
+|-----------|-------------------|--------------------|-------------------------|-------|
+| `variable` | Ready | Ready | Partial | Editor can create it, but input semantics are implicit |
+| `constant` | Ready | Ready | Partial | Editor can create it, config UI exists |
+| `operator` | Ready | Ready | Weak | Needs explicit named handles for `left/right` |
+| `function` | Ready | Ready | Weak | `min/max` need binary handle modeling distinct from unary functions |
+| `subFormula` | Partial | Partial | Weak | Backend has execution path, but editor and validation are not yet strongly modeled |
+| `tableLookup` | Ready | Ready | Weak | Needs explicit `key` handle and supporting table UI later |
+| `conditional` | Ready | Ready | Weak | Needs 4 named input handles in editor |
+| `aggregate` | Ready | Partial | Weak | Backend supports evaluation, but editor and validation are still incomplete |
 
 ## 2.5 Formula Creation & Editing Workflow
 
@@ -120,6 +187,17 @@
 - 连线自动基于端口类型验证兼容性
 - 选中节点在属性面板中编辑配置
 - dagre 自动布局避免节点重叠
+- 自定义节点组件应显式展示命名 handles，而不是依赖默认无名连线点
+
+#### 3.1.1 Required Editor Behavior
+
+To stay aligned with backend execution semantics, the visual editor should:
+
+- preserve `sourceHandle` and `targetHandle` on every edge
+- block connections that omit required semantic ports for multi-input nodes
+- render different handle layouts for unary, binary, conditional, and lookup nodes
+- derive saved graph `outputs` from terminal nodes only after semantic validation
+- avoid silently collapsing multi-input nodes into default `in` edges
 
 ### 3.2 Text Mode
 
