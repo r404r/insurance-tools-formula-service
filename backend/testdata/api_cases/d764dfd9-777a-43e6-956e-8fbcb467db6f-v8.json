@@ -1,0 +1,910 @@
+{
+  "formulaId": "d764dfd9-777a-43e6-956e-8fbcb467db6f",
+  "formulaName": "寿险净保费计算",
+  "version": 8,
+  "outputNode": "node_1774715202288_0",
+  "generatedAt": "2026-03-29T02:51:26Z",
+  "caseCount": 100,
+  "cases": [
+    {
+      "id": "life-net-premium-001",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0001",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "10"
+    },
+    {
+      "id": "life-net-premium-002",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0001",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "9.803921569"
+    },
+    {
+      "id": "life-net-premium-003",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0001",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "9.661835749"
+    },
+    {
+      "id": "life-net-premium-004",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0001",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "9.523809524"
+    },
+    {
+      "id": "life-net-premium-005",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0005",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "50"
+    },
+    {
+      "id": "life-net-premium-006",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0005",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "49.019607843"
+    },
+    {
+      "id": "life-net-premium-007",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0005",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "48.309178744"
+    },
+    {
+      "id": "life-net-premium-008",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0005",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "47.619047619"
+    },
+    {
+      "id": "life-net-premium-009",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.001",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "100"
+    },
+    {
+      "id": "life-net-premium-010",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.001",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "98.039215686"
+    },
+    {
+      "id": "life-net-premium-011",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.001",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "96.618357488"
+    },
+    {
+      "id": "life-net-premium-012",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.001",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "95.238095238"
+    },
+    {
+      "id": "life-net-premium-013",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0025",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "250"
+    },
+    {
+      "id": "life-net-premium-014",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0025",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "245.098039216"
+    },
+    {
+      "id": "life-net-premium-015",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0025",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "241.54589372"
+    },
+    {
+      "id": "life-net-premium-016",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0025",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "238.095238095"
+    },
+    {
+      "id": "life-net-premium-017",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.01",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "1000"
+    },
+    {
+      "id": "life-net-premium-018",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.01",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "980.392156863"
+    },
+    {
+      "id": "life-net-premium-019",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.01",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "966.183574879"
+    },
+    {
+      "id": "life-net-premium-020",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.01",
+        "sumAssured": "100000"
+      },
+      "expectedOutput": "952.380952381"
+    },
+    {
+      "id": "life-net-premium-021",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0001",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "25"
+    },
+    {
+      "id": "life-net-premium-022",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0001",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "24.509803922"
+    },
+    {
+      "id": "life-net-premium-023",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0001",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "24.154589372"
+    },
+    {
+      "id": "life-net-premium-024",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0001",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "23.80952381"
+    },
+    {
+      "id": "life-net-premium-025",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0005",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "125"
+    },
+    {
+      "id": "life-net-premium-026",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0005",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "122.549019608"
+    },
+    {
+      "id": "life-net-premium-027",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0005",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "120.77294686"
+    },
+    {
+      "id": "life-net-premium-028",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0005",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "119.047619048"
+    },
+    {
+      "id": "life-net-premium-029",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.001",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "250"
+    },
+    {
+      "id": "life-net-premium-030",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.001",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "245.098039216"
+    },
+    {
+      "id": "life-net-premium-031",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.001",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "241.54589372"
+    },
+    {
+      "id": "life-net-premium-032",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.001",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "238.095238095"
+    },
+    {
+      "id": "life-net-premium-033",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0025",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "625"
+    },
+    {
+      "id": "life-net-premium-034",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0025",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "612.745098039"
+    },
+    {
+      "id": "life-net-premium-035",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0025",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "603.8647343"
+    },
+    {
+      "id": "life-net-premium-036",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0025",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "595.238095238"
+    },
+    {
+      "id": "life-net-premium-037",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.01",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "2500"
+    },
+    {
+      "id": "life-net-premium-038",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.01",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "2450.980392157"
+    },
+    {
+      "id": "life-net-premium-039",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.01",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "2415.458937198"
+    },
+    {
+      "id": "life-net-premium-040",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.01",
+        "sumAssured": "250000"
+      },
+      "expectedOutput": "2380.952380952"
+    },
+    {
+      "id": "life-net-premium-041",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0001",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "50"
+    },
+    {
+      "id": "life-net-premium-042",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0001",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "49.019607843"
+    },
+    {
+      "id": "life-net-premium-043",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0001",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "48.309178744"
+    },
+    {
+      "id": "life-net-premium-044",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0001",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "47.619047619"
+    },
+    {
+      "id": "life-net-premium-045",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0005",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "250"
+    },
+    {
+      "id": "life-net-premium-046",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0005",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "245.098039216"
+    },
+    {
+      "id": "life-net-premium-047",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0005",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "241.54589372"
+    },
+    {
+      "id": "life-net-premium-048",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0005",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "238.095238095"
+    },
+    {
+      "id": "life-net-premium-049",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.001",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "500"
+    },
+    {
+      "id": "life-net-premium-050",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.001",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "490.196078431"
+    },
+    {
+      "id": "life-net-premium-051",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.001",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "483.09178744"
+    },
+    {
+      "id": "life-net-premium-052",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.001",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "476.19047619"
+    },
+    {
+      "id": "life-net-premium-053",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0025",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "1250"
+    },
+    {
+      "id": "life-net-premium-054",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0025",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "1225.490196078"
+    },
+    {
+      "id": "life-net-premium-055",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0025",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "1207.729468599"
+    },
+    {
+      "id": "life-net-premium-056",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0025",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "1190.476190476"
+    },
+    {
+      "id": "life-net-premium-057",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.01",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "5000"
+    },
+    {
+      "id": "life-net-premium-058",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.01",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "4901.960784314"
+    },
+    {
+      "id": "life-net-premium-059",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.01",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "4830.917874396"
+    },
+    {
+      "id": "life-net-premium-060",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.01",
+        "sumAssured": "500000"
+      },
+      "expectedOutput": "4761.904761905"
+    },
+    {
+      "id": "life-net-premium-061",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0001",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "100"
+    },
+    {
+      "id": "life-net-premium-062",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0001",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "98.039215686"
+    },
+    {
+      "id": "life-net-premium-063",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0001",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "96.618357488"
+    },
+    {
+      "id": "life-net-premium-064",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0001",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "95.238095238"
+    },
+    {
+      "id": "life-net-premium-065",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0005",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "500"
+    },
+    {
+      "id": "life-net-premium-066",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0005",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "490.196078431"
+    },
+    {
+      "id": "life-net-premium-067",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0005",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "483.09178744"
+    },
+    {
+      "id": "life-net-premium-068",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0005",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "476.19047619"
+    },
+    {
+      "id": "life-net-premium-069",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.001",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "1000"
+    },
+    {
+      "id": "life-net-premium-070",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.001",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "980.392156863"
+    },
+    {
+      "id": "life-net-premium-071",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.001",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "966.183574879"
+    },
+    {
+      "id": "life-net-premium-072",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.001",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "952.380952381"
+    },
+    {
+      "id": "life-net-premium-073",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0025",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "2500"
+    },
+    {
+      "id": "life-net-premium-074",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0025",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "2450.980392157"
+    },
+    {
+      "id": "life-net-premium-075",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0025",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "2415.458937198"
+    },
+    {
+      "id": "life-net-premium-076",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0025",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "2380.952380952"
+    },
+    {
+      "id": "life-net-premium-077",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.01",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "10000"
+    },
+    {
+      "id": "life-net-premium-078",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.01",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "9803.921568627"
+    },
+    {
+      "id": "life-net-premium-079",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.01",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "9661.835748792"
+    },
+    {
+      "id": "life-net-premium-080",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.01",
+        "sumAssured": "1000000"
+      },
+      "expectedOutput": "9523.80952381"
+    },
+    {
+      "id": "life-net-premium-081",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0001",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "500"
+    },
+    {
+      "id": "life-net-premium-082",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0001",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "490.196078431"
+    },
+    {
+      "id": "life-net-premium-083",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0001",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "483.09178744"
+    },
+    {
+      "id": "life-net-premium-084",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0001",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "476.19047619"
+    },
+    {
+      "id": "life-net-premium-085",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0005",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "2500"
+    },
+    {
+      "id": "life-net-premium-086",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0005",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "2450.980392157"
+    },
+    {
+      "id": "life-net-premium-087",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0005",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "2415.458937198"
+    },
+    {
+      "id": "life-net-premium-088",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0005",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "2380.952380952"
+    },
+    {
+      "id": "life-net-premium-089",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.001",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "5000"
+    },
+    {
+      "id": "life-net-premium-090",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.001",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "4901.960784314"
+    },
+    {
+      "id": "life-net-premium-091",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.001",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "4830.917874396"
+    },
+    {
+      "id": "life-net-premium-092",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.001",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "4761.904761905"
+    },
+    {
+      "id": "life-net-premium-093",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.0025",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "12500"
+    },
+    {
+      "id": "life-net-premium-094",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.0025",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "12254.901960784"
+    },
+    {
+      "id": "life-net-premium-095",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.0025",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "12077.29468599"
+    },
+    {
+      "id": "life-net-premium-096",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.0025",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "11904.761904762"
+    },
+    {
+      "id": "life-net-premium-097",
+      "inputs": {
+        "interestRate": "0",
+        "qx": "0.01",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "50000"
+    },
+    {
+      "id": "life-net-premium-098",
+      "inputs": {
+        "interestRate": "0.02",
+        "qx": "0.01",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "49019.607843137"
+    },
+    {
+      "id": "life-net-premium-099",
+      "inputs": {
+        "interestRate": "0.035",
+        "qx": "0.01",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "48309.178743961"
+    },
+    {
+      "id": "life-net-premium-100",
+      "inputs": {
+        "interestRate": "0.05",
+        "qx": "0.01",
+        "sumAssured": "5000000"
+      },
+      "expectedOutput": "47619.047619048"
+    }
+  ]
+}
