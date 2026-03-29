@@ -12,9 +12,10 @@
 *.db-shm
 *.db-wal
 
-# IDE
+# IDE / AI
 .idea/
 .vscode/
+.claude/
 *.swp
 *.swo
 *~

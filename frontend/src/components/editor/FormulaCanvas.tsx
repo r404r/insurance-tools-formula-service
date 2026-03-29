@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useRef } from 'react'
 import {
   ReactFlow,
   Background,
@@ -15,12 +15,13 @@ import {
   type OnConnect,
   type Connection,
   type IsValidConnection,
+  type ReactFlowInstance,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import { useAutoLayout } from './hooks/useAutoLayout'
 import type { NodeType } from '../../types/formula'
 import FormulaNode from './FormulaNode'
-import { createNodeData, defaultNodeConfig, estimateNodeSize, getInputPorts } from './nodePresentation'
+import { createNodeData, defaultNodeConfig, getInputPorts } from './nodePresentation'
 
 interface Props {
   nodes: Node[]
@@ -41,50 +42,7 @@ const nodeTypes = {
 
 export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeSelect }: Props) {
   const autoLayout = useAutoLayout()
-  const scrollContainerRef = useRef<HTMLDivElement | null>(null)
-  const workspaceSize = useMemo(() => {
-    let maxRight = 720
-    let maxBottom = 520
-
-    for (const node of nodes) {
-      const nodeType = String(node.data.nodeType ?? node.type)
-      const config = (node.data.config as Record<string, unknown>) ?? {}
-      const measuredWidth = node.measured?.width ?? node.width
-      const measuredHeight = node.measured?.height ?? node.height
-      const size = measuredWidth && measuredHeight
-        ? { width: measuredWidth, height: measuredHeight }
-        : estimateNodeSize(nodeType, config)
-
-      maxRight = Math.max(maxRight, node.position.x + size.width + 160)
-      maxBottom = Math.max(maxBottom, node.position.y + size.height + 160)
-    }
-
-    return {
-      width: Math.max(720, Math.ceil(maxRight)),
-      height: Math.max(520, Math.ceil(maxBottom)),
-    }
-  }, [nodes])
-
-  useEffect(() => {
-    const container = scrollContainerRef.current
-    if (!container || nodes.length === 0) {
-      return
-    }
-
-    let minLeft = Number.POSITIVE_INFINITY
-    let minTop = Number.POSITIVE_INFINITY
-
-    for (const node of nodes) {
-      minLeft = Math.min(minLeft, node.position.x)
-      minTop = Math.min(minTop, node.position.y)
-    }
-
-    container.scrollTo({
-      left: Math.max(0, minLeft - 48),
-      top: Math.max(0, minTop - 48),
-      behavior: 'auto',
-    })
-  }, [nodes])
+  const rfInstance = useRef<ReactFlowInstance | null>(null)
 
   const isValidConnection: IsValidConnection = useCallback(
     (connection: Connection | Edge) => {
@@ -181,13 +139,12 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
       const type = event.dataTransfer.getData('application/reactflow-type') as NodeType
       if (!type) return
 
-      const bounds = (event.target as HTMLElement).closest('.react-flow')?.getBoundingClientRect()
-      if (!bounds) return
+      if (!rfInstance.current) return
 
-      const position = {
-        x: event.clientX - bounds.left,
-        y: event.clientY - bounds.top,
-      }
+      const position = rfInstance.current.screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
+      })
 
       const newNode: Node = {
         id: nextId(),
@@ -209,10 +166,14 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
   const handleAutoLayout = useCallback(() => {
     const laid = autoLayout(nodes, edges)
     onNodesChange(laid)
+    // Re-fit after layout so the graph is fully visible
+    requestAnimationFrame(() => {
+      rfInstance.current?.fitView({ padding: 0.15 })
+    })
   }, [nodes, edges, autoLayout, onNodesChange])
 
   return (
-    <div ref={scrollContainerRef} className="relative h-full min-h-[520px] min-w-[720px] flex-1 overflow-scroll bg-slate-50">
+    <div className="relative flex-1 h-full min-h-[400px]">
       <div className="pointer-events-none absolute top-2 right-2 z-10">
         <button
           onClick={handleAutoLayout}
@@ -221,7 +182,6 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
           Auto Layout
         </button>
       </div>
-      <div className="relative" style={{ width: workspaceSize.width, height: workspaceSize.height }}>
       <ReactFlow
         nodeTypes={nodeTypes}
         nodes={nodes}
@@ -234,13 +194,13 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
         onPaneClick={handlePaneClick}
         onDrop={handleDrop}
         onDragOver={handleDragOver}
-        style={{ width: workspaceSize.width, height: workspaceSize.height }}
+        onInit={(instance) => { rfInstance.current = instance }}
+        fitView
       >
         <Background />
         <Controls />
         <MiniMap />
       </ReactFlow>
-      </div>
     </div>
   )
 }
