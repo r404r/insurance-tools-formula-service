@@ -199,7 +199,7 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
       >
         <Background />
         <Controls />
-        <MiniMap />
+        <MiniMap pannable zoomable />
       </ReactFlow>
     </div>
   )
