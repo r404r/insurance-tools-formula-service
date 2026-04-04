@@ -16,7 +16,8 @@ import (
 
 // FormulaHandler implements formula CRUD HTTP endpoints.
 type FormulaHandler struct {
-	Formulas store.FormulaRepository
+	Formulas   store.FormulaRepository
+	Categories store.CategoryRepository
 }
 
 // List returns formulas filtered by optional domain and search query parameters.
@@ -85,6 +86,10 @@ func (h *FormulaHandler) Create(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "domain is required", Code: http.StatusBadRequest})
 		return
 	}
+	if _, err := h.Categories.GetBySlug(r.Context(), string(req.Domain)); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid category", Code: http.StatusBadRequest})
+		return
+	}
 
 	now := time.Now().UTC()
 	formula := &domain.Formula{
@@ -136,6 +141,13 @@ func (h *FormulaHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	if req.Name != nil {
 		formula.Name = *req.Name
+	}
+	if req.Domain != nil {
+		if _, err := h.Categories.GetBySlug(r.Context(), string(*req.Domain)); err != nil {
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid category", Code: http.StatusBadRequest})
+			return
+		}
+		formula.Domain = *req.Domain
 	}
 	if req.Description != nil {
 		formula.Description = *req.Description

@@ -1,6 +1,6 @@
 {
   "app": { "title": "保险公式计算引擎" },
-  "nav": { "formulas": "公式管理", "tables": "查找表", "users": "用户管理", "logout": "退出登录" },
+  "nav": { "formulas": "公式管理", "tables": "查找表", "categories": "分类管理", "users": "用户管理", "logout": "退出登录" },
   "auth": {
     "login": "登录",
     "register": "注册",
@@ -25,12 +25,30 @@
     "list": "公式列表",
     "search": "搜索公式...",
     "all": "全部",
+    "manageCategories": "管理分类",
+    "noCategory": "请先创建至少一个分类，再新建公式。",
     "life": "人寿保险",
     "property": "财产保险",
     "auto": "车险",
     "createTitle": "新建公式",
     "cancel": "取消",
     "createdAt": "创建时间"
+  },
+  "category": {
+    "title": "分类管理",
+    "subtitle": "当前共 {{count}} 个分类，可统一维护名称、颜色和排序。",
+    "create": "新建分类",
+    "name": "分类名称",
+    "slug": "分类标识",
+    "slugHint": "例如 life-insurance",
+    "description": "描述",
+    "color": "颜色",
+    "sortOrder": "排序",
+    "createSuccess": "分类已创建",
+    "updateSuccess": "分类已更新",
+    "deleteSuccess": "分类已删除",
+    "deleteConfirm": "确认删除分类“{{name}}”？",
+    "adminOnly": "仅管理员可以维护分类。"
   },
   "domain": { "life": "人寿保险", "property": "财产保险", "auto": "车险" },
   "version": {
@@ -86,6 +104,8 @@
     "loading": "加载中...",
     "error": "错误",
     "success": "成功",
-    "noData": "暂无数据"
+    "noData": "暂无数据",
+    "delete": "删除",
+    "edit": "编辑"
   }
 }

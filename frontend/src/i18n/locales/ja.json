@@ -1,6 +1,6 @@
 {
   "app": { "title": "保険計算式エンジン" },
-  "nav": { "formulas": "計算式管理", "tables": "ルックアップテーブル", "users": "ユーザー管理", "logout": "ログアウト" },
+  "nav": { "formulas": "計算式管理", "tables": "ルックアップテーブル", "categories": "分類管理", "users": "ユーザー管理", "logout": "ログアウト" },
   "auth": {
     "login": "ログイン",
     "register": "登録",
@@ -25,12 +25,30 @@
     "list": "計算式一覧",
     "search": "計算式を検索...",
     "all": "すべて",
+    "manageCategories": "分類を管理",
+    "noCategory": "計算式を作成する前に、少なくとも1つの分類を作成してください。",
     "life": "生命保険",
     "property": "損害保険",
     "auto": "自動車保険",
     "createTitle": "新規計算式作成",
     "cancel": "キャンセル",
     "createdAt": "作成日時"
+  },
+  "category": {
+    "title": "分類管理",
+    "subtitle": "現在 {{count}} 件の分類があります。名称、色、表示順をまとめて管理できます。",
+    "create": "分類を追加",
+    "name": "分類名",
+    "slug": "分類スラッグ",
+    "slugHint": "例: life-insurance",
+    "description": "説明",
+    "color": "色",
+    "sortOrder": "表示順",
+    "createSuccess": "分類を作成しました。",
+    "updateSuccess": "分類を更新しました。",
+    "deleteSuccess": "分類を削除しました。",
+    "deleteConfirm": "分類「{{name}}」を削除しますか？",
+    "adminOnly": "分類を管理できるのは管理者のみです。"
   },
   "domain": { "life": "生命保険", "property": "損害保険", "auto": "自動車保険" },
   "version": {
@@ -86,6 +104,8 @@
     "loading": "読み込み中...",
     "error": "エラー",
     "success": "成功",
-    "noData": "データなし"
+    "noData": "データなし",
+    "delete": "削除",
+    "edit": "編集"
   }
 }

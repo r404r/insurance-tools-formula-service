@@ -1,6 +1,6 @@
 {
   "app": { "title": "Insurance Formula Engine" },
-  "nav": { "formulas": "Formulas", "tables": "Lookup Tables", "users": "Users", "logout": "Logout" },
+  "nav": { "formulas": "Formulas", "tables": "Lookup Tables", "categories": "Categories", "users": "Users", "logout": "Logout" },
   "auth": {
     "login": "Login",
     "register": "Register",
@@ -25,12 +25,30 @@
     "list": "Formula List",
     "search": "Search formulas...",
     "all": "All",
+    "manageCategories": "Manage Categories",
+    "noCategory": "Create at least one category before creating formulas.",
     "life": "Life Insurance",
     "property": "Property Insurance",
     "auto": "Auto Insurance",
     "createTitle": "Create Formula",
     "cancel": "Cancel",
     "createdAt": "Created At"
+  },
+  "category": {
+    "title": "Category Management",
+    "subtitle": "{{count}} categories configured. Update names, colors, and ordering here.",
+    "create": "Create Category",
+    "name": "Category Name",
+    "slug": "Category Slug",
+    "slugHint": "Example: life-insurance",
+    "description": "Description",
+    "color": "Color",
+    "sortOrder": "Sort Order",
+    "createSuccess": "Category created.",
+    "updateSuccess": "Category updated.",
+    "deleteSuccess": "Category deleted.",
+    "deleteConfirm": "Delete category \"{{name}}\"?",
+    "adminOnly": "Only administrators can manage categories."
   },
   "domain": { "life": "Life Insurance", "property": "Property Insurance", "auto": "Auto Insurance" },
   "version": {
@@ -86,6 +104,8 @@
     "loading": "Loading...",
     "error": "Error",
     "success": "Success",
-    "noData": "No Data"
+    "noData": "No Data",
+    "delete": "Delete",
+    "edit": "Edit"
   }
 }

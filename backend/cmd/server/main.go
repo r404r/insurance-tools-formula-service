@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -86,7 +88,8 @@ func run(logger zerolog.Logger) error {
 		JWTMgr: jwtMgr,
 	}
 	formulaHandler := &api.FormulaHandler{
-		Formulas: store.Formulas(),
+		Formulas:   store.Formulas(),
+		Categories: store.Categories(),
 	}
 	versionHandler := &api.VersionHandler{
 		Versions: store.Versions(),
@@ -100,23 +103,26 @@ func run(logger zerolog.Logger) error {
 	}
 
 	tableHandler := &api.TableHandler{
-		Tables: store.Tables(),
+		Tables:     store.Tables(),
+		Categories: store.Categories(),
 	}
 	userHandler := &api.UserHandler{
 		Users: store.Users(),
 	}
+	categoryHandler := api.NewCategoryHandler(store.Categories(), store.Formulas(), store.Tables())
 
 	// Build the router.
 	router := api.NewRouter(api.RouterConfig{
-		AuthHandler:    authHandler,
-		FormulaHandler: formulaHandler,
-		VersionHandler: versionHandler,
-		CalcHandler:    calcHandler,
-		TableHandler:   tableHandler,
-		UserHandler:    userHandler,
-		JWTManager:     jwtMgr,
-		Logger:         logger,
-		CORSOrigins:    cfg.Server.CORSOrigins,
+		AuthHandler:     authHandler,
+		FormulaHandler:  formulaHandler,
+		VersionHandler:  versionHandler,
+		CalcHandler:     calcHandler,
+		TableHandler:    tableHandler,
+		UserHandler:     userHandler,
+		CategoryHandler: categoryHandler,
+		JWTManager:      jwtMgr,
+		Logger:          logger,
+		CORSOrigins:     cfg.Server.CORSOrigins,
 	})
 
 	// Start HTTP server.
@@ -185,6 +191,38 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 	}
 
 	now := time.Now().UTC()
+
+	// --- Default categories ---
+	defaultCategories := []struct {
+		Slug  string
+		Name  string
+		Color string
+		Order int
+	}{
+		{"life", "人寿保险", "#3b82f6", 1},
+		{"property", "财产保险", "#10b981", 2},
+		{"auto", "车险", "#f59e0b", 3},
+	}
+	for _, dc := range defaultCategories {
+		if _, err := s.Categories().GetBySlug(ctx, dc.Slug); err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("get category %s: %w", dc.Slug, err)
+			}
+			cat := &domain.Category{
+				ID:        uuid.New().String(),
+				Slug:      dc.Slug,
+				Name:      dc.Name,
+				Color:     dc.Color,
+				SortOrder: dc.Order,
+				CreatedAt: now,
+				UpdatedAt: now,
+			}
+			if err := s.Categories().Create(ctx, cat); err != nil {
+				return fmt.Errorf("create category %s: %w", dc.Slug, err)
+			}
+			logger.Info().Str("slug", dc.Slug).Msg("seed category created")
+		}
+	}
 
 	// Helper: create formula + version if formula doesn't exist.
 	seedFormula := func(name string, dom domain.InsuranceDomain, desc string, graph domain.FormulaGraph) error {
@@ -265,7 +303,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("寿险净保费计算", domain.DomainLife,
+	if err := seedFormula("寿险净保费计算", "life",
 		"Net premium = sumAssured × qx × v, where v = 1/(1+i). 输入: sumAssured(保额), qx(死亡率), interestRate(预定利率)",
 		lifeGraph); err != nil {
 		return err
@@ -301,7 +339,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("日本生命保険 収支相等純保険料", domain.DomainLife,
+	if err := seedFormula("日本生命保険 収支相等純保険料", "life",
 		"Pure premium approximation under the equivalence principle. 输入: deathBenefit(保険金額), expectedDeaths(想定死亡件数), policyCount(契約件数)",
 		japanEquivalenceGraph); err != nil {
 		return err
@@ -343,7 +381,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("日本生命保険 粗保険料分解", domain.DomainLife,
+	if err := seedFormula("日本生命保険 粗保険料分解", "life",
 		"Gross premium decomposition based on net premium plus expense loadings. 输入: netPremium(純保険料), acquisitionExpense(新契約費), collectionExpense(集金費), maintenanceExpense(維持費)",
 		japanGrossPremiumGraph); err != nil {
 		return err
@@ -397,7 +435,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("日本生命保険 責任準備金ロールフォワード", domain.DomainLife,
+	if err := seedFormula("日本生命保険 責任準備金ロールフォワード", "life",
 		"Reserve roll-forward approximation using level premium accumulation. 输入: reserveBegin(期初責任準備金), assumedInterestRate(予定利率), levelPremium(平準保険料), expectedBenefit(想定保険金), maintenanceExpense(維持費)",
 		japanReserveGraph); err != nil {
 		return err
@@ -439,7 +477,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("日本生命保険 解約返戻金近似", domain.DomainLife,
+	if err := seedFormula("日本生命保険 解約返戻金近似", "life",
 		"Surrender value approximation using reserve less a surrender charge amount, floored at zero. 输入: netPremiumReserve(純保険料式保険料積立金), deathBenefit(保険金額), surrenderChargeRate(控除率)",
 		japanSurrenderGraph); err != nil {
 		return err
@@ -482,7 +520,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("财产险保费计算", domain.DomainProperty,
+	if err := seedFormula("财产险保费计算", "property",
 		"Premium = baseRate × riskScore × sumInsured × (1 - discount). 输入: baseRate(基础费率), riskScore(风险评分), sumInsured(保额), discount(折扣率)",
 		propGraph); err != nil {
 		return err
@@ -520,7 +558,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("车险商业保费计算", domain.DomainAuto,
+	if err := seedFormula("车险商业保费计算", "auto",
 		"Premium = basePremium × vehicleFactor × driverFactor × ncdDiscount. 输入: basePremium(基础保费), vehicleFactor(车辆系数), driverFactor(驾驶员系数), ncdDiscount(无赔优惠系数)",
 		autoGraph); err != nil {
 		return err

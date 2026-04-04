@@ -14,7 +14,8 @@ import (
 
 // TableHandler implements lookup table HTTP endpoints.
 type TableHandler struct {
-	Tables store.TableRepository
+	Tables     store.TableRepository
+	Categories store.CategoryRepository
 }
 
 // List returns lookup tables, optionally filtered by domain.
@@ -46,6 +47,10 @@ func (h *TableHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	if req.Name == "" || req.Domain == "" || req.TableType == "" {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "name, domain, and tableType are required", Code: http.StatusBadRequest})
+		return
+	}
+	if _, err := h.Categories.GetBySlug(r.Context(), string(req.Domain)); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid category", Code: http.StatusBadRequest})
 		return
 	}
 

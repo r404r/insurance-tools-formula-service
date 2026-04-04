@@ -5,6 +5,7 @@ import LoginPage from './components/auth/LoginPage'
 import RegisterPage from './components/auth/RegisterPage'
 import Layout from './components/shared/Layout'
 import FormulaList from './components/shared/FormulaList'
+import CategoryManagementPage from './components/shared/CategoryManagementPage'
 import FormulaEditorPage from './components/editor/FormulaEditorPage'
 import VersionsPage from './components/version/VersionsPage'
 
@@ -33,6 +34,7 @@ function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<Layout />}>
               <Route path="/" element={<FormulaList />} />
+              <Route path="/categories" element={<CategoryManagementPage />} />
               <Route path="/formulas/:id/versions" element={<VersionsPage />} />
             </Route>
             <Route path="/formulas/:id" element={<FormulaEditorPage />} />

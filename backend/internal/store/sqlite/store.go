@@ -16,11 +16,12 @@ import (
 
 // SQLiteStore implements store.Store using a SQLite database.
 type SQLiteStore struct {
-	db       *sql.DB
-	formulas *formulaRepo
-	versions *versionRepo
-	users    *userRepo
-	tables   *tableRepo
+	db         *sql.DB
+	formulas   *formulaRepo
+	versions   *versionRepo
+	users      *userRepo
+	tables     *tableRepo
+	categories *categoryRepo
 }
 
 // New opens a SQLite database and returns a Store implementation.
@@ -41,13 +42,15 @@ func New(dsn string) (*SQLiteStore, error) {
 	s.versions = &versionRepo{db: db}
 	s.users = &userRepo{db: db}
 	s.tables = &tableRepo{db: db}
+	s.categories = &categoryRepo{db: db}
 	return s, nil
 }
 
-func (s *SQLiteStore) Formulas() store.FormulaRepository { return s.formulas }
-func (s *SQLiteStore) Versions() store.VersionRepository { return s.versions }
-func (s *SQLiteStore) Users() store.UserRepository       { return s.users }
-func (s *SQLiteStore) Tables() store.TableRepository     { return s.tables }
+func (s *SQLiteStore) Formulas() store.FormulaRepository    { return s.formulas }
+func (s *SQLiteStore) Versions() store.VersionRepository    { return s.versions }
+func (s *SQLiteStore) Users() store.UserRepository          { return s.users }
+func (s *SQLiteStore) Tables() store.TableRepository        { return s.tables }
+func (s *SQLiteStore) Categories() store.CategoryRepository { return s.categories }
 
 func (s *SQLiteStore) Close() error {
 	return s.db.Close()
@@ -91,6 +94,16 @@ func (s *SQLiteStore) Migrate(ctx context.Context) error {
 			table_type TEXT NOT NULL,
 			data_json  TEXT NOT NULL,
 			created_at TEXT NOT NULL
+		)`,
+		`CREATE TABLE IF NOT EXISTS categories (
+			id          TEXT PRIMARY KEY,
+			slug        TEXT NOT NULL UNIQUE,
+			name        TEXT NOT NULL,
+			description TEXT NOT NULL DEFAULT '',
+			color       TEXT NOT NULL DEFAULT '#6366f1',
+			sort_order  INTEGER NOT NULL DEFAULT 0,
+			created_at  TEXT NOT NULL,
+			updated_at  TEXT NOT NULL
 		)`,
 		`CREATE INDEX IF NOT EXISTS idx_formulas_domain ON formulas(domain)`,
 		`CREATE INDEX IF NOT EXISTS idx_formula_versions_formula ON formula_versions(formula_id)`,
@@ -570,4 +583,106 @@ func nullableInt(v *int) interface{} {
 		return nil
 	}
 	return *v
+}
+
+// ---------------------------------------------------------------------------
+// Category repository
+// ---------------------------------------------------------------------------
+
+type categoryRepo struct {
+	db *sql.DB
+}
+
+func (r *categoryRepo) Create(ctx context.Context, c *domain.Category) error {
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO categories (id, slug, name, description, color, sort_order, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		c.ID, c.Slug, c.Name, c.Description, c.Color, c.SortOrder,
+		c.CreatedAt.Format(time.RFC3339Nano),
+		c.UpdatedAt.Format(time.RFC3339Nano),
+	)
+	if err != nil {
+		return fmt.Errorf("insert category: %w", err)
+	}
+	return nil
+}
+
+func (r *categoryRepo) GetByID(ctx context.Context, id string) (*domain.Category, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, slug, name, description, color, sort_order, created_at, updated_at
+		 FROM categories WHERE id = ?`, id)
+	return scanCategory(row)
+}
+
+func (r *categoryRepo) GetBySlug(ctx context.Context, slug string) (*domain.Category, error) {
+	row := r.db.QueryRowContext(ctx,
+		`SELECT id, slug, name, description, color, sort_order, created_at, updated_at
+		 FROM categories WHERE slug = ?`, slug)
+	return scanCategory(row)
+}
+
+func (r *categoryRepo) List(ctx context.Context) ([]*domain.Category, error) {
+	rows, err := r.db.QueryContext(ctx,
+		`SELECT id, slug, name, description, color, sort_order, created_at, updated_at
+		 FROM categories ORDER BY sort_order ASC, name ASC`)
+	if err != nil {
+		return nil, fmt.Errorf("list categories: %w", err)
+	}
+	defer rows.Close()
+
+	var result []*domain.Category
+	for rows.Next() {
+		c, err := scanCategoryRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate categories: %w", err)
+	}
+	return result, nil
+}
+
+func (r *categoryRepo) Update(ctx context.Context, c *domain.Category) error {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE categories SET name = ?, description = ?, color = ?, sort_order = ?, updated_at = ? WHERE id = ?`,
+		c.Name, c.Description, c.Color, c.SortOrder, c.UpdatedAt.Format(time.RFC3339Nano), c.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("update category: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *categoryRepo) Delete(ctx context.Context, id string) error {
+	res, err := r.db.ExecContext(ctx, `DELETE FROM categories WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete category: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func scanCategory(s scanner) (*domain.Category, error) {
+	var c domain.Category
+	var createdAt, updatedAt string
+	err := s.Scan(&c.ID, &c.Slug, &c.Name, &c.Description, &c.Color, &c.SortOrder, &createdAt, &updatedAt)
+	if err != nil {
+		return nil, fmt.Errorf("scan category: %w", err)
+	}
+	c.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
+	c.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updatedAt)
+	return &c, nil
+}
+
+func scanCategoryRows(rows *sql.Rows) (*domain.Category, error) {
+	return scanCategory(rows)
 }

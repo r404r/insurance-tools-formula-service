@@ -5,13 +5,15 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Node, Edge } from '@xyflow/react'
 import { useFormulaStore } from '../../store/formulaStore'
 import { api } from '../../api/client'
+import { listCategories } from '../../api/categories'
+import { useAuthStore } from '../../store/authStore'
 import { apiToReactFlow, reactFlowToApi } from '../../utils/graphSerializer'
 import { reactFlowToText } from '../../utils/graphText'
 import FormulaCanvas from './FormulaCanvas'
 import TextEditor from './TextEditor'
 import NodePalette from './NodePalette'
 import NodePropertiesPanel from './NodePropertiesPanel'
-import type { Formula, FormulaVersion, NodeType } from '../../types/formula'
+import type { Formula, FormulaVersion, InsuranceDomain, NodeType } from '../../types/formula'
 import { createNodeData, getInputPorts } from './nodePresentation'
 
 function validateGraph(nodes: Node[], edges: Edge[]): string | null {
@@ -78,6 +80,7 @@ export default function FormulaEditorPage() {
   const { id } = useParams<{ id: string }>()
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const user = useAuthStore((state) => state.user)
   const editorMode = useFormulaStore((state) => state.editorMode)
   const setEditorMode = useFormulaStore((state) => state.setEditorMode)
   const setCurrentFormula = useFormulaStore((state) => state.setCurrentFormula)
@@ -92,11 +95,13 @@ export default function FormulaEditorPage() {
   const [isTestPanelCollapsed, setIsTestPanelCollapsed] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
+  const [isUpdatingCategory, setIsUpdatingCategory] = useState(false)
   const [isEditingName, setIsEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null
+  const isEditor = user?.role === 'editor' || user?.role === 'admin'
 
   const { data: formula } = useQuery({
     queryKey: ['formula', id],
@@ -117,6 +122,11 @@ export default function FormulaEditorPage() {
     queryKey: ['versions', id],
     queryFn: () => api.get<{ versions: FormulaVersion[] }>(`/formulas/${id}/versions`).then((r) => r.versions ?? []),
     enabled: !!id,
+  })
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => listCategories().then((response) => response.categories ?? []),
   })
 
   const latestVersion = versions?.[0]
@@ -296,6 +306,35 @@ export default function FormulaEditorPage() {
     }
   }, [formula, id, nameDraft, queryClient, setCurrentFormula, t])
 
+  const handleCategoryChange = useCallback(
+    async (nextDomain: InsuranceDomain) => {
+      if (!id || !formula || !nextDomain || nextDomain === formula.domain) {
+        return
+      }
+
+      setIsUpdatingCategory(true)
+      setSaveMessage(null)
+      try {
+        const updatedFormula = await api.put<Formula>(`/formulas/${id}`, {
+          domain: nextDomain,
+        })
+        setCurrentFormula(updatedFormula)
+        await Promise.all([
+          queryClient.invalidateQueries({ queryKey: ['formula', id] }),
+          queryClient.invalidateQueries({ queryKey: ['formulas'] }),
+          queryClient.invalidateQueries({ queryKey: ['categories'] }),
+        ])
+        setSaveMessage(t('editor.saved'))
+        setTimeout(() => setSaveMessage(null), 3000)
+      } catch (err) {
+        setSaveMessage((err as Error).message)
+      } finally {
+        setIsUpdatingCategory(false)
+      }
+    },
+    [formula, id, queryClient, setCurrentFormula, t]
+  )
+
   const handleTest = async () => {
     if (!id) return
     try {
@@ -309,6 +348,10 @@ export default function FormulaEditorPage() {
       setTestResult({ error: (err as Error).message })
     }
   }
+
+  const currentCategory = categories.find((category) => category.slug === formula?.domain)
+  const currentCategoryColor = currentCategory?.color ?? '#2563eb'
+  const currentCategoryLabel = currentCategory?.name ?? formula?.domain ?? ''
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-scroll overflow-y-scroll bg-white">
@@ -355,9 +398,35 @@ export default function FormulaEditorPage() {
               ID: {formula.id}
             </span>
           )}
-          <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-700 rounded">
-            {formula?.domain ? t(`domain.${formula.domain}`) : ''}
-          </span>
+          {isEditor ? (
+            <select
+              value={formula?.domain ?? ''}
+              onChange={(e) => {
+                void handleCategoryChange(e.target.value)
+              }}
+              disabled={isUpdatingCategory || categories.length === 0}
+              className="rounded border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700"
+            >
+              {formula?.domain && !currentCategory && (
+                <option value={formula.domain}>{currentCategoryLabel}</option>
+              )}
+              {categories.map((category) => (
+                <option key={category.id} value={category.slug}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <span
+              className="rounded px-2 py-0.5 text-xs"
+              style={{
+                color: currentCategoryColor,
+                backgroundColor: `${currentCategoryColor}18`,
+              }}
+            >
+              {currentCategoryLabel}
+            </span>
+          )}
           {latestVersion && (
             <span className="text-xs text-gray-400">v{latestVersion.version}</span>
           )}

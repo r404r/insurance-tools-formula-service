@@ -40,12 +40,23 @@ type TableRepository interface {
 	List(ctx context.Context, domain *domain.InsuranceDomain) ([]*domain.LookupTable, error)
 }
 
+// CategoryRepository manages category persistence.
+type CategoryRepository interface {
+	Create(ctx context.Context, c *domain.Category) error
+	GetByID(ctx context.Context, id string) (*domain.Category, error)
+	GetBySlug(ctx context.Context, slug string) (*domain.Category, error)
+	List(ctx context.Context) ([]*domain.Category, error)
+	Update(ctx context.Context, c *domain.Category) error
+	Delete(ctx context.Context, id string) error
+}
+
 // Store is the top-level storage abstraction aggregating all repositories.
 type Store interface {
 	Formulas() FormulaRepository
 	Versions() VersionRepository
 	Users() UserRepository
 	Tables() TableRepository
+	Categories() CategoryRepository
 	Migrate(ctx context.Context) error
 	Close() error
 }

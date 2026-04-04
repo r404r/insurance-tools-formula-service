@@ -10,15 +10,16 @@ import (
 
 // RouterConfig holds the dependencies needed to construct the API router.
 type RouterConfig struct {
-	AuthHandler    *AuthHandler
-	FormulaHandler *FormulaHandler
-	VersionHandler *VersionHandler
-	CalcHandler    *CalcHandler
-	TableHandler   *TableHandler
-	UserHandler    *UserHandler
-	JWTManager     *auth.JWTManager
-	Logger         zerolog.Logger
-	CORSOrigins    []string
+	AuthHandler     *AuthHandler
+	FormulaHandler  *FormulaHandler
+	VersionHandler  *VersionHandler
+	CalcHandler     *CalcHandler
+	TableHandler    *TableHandler
+	UserHandler     *UserHandler
+	CategoryHandler *CategoryHandler
+	JWTManager      *auth.JWTManager
+	Logger          zerolog.Logger
+	CORSOrigins     []string
 }
 
 // NewRouter creates a chi.Mux with all API routes wired up.
@@ -90,6 +91,16 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 				r.With(auth.RequirePermission(auth.PermTableManage)).
 					Post("/", cfg.TableHandler.Create)
 				r.Get("/{id}", cfg.TableHandler.Get)
+			})
+
+			// Category endpoints (list for all, CUD for admin).
+			r.Route("/categories", func(r chi.Router) {
+				r.Get("/", cfg.CategoryHandler.List)
+				r.With(auth.RequirePermission(auth.PermUserManage)).Post("/", cfg.CategoryHandler.Create)
+				r.Route("/{id}", func(r chi.Router) {
+					r.With(auth.RequirePermission(auth.PermUserManage)).Put("/", cfg.CategoryHandler.Update)
+					r.With(auth.RequirePermission(auth.PermUserManage)).Delete("/", cfg.CategoryHandler.Delete)
+				})
 			})
 
 			// User management endpoints (admin only).

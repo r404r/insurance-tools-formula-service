@@ -1,4 +1,15 @@
-export type InsuranceDomain = 'life' | 'property' | 'auto'
+export type InsuranceDomain = string
+
+export interface Category {
+  id: string
+  slug: string
+  name: string
+  description: string
+  color: string
+  sortOrder: number
+  createdAt: string
+  updatedAt: string
+}
 
 export type NodeType =
   | 'variable'

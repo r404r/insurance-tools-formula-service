@@ -5,14 +5,21 @@ import (
 	"time"
 )
 
-// Insurance domain types
+// InsuranceDomain is the category slug used to classify formulas and lookup tables.
+// Values are now dynamic (managed via the categories table) rather than a fixed enum.
 type InsuranceDomain string
 
-const (
-	DomainLife     InsuranceDomain = "life"
-	DomainProperty InsuranceDomain = "property"
-	DomainAuto     InsuranceDomain = "auto"
-)
+// Category represents a user-defined formula category (replaces fixed InsuranceDomain constants).
+type Category struct {
+	ID          string    `json:"id"`
+	Slug        string    `json:"slug"` // URL-safe identifier, used as filter key
+	Name        string    `json:"name"` // Display name (user-editable)
+	Description string    `json:"description"`
+	Color       string    `json:"color"`     // Hex color for UI badge, e.g. "#6366f1"
+	SortOrder   int       `json:"sortOrder"` // Display order
+	CreatedAt   time.Time `json:"createdAt"`
+	UpdatedAt   time.Time `json:"updatedAt"`
+}
 
 // Formula represents a named calculation formula
 type Formula struct {

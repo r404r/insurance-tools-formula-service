@@ -37,8 +37,9 @@ type CreateFormulaRequest struct {
 
 // UpdateFormulaRequest carries optional fields for updating formula metadata.
 type UpdateFormulaRequest struct {
-	Name        *string `json:"name,omitempty"`
-	Description *string `json:"description,omitempty"`
+	Name        *string                 `json:"name,omitempty"`
+	Domain      *domain.InsuranceDomain `json:"domain,omitempty"`
+	Description *string                 `json:"description,omitempty"`
 }
 
 // --- Version DTOs ---
@@ -93,6 +94,25 @@ type CreateTableRequest struct {
 	Domain    domain.InsuranceDomain `json:"domain"`
 	TableType string                 `json:"tableType"`
 	Data      json.RawMessage        `json:"data"`
+}
+
+// --- Category DTOs ---
+
+// CreateCategoryRequest carries data for creating a new category.
+type CreateCategoryRequest struct {
+	Slug        string `json:"slug"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Color       string `json:"color"`
+	SortOrder   int    `json:"sortOrder"`
+}
+
+// UpdateCategoryRequest carries optional fields for updating a category.
+type UpdateCategoryRequest struct {
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Color       *string `json:"color,omitempty"`
+	SortOrder   *int    `json:"sortOrder,omitempty"`
 }
 
 // --- Error DTOs ---
