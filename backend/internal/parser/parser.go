@@ -93,6 +93,8 @@ func (p *Parser) parsePrefix() (*ASTNode, error) {
 		return p.parseNumber()
 	case TokenIdentifier:
 		return p.parseIdentifierOrCall()
+	case TokenString:
+		return p.parseStringLiteral()
 	case TokenLParen:
 		return p.parseGrouped()
 	case TokenMinus:
@@ -106,6 +108,14 @@ func (p *Parser) parsePrefix() (*ASTNode, error) {
 
 func (p *Parser) parseNumber() (*ASTNode, error) {
 	node := &ASTNode{Kind: KindLiteral, Value: p.cur.Text}
+	p.advance()
+	return node, nil
+}
+
+// parseStringLiteral treats a quoted string as an identifier (variable name).
+// This allows lookup("table-uuid", x) and subFormula("uuid") to parse correctly.
+func (p *Parser) parseStringLiteral() (*ASTNode, error) {
+	node := &ASTNode{Kind: KindVariable, Value: p.cur.Text}
 	p.advance()
 	return node, nil
 }

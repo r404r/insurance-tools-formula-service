@@ -110,6 +110,7 @@ func run(logger zerolog.Logger) error {
 		Users: store.Users(),
 	}
 	categoryHandler := api.NewCategoryHandler(store.Categories(), store.Formulas(), store.Tables())
+	parseHandler := &api.ParseHandler{}
 
 	// Build the router.
 	router := api.NewRouter(api.RouterConfig{
@@ -120,6 +121,7 @@ func run(logger zerolog.Logger) error {
 		TableHandler:    tableHandler,
 		UserHandler:     userHandler,
 		CategoryHandler: categoryHandler,
+		ParseHandler:    parseHandler,
 		JWTManager:      jwtMgr,
 		Logger:          logger,
 		CORSOrigins:     cfg.Server.CORSOrigins,

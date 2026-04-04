@@ -17,6 +17,7 @@ type RouterConfig struct {
 	TableHandler    *TableHandler
 	UserHandler     *UserHandler
 	CategoryHandler *CategoryHandler
+	ParseHandler    *ParseHandler
 	JWTManager      *auth.JWTManager
 	Logger          zerolog.Logger
 	CORSOrigins     []string
@@ -37,6 +38,9 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 		// Public auth endpoints.
 		r.Post("/auth/login", cfg.AuthHandler.Login)
 		r.Post("/auth/register", cfg.AuthHandler.Register)
+
+		// Parse text formula to graph (stateless, no auth needed).
+		r.Post("/parse", cfg.ParseHandler.Parse)
 
 		// All remaining routes require authentication.
 		r.Group(func(r chi.Router) {

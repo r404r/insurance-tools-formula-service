@@ -163,7 +163,9 @@ export default function FormulaList() {
               <tr>
                 <th className="px-6 py-3 font-medium text-gray-600">{t('formula.name')}</th>
                 <th className="px-6 py-3 font-medium text-gray-600">{t('formula.id')}</th>
-                <th className="px-6 py-3 font-medium text-gray-600">{t('formula.domain')}</th>
+                {domainFilter === 'all' && (
+                  <th className="px-6 py-3 font-medium text-gray-600">{t('formula.domain')}</th>
+                )}
                 <th className="px-6 py-3 font-medium text-gray-600">{t('formula.description')}</th>
                 <th className="px-6 py-3 font-medium text-gray-600">{t('formula.createdAt')}</th>
               </tr>
@@ -177,7 +179,9 @@ export default function FormulaList() {
                 >
                   <td className="px-6 py-4 font-medium text-gray-900">{f.name}</td>
                   <td className="px-6 py-4 font-mono text-xs text-gray-500">{f.id}</td>
-                  <td className="px-6 py-4">{renderCategoryBadge(f.domain)}</td>
+                  {domainFilter === 'all' && (
+                    <td className="px-6 py-4">{renderCategoryBadge(f.domain)}</td>
+                  )}
                   <td className="px-6 py-4 text-gray-500">{f.description}</td>
                   <td className="px-6 py-4 text-gray-400">
                     {new Date(f.createdAt).toLocaleDateString()}

@@ -90,7 +90,7 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 			return "", err
 		}
 		g.Edges = append(g.Edges,
-			domain.FormulaEdge{Source: childID, Target: id, SourcePort: "out", TargetPort: "operand"},
+			domain.FormulaEdge{Source: childID, Target: id, SourcePort: "out", TargetPort: "left"},
 		)
 		return id, nil
 
@@ -116,29 +116,53 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 		return id, nil
 
 	case KindConditional:
-		// A conditional "if cond then cons else alt" maps to a conditional node
-		// with three inputs: condition, consequent, alternate.
+		// The engine and frontend expect a single conditional node with four
+		// inputs: condition, conditionRight, thenValue, elseValue and a
+		// comparator stored in config.
+		cond := node.Children[0]
+
+		var comp string
+		var condLeftNode, condRightNode *ASTNode
+
+		if cond.Kind == KindComparison {
+			// "if X > Y then ..." — extract comparator and both sides.
+			comp = comparatorName(cond.Op)
+			condLeftNode = cond.Children[0]
+			condRightNode = cond.Children[1]
+		} else {
+			// "if flag then ..." — treat as "flag != 0".
+			comp = "ne"
+			condLeftNode = cond
+			condRightNode = &ASTNode{Kind: KindLiteral, Value: "0"}
+		}
+
 		g.Nodes = append(g.Nodes, domain.FormulaNode{
 			ID:     id,
 			Type:   domain.NodeConditional,
-			Config: mustMarshal(domain.ConditionalConfig{}),
+			Config: mustMarshal(domain.ConditionalConfig{Comparator: comp}),
 		})
-		condID, err := astToDAGWalk(node.Children[0], g, counter)
+
+		condLeftID, err := astToDAGWalk(condLeftNode, g, counter)
 		if err != nil {
 			return "", err
 		}
-		consID, err := astToDAGWalk(node.Children[1], g, counter)
+		condRightID, err := astToDAGWalk(condRightNode, g, counter)
 		if err != nil {
 			return "", err
 		}
-		altID, err := astToDAGWalk(node.Children[2], g, counter)
+		thenID, err := astToDAGWalk(node.Children[1], g, counter)
+		if err != nil {
+			return "", err
+		}
+		elseID, err := astToDAGWalk(node.Children[2], g, counter)
 		if err != nil {
 			return "", err
 		}
 		g.Edges = append(g.Edges,
-			domain.FormulaEdge{Source: condID, Target: id, SourcePort: "out", TargetPort: "condition"},
-			domain.FormulaEdge{Source: consID, Target: id, SourcePort: "out", TargetPort: "consequent"},
-			domain.FormulaEdge{Source: altID, Target: id, SourcePort: "out", TargetPort: "alternate"},
+			domain.FormulaEdge{Source: condLeftID, Target: id, SourcePort: "out", TargetPort: "condition"},
+			domain.FormulaEdge{Source: condRightID, Target: id, SourcePort: "out", TargetPort: "conditionRight"},
+			domain.FormulaEdge{Source: thenID, Target: id, SourcePort: "out", TargetPort: "thenValue"},
+			domain.FormulaEdge{Source: elseID, Target: id, SourcePort: "out", TargetPort: "elseValue"},
 		)
 		return id, nil
 
@@ -146,6 +170,9 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 		fnLower := strings.ToLower(node.FuncName)
 		if fnLower == "lookup" {
 			return astToDAGLookup(id, node, g, counter)
+		}
+		if fnLower == "subformula" {
+			return astToDAGSubFormula(id, node, g, counter)
 		}
 		args := make(map[string]string)
 		// For round/floor/ceil with a precision argument, store it.
@@ -162,6 +189,10 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 				Args: args,
 			}),
 		})
+		// Use port names that match React Flow handle IDs:
+		// min/max take two inputs on left/right; everything else uses "in".
+		twoInput := fnLower == "min" || fnLower == "max"
+		argPorts := []string{"left", "right"}
 		for i, child := range node.Children {
 			// For round/floor/ceil the second child is the precision stored in config, skip wiring it as an edge.
 			if (fnLower == "round" || fnLower == "floor" || fnLower == "ceil") && i == 1 && child.Kind == KindLiteral {
@@ -171,7 +202,12 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 			if err != nil {
 				return "", err
 			}
-			port := fmt.Sprintf("arg%d", i)
+			var port string
+			if twoInput && i < len(argPorts) {
+				port = argPorts[i]
+			} else {
+				port = "in"
+			}
 			g.Edges = append(g.Edges,
 				domain.FormulaEdge{Source: childID, Target: id, SourcePort: "out", TargetPort: port},
 			)
@@ -205,6 +241,30 @@ func astToDAGLookup(id string, node *ASTNode, g *domain.FormulaGraph, counter *i
 		}
 		g.Edges = append(g.Edges,
 			domain.FormulaEdge{Source: keyID, Target: id, SourcePort: "out", TargetPort: "key"},
+		)
+	}
+	return id, nil
+}
+
+func astToDAGSubFormula(id string, node *ASTNode, g *domain.FormulaGraph, counter *int) (string, error) {
+	cfg := domain.SubFormulaConfig{}
+	// subFormula(formulaId) or subFormula(formulaId, inputExpr)
+	if len(node.Children) >= 1 && node.Children[0].Kind == KindVariable {
+		cfg.FormulaID = node.Children[0].Value
+	}
+	g.Nodes = append(g.Nodes, domain.FormulaNode{
+		ID:     id,
+		Type:   domain.NodeSubFormula,
+		Config: mustMarshal(cfg),
+	})
+	// The optional second arg becomes an edge input.
+	if len(node.Children) >= 2 {
+		inputID, err := astToDAGWalk(node.Children[1], g, counter)
+		if err != nil {
+			return "", err
+		}
+		g.Edges = append(g.Edges,
+			domain.FormulaEdge{Source: inputID, Target: id, SourcePort: "out", TargetPort: "in"},
 		)
 	}
 	return id, nil
@@ -340,7 +400,10 @@ func dagToASTWalk(
 		}
 		edges := inEdges[nodeID]
 		if cfg.Op == "negate" {
-			operandID := findEdgeSource(edges, "operand")
+			operandID := findEdgeSource(edges, "left")
+			if operandID == "" {
+				operandID = findEdgeSource(edges, "operand")
+			}
 			if operandID == "" && len(edges) > 0 {
 				operandID = edges[0].Source
 			}
@@ -376,8 +439,22 @@ func dagToASTWalk(
 		}
 		edges := inEdges[nodeID]
 		node := &ASTNode{Kind: KindFunctionCall, FuncName: cfg.Fn}
-		// Collect args in port-name order.
+		// Collect args: try arg0/arg1 ports first (legacy), then left/right for min/max, then "in".
 		argEdges := sortArgEdges(edges)
+		if len(argEdges) == 0 {
+			// New-style port names: left/right for min/max, "in" for single-input functions.
+			fnLower := strings.ToLower(cfg.Fn)
+			if fnLower == "min" || fnLower == "max" {
+				if leftID := findEdgeSource(edges, "left"); leftID != "" {
+					argEdges = append(argEdges, domain.FormulaEdge{Source: leftID, Target: nodeID, TargetPort: "left"})
+				}
+				if rightID := findEdgeSource(edges, "right"); rightID != "" {
+					argEdges = append(argEdges, domain.FormulaEdge{Source: rightID, Target: nodeID, TargetPort: "right"})
+				}
+			} else if inID := findEdgeSource(edges, "in"); inID != "" {
+				argEdges = append(argEdges, domain.FormulaEdge{Source: inID, Target: nodeID, TargetPort: "in"})
+			}
+		}
 		for _, e := range argEdges {
 			child, err := dagToASTWalk(e.Source, nodeMap, inEdges)
 			if err != nil {
@@ -391,6 +468,23 @@ func dagToASTWalk(
 		}
 		return node, nil
 
+	case domain.NodeSubFormula:
+		var cfg domain.SubFormulaConfig
+		if err := json.Unmarshal(fn.Config, &cfg); err != nil {
+			return nil, fmt.Errorf("node %s: bad sub-formula config: %w", nodeID, err)
+		}
+		edges := inEdges[nodeID]
+		node := &ASTNode{Kind: KindFunctionCall, FuncName: "subFormula"}
+		node.Children = append(node.Children, &ASTNode{Kind: KindVariable, Value: cfg.FormulaID})
+		if inputID := findEdgeSource(edges, "in"); inputID != "" {
+			child, err := dagToASTWalk(inputID, nodeMap, inEdges)
+			if err != nil {
+				return nil, err
+			}
+			node.Children = append(node.Children, child)
+		}
+		return node, nil
+
 	case domain.NodeConditional:
 		var cfg domain.ConditionalConfig
 		if err := json.Unmarshal(fn.Config, &cfg); err != nil {
@@ -398,50 +492,40 @@ func dagToASTWalk(
 		}
 		edges := inEdges[nodeID]
 
-		// If it has a comparator, this is a comparison node.
-		if cfg.Comparator != "" {
-			leftID := findEdgeSource(edges, "left")
-			rightID := findEdgeSource(edges, "right")
-			if leftID == "" || rightID == "" {
-				return nil, fmt.Errorf("node %s: comparison missing left or right", nodeID)
-			}
-			left, err := dagToASTWalk(leftID, nodeMap, inEdges)
-			if err != nil {
-				return nil, err
-			}
-			right, err := dagToASTWalk(rightID, nodeMap, inEdges)
-			if err != nil {
-				return nil, err
-			}
-			return &ASTNode{
-				Kind:     KindComparison,
-				Op:       comparatorSymbol(cfg.Comparator),
-				Children: []*ASTNode{left, right},
-			}, nil
+		// Merged conditional node: comparator + condition/conditionRight/thenValue/elseValue.
+		condLeftID := findEdgeSource(edges, "condition")
+		condRightID := findEdgeSource(edges, "conditionRight")
+		thenID := findEdgeSource(edges, "thenValue")
+		elseID := findEdgeSource(edges, "elseValue")
+		if condLeftID == "" || condRightID == "" || thenID == "" || elseID == "" {
+			return nil, fmt.Errorf("node %s: conditional missing condition/conditionRight/thenValue/elseValue", nodeID)
 		}
 
-		// Otherwise it is an if/then/else conditional.
-		condID := findEdgeSource(edges, "condition")
-		consID := findEdgeSource(edges, "consequent")
-		altID := findEdgeSource(edges, "alternate")
-		if condID == "" || consID == "" || altID == "" {
-			return nil, fmt.Errorf("node %s: conditional missing condition/consequent/alternate", nodeID)
-		}
-		cond, err := dagToASTWalk(condID, nodeMap, inEdges)
+		condLeft, err := dagToASTWalk(condLeftID, nodeMap, inEdges)
 		if err != nil {
 			return nil, err
 		}
-		cons, err := dagToASTWalk(consID, nodeMap, inEdges)
+		condRight, err := dagToASTWalk(condRightID, nodeMap, inEdges)
 		if err != nil {
 			return nil, err
 		}
-		alt, err := dagToASTWalk(altID, nodeMap, inEdges)
+		thenNode, err := dagToASTWalk(thenID, nodeMap, inEdges)
 		if err != nil {
 			return nil, err
+		}
+		elseNode, err := dagToASTWalk(elseID, nodeMap, inEdges)
+		if err != nil {
+			return nil, err
+		}
+
+		comparison := &ASTNode{
+			Kind:     KindComparison,
+			Op:       comparatorSymbol(cfg.Comparator),
+			Children: []*ASTNode{condLeft, condRight},
 		}
 		return &ASTNode{
 			Kind:     KindConditional,
-			Children: []*ASTNode{cond, cons, alt},
+			Children: []*ASTNode{comparison, thenNode, elseNode},
 		}, nil
 
 	case domain.NodeTableLookup:

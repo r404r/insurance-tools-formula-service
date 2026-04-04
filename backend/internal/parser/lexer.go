@@ -30,6 +30,7 @@ const (
 	TokenIf                          // keyword if
 	TokenThen                        // keyword then
 	TokenElse                        // keyword else
+	TokenString                      // quoted string literal "..."
 	TokenEOF                         // end of input
 )
 
@@ -54,6 +55,7 @@ var tokenNames = map[TokenType]string{
 	TokenIf:         "if",
 	TokenThen:       "then",
 	TokenElse:       "else",
+	TokenString:     "String",
 	TokenEOF:        "EOF",
 }
 
@@ -70,7 +72,7 @@ func (t Token) String() string {
 	if !ok {
 		name = "?"
 	}
-	if t.Type == TokenNumber || t.Type == TokenIdentifier {
+	if t.Type == TokenNumber || t.Type == TokenIdentifier || t.Type == TokenString {
 		return fmt.Sprintf("%s(%s)@%d", name, t.Text, t.Pos)
 	}
 	return fmt.Sprintf("%s@%d", name, t.Pos)
@@ -189,6 +191,11 @@ func (l *Lexer) NextToken() Token {
 		return Token{Type: TokenComma, Text: ",", Pos: startPos}
 	}
 
+	// Quoted string literals: "..."
+	if l.ch == '"' {
+		return l.readString(startPos)
+	}
+
 	// Numbers: integer or decimal
 	if unicode.IsDigit(l.ch) || (l.ch == '.' && l.peek() != 0 && unicode.IsDigit(l.peek())) {
 		return l.readNumber(startPos)
@@ -220,6 +227,19 @@ func (l *Lexer) readNumber(startPos int) Token {
 		}
 	}
 	return Token{Type: TokenNumber, Text: sb.String(), Pos: startPos}
+}
+
+func (l *Lexer) readString(startPos int) Token {
+	l.advance() // consume opening '"'
+	var sb strings.Builder
+	for l.ch != 0 && l.ch != '"' {
+		sb.WriteRune(l.ch)
+		l.advance()
+	}
+	if l.ch == '"' {
+		l.advance() // consume closing '"'
+	}
+	return Token{Type: TokenString, Text: sb.String(), Pos: startPos}
 }
 
 func (l *Lexer) readIdentifier(startPos int) Token {

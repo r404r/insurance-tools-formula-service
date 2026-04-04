@@ -73,6 +73,8 @@
     "latexPreview": "LaTeX プレビュー",
     "latexPreviewEmpty": "数式を入力するとここにレンダリング結果が表示されます",
     "latexPreviewError": "数式をレンダリングできません",
+    "applyToGraph": "グラフに適用",
+    "textApplied": "テキストをグラフに適用しました",
     "autoLayout": "自動レイアウト",
     "nodeTypes": "ノードタイプ",
     "properties": "プロパティ"

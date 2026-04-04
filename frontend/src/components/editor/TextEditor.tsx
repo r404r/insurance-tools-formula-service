@@ -7,9 +7,10 @@ import { formulaTextToLatex } from '../../utils/formulaLatex'
 interface Props {
   value: string
   onChange: (value: string) => void
+  isParsing?: boolean
 }
 
-export default function TextEditor({ value, onChange }: Props) {
+export default function TextEditor({ value, onChange, isParsing }: Props) {
   const { t } = useTranslation()
   const [localValue, setLocalValue] = useState(value)
 
@@ -44,9 +45,10 @@ export default function TextEditor({ value, onChange }: Props) {
         <span className="text-sm font-medium text-gray-600">{t('editor.text')}</span>
         <button
           onClick={handleApply}
-          className="ml-auto bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700"
+          disabled={isParsing}
+          className="ml-auto bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700 disabled:opacity-50"
         >
-          {t('editor.validate')}
+          {isParsing ? t('common.loading') : t('editor.applyToGraph')}
         </button>
       </div>
       <div className="flex min-h-0 flex-1 flex-col">

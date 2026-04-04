@@ -115,6 +115,18 @@ type UpdateCategoryRequest struct {
 	SortOrder   *int    `json:"sortOrder,omitempty"`
 }
 
+// --- Parse DTOs ---
+
+// ParseRequest carries a text formula to be converted to a DAG graph.
+type ParseRequest struct {
+	Text string `json:"text"`
+}
+
+// ParseResponse returns the DAG graph converted from a text formula.
+type ParseResponse struct {
+	Graph domain.FormulaGraph `json:"graph"`
+}
+
 // --- Error DTOs ---
 
 // ErrorResponse is the standard error envelope returned by the API.

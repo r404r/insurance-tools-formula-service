@@ -9,12 +9,14 @@ import { listCategories } from '../../api/categories'
 import { useAuthStore } from '../../store/authStore'
 import { apiToReactFlow, reactFlowToApi } from '../../utils/graphSerializer'
 import { reactFlowToText } from '../../utils/graphText'
+import { parseFormula } from '../../api/parse'
 import FormulaCanvas from './FormulaCanvas'
 import TextEditor from './TextEditor'
 import NodePalette from './NodePalette'
 import NodePropertiesPanel from './NodePropertiesPanel'
 import type { Formula, FormulaVersion, InsuranceDomain, NodeType } from '../../types/formula'
 import { createNodeData, getInputPorts } from './nodePresentation'
+import { useAutoLayout } from './hooks/useAutoLayout'
 
 function validateGraph(nodes: Node[], edges: Edge[]): string | null {
   if (nodes.length === 0) return 'Graph is empty'
@@ -93,6 +95,7 @@ export default function FormulaEditorPage() {
   const [testInputs, setTestInputs] = useState<Record<string, string>>({})
   const [testResult, setTestResult] = useState<Record<string, string> | null>(null)
   const [isTestPanelCollapsed, setIsTestPanelCollapsed] = useState(false)
+  const [isParsing, setIsParsing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
   const [isUpdatingCategory, setIsUpdatingCategory] = useState(false)
@@ -100,6 +103,7 @@ export default function FormulaEditorPage() {
   const [nameDraft, setNameDraft] = useState('')
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
+  const autoLayout = useAutoLayout()
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null
   const isEditor = user?.role === 'editor' || user?.role === 'admin'
 
@@ -235,6 +239,27 @@ export default function FormulaEditorPage() {
     },
     []
   )
+
+  const handleApplyText = useCallback(async (text: string) => {
+    setTextValue(text)
+    setIsParsing(true)
+    setSaveMessage(null)
+    try {
+      const { graph } = await parseFormula(text)
+      const { nodes: newNodes, edges: newEdges } = apiToReactFlow(graph)
+      const hydratedNodes = enrichSubFormulaNodes(newNodes)
+      const layoutNodes = autoLayout(hydratedNodes, newEdges)
+      setNodes(layoutNodes)
+      setEdges(newEdges)
+      setSelectedNodeId(null)
+      setSaveMessage(t('editor.textApplied'))
+      setTimeout(() => setSaveMessage(null), 3000)
+    } catch (err) {
+      setSaveMessage((err as Error).message)
+    } finally {
+      setIsParsing(false)
+    }
+  }, [autoLayout, enrichSubFormulaNodes, t])
 
   const handleSave = async () => {
     if (!id) return
@@ -481,7 +506,7 @@ export default function FormulaEditorPage() {
           </div>
         ) : (
           <div className="h-full min-h-[520px] min-w-[820px]">
-            <TextEditor value={textValue} onChange={setTextValue} />
+            <TextEditor value={textValue} onChange={handleApplyText} isParsing={isParsing} />
           </div>
         )}
       </div>

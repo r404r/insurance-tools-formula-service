@@ -73,6 +73,8 @@
     "latexPreview": "LaTeX 预览",
     "latexPreviewEmpty": "输入公式后将在这里显示渲染效果",
     "latexPreviewError": "公式渲染失败",
+    "applyToGraph": "应用到图形",
+    "textApplied": "文本已应用到图形",
     "autoLayout": "自动布局",
     "nodeTypes": "节点类型",
     "properties": "属性"
