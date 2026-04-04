@@ -37,3 +37,4 @@ Thumbs.db
 .env.local
 .env.production
 backend/bin/
+.gstack/

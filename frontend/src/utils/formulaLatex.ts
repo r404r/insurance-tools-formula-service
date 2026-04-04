@@ -352,8 +352,11 @@ export function formulaTextToLatex(input: string): string {
     .map((line) => line.trim())
     .filter(Boolean)
     .map((line) => {
-      const assignmentIndex = line.indexOf('=')
-      return assignmentIndex >= 0 ? line.slice(assignmentIndex + 1).trim() : line
+      // Only strip "identifier =" prefix; avoid false matches on >=, <=, !=, ==.
+      // Use Unicode property escapes (\p{L}, \p{N}) so non-ASCII labels like
+      // "保费 = age * rate" are handled correctly.
+      const assignmentMatch = /^[\p{L}_][\p{L}\p{N}_]*\s*=(?!=)/u.exec(line)
+      return assignmentMatch ? line.slice(assignmentMatch[0].length).trim() : line
     })
 
   const rendered = expressions.map((expression) => {

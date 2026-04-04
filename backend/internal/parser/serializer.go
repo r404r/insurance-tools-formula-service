@@ -451,8 +451,12 @@ func dagToASTWalk(
 				if rightID := findEdgeSource(edges, "right"); rightID != "" {
 					argEdges = append(argEdges, domain.FormulaEdge{Source: rightID, Target: nodeID, TargetPort: "right"})
 				}
-			} else if inID := findEdgeSource(edges, "in"); inID != "" {
-				argEdges = append(argEdges, domain.FormulaEdge{Source: inID, Target: nodeID, TargetPort: "in"})
+			} else {
+				for _, e := range edges {
+					if e.TargetPort == "in" {
+						argEdges = append(argEdges, e)
+					}
+				}
 			}
 		}
 		for _, e := range argEdges {
