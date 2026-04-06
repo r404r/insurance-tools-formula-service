@@ -1,6 +1,6 @@
 # 003 - Lookup Table 多 Key 支持
 
-**Status**: in-progress
+**Status**: completed
 **Created**: 2026-04-06
 
 ## 需求
@@ -51,4 +51,4 @@ Lookup Table 目前只支持单个 key 列（固定列名 `"key"`）匹配一行
 - [x] 前端：nodePresentation.ts 动态端口
 - [x] 前端：NodePropertiesPanel.tsx key 列 UI
 - [x] codex review + fix
-- [ ] 提交
+- [x] 提交
