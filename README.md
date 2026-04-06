@@ -214,9 +214,62 @@ formula-service/
 │       ├── types/          # TypeScript types
 │       └── utils/          # Serializers, formatters
 ├── docs/                   # Requirements, design, implementation log
+│   ├── backlog.md          # Need pool (all planned & ad-hoc requirements)
+│   └── tasks/              # Per-feature task files with progress tracking
 ├── Makefile
 └── docker-compose.yml
 ```
+
+## Development Workflow
+
+本项目采用三层持久化的任务管理体系，确保长周期开发中即使中断也能快速恢复。
+
+### 三层结构
+
+| 层 | 文件 | 用途 |
+|----|------|------|
+| 需求池 | `docs/backlog.md` | 收集所有需求，随时可加，统一排期 |
+| Task 文件 | `docs/tasks/NNN-slug.md` | 单个功能的完整生命周期（需求、设计、TODO、中断记录） |
+| 工作流指令 | `CLAUDE.md` | 每次新会话自动遵循的开发规范 |
+
+### 工作流程
+
+```
+想到需求 → 加到 backlog.md（待规划）
+    ↓
+决定开始 → 创建 task 文件（从 TEMPLATE.md），填写需求 + 设计 + TODO
+    ↓
+逐步实现 → 每完成一步标记 TODO ✓，commit + review
+    ↓
+中断？   → 更新 task 文件的 TODO 进度 + 写「中断记录」
+    ↓
+恢复     → 读 backlog → 找 in-progress task → 读中断记录 → 继续
+    ↓
+完成     → Status → done，更新 implementation-log，backlog 移到「已完成」
+```
+
+### Task 文件模板
+
+每个 task 文件位于 `docs/tasks/`，模板见 `docs/tasks/TEMPLATE.md`，包含：
+
+- **Status** — `planning` | `in-progress` | `blocked` | `done`
+- **需求** — 要解决什么问题
+- **设计** — 技术方案、涉及文件
+- **TODO** — 可逐项勾选的步骤清单
+- **中断记录** — 中断时的状态快照，供下次恢复
+- **完成标准** — 功能、测试、review 通过
+
+### 与其他文档的关系
+
+| 文件 | 角色 |
+|------|------|
+| `docs/requirements.md` | 产品需求（稳定） |
+| `docs/design.md` | 架构设计（稳定） |
+| `docs/next-steps.md` | 战略路线图（阶段性更新） |
+| `docs/implementation-log.md` | 历史完成记录（task 完成后追加） |
+| `docs/collaboration-plan.md` | Claude Code + Codex 协作规范 |
+| `docs/backlog.md` | 战术层可执行需求列表 |
+| `docs/tasks/*.md` | 单个功能的开发追踪 |
 
 ## License
 

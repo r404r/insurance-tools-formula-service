@@ -68,3 +68,32 @@ Backend reads env vars:
 - High-precision decimals via shopspring/decimal; results returned as strings
 - i18n keys follow `section.key` pattern (e.g., `formula.name`, `editor.save`)
 - API routes under `/api/v1/`
+
+## Development Workflow
+
+### Before Starting Any Task
+1. Check `docs/backlog.md` for current priorities
+2. Check `docs/tasks/` for any in-progress task (Status: in-progress)
+3. If resuming interrupted work, read the task file's "中断记录" section first
+
+### For Each New Feature/Fix
+1. Create task file: `docs/tasks/NNN-slug.md` using template in `docs/tasks/TEMPLATE.md`
+2. Fill in 需求 and 设计 sections, get user confirmation
+3. Break down into TODO checklist
+4. Implement step by step, marking each TODO as done
+5. After each logical step: commit + codex review
+
+### On Interruption
+Before ending a session or when token is running low:
+- Update the task file's TODO checkmarks to reflect actual progress
+- Write "中断记录" section: what was just done, what's next, any context needed
+
+### On Resume
+1. Read `docs/backlog.md` to see overall status
+2. Find task with Status: in-progress
+3. Read its 中断记录 and TODO list
+4. Continue from where it left off
+
+### Task Numbering
+- Sequential: 001, 002, 003...
+- Check existing files in `docs/tasks/` to determine next number
