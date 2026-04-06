@@ -35,13 +35,13 @@
 ## TODO
 
 - [x] 创建任务文件
-- [ ] 后端：Engine 接口 + defaultEngine 实现 ClearCache/CacheStats
-- [ ] 后端：Calculate() 接入缓存
-- [ ] 后端：CalculationEngine 接口同步
-- [ ] 后端：cache_handler.go + 路由
-- [ ] 前端：api/cache.ts
-- [ ] 前端：CacheSettingsPage.tsx
-- [ ] 前端：App.tsx 路由 + Nav 入口
-- [ ] 前端：i18n
-- [ ] codex review + fix
-- [ ] 提交
+- [x] 后端：Engine 接口 + defaultEngine 实现 ClearCache/CacheStats
+- [x] 后端：Calculate() 接入缓存
+- [x] 后端：CalculationEngine 接口同步
+- [x] 后端：cache_handler.go + 路由
+- [x] 前端：api/cache.ts
+- [x] 前端：CacheSettingsPage.tsx
+- [x] 前端：App.tsx 路由 + Nav 入口
+- [x] 前端：i18n
+- [x] codex review + fix
+- [x] 提交
