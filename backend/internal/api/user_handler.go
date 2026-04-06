@@ -1,11 +1,14 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/r404r/insurance-tools/formula-service/backend/internal/auth"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store"
 )
 
@@ -25,6 +28,32 @@ func (h *UserHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"users": users})
 }
 
+// Delete removes a user. Requires admin role. Cannot delete yourself or the last admin.
+// DELETE /api/v1/users/{id}
+func (h *UserHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	claims := auth.GetClaims(r.Context())
+	if claims != nil && claims.UserID == id {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "cannot delete yourself", Code: http.StatusBadRequest})
+		return
+	}
+
+	if err := h.Users.Delete(r.Context(), id); err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "user not found", Code: http.StatusNotFound})
+		case errors.Is(err, store.ErrLastAdmin):
+			writeJSON(w, http.StatusConflict, ErrorResponse{Error: "cannot delete the last administrator", Code: http.StatusConflict})
+		case errors.Is(err, store.ErrHasContent):
+			writeJSON(w, http.StatusConflict, ErrorResponse{Error: "user has associated formulas and cannot be deleted", Code: http.StatusConflict})
+		default:
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to delete user", Code: http.StatusInternalServerError})
+		}
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // UpdateRole changes a user's role. Requires admin role.
 // PATCH /api/v1/users/{id}/role
 func (h *UserHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +71,14 @@ func (h *UserHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Users.UpdateRole(r.Context(), id, req.Role); err != nil {
-		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "user not found", Code: http.StatusNotFound})
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "user not found", Code: http.StatusNotFound})
+		case errors.Is(err, store.ErrLastAdmin):
+			writeJSON(w, http.StatusConflict, ErrorResponse{Error: "cannot demote the last administrator", Code: http.StatusConflict})
+		default:
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to update role", Code: http.StatusInternalServerError})
+		}
 		return
 	}
 

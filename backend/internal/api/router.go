@@ -111,7 +111,10 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 			r.Route("/users", func(r chi.Router) {
 				r.Use(auth.RequirePermission(auth.PermUserManage))
 				r.Get("/", cfg.UserHandler.List)
-				r.Patch("/{id}/role", cfg.UserHandler.UpdateRole)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Patch("/role", cfg.UserHandler.UpdateRole)
+					r.Delete("/", cfg.UserHandler.Delete)
+				})
 			})
 		})
 	})

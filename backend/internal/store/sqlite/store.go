@@ -427,10 +427,57 @@ func (r *userRepo) List(ctx context.Context) ([]*domain.User, error) {
 }
 
 func (r *userRepo) UpdateRole(ctx context.Context, id string, role domain.Role) error {
+	// Prevent demoting the last admin.
+	if role != domain.RoleAdmin {
+		var currentRole string
+		err := r.db.QueryRowContext(ctx, `SELECT role FROM users WHERE id = ?`, id).Scan(&currentRole)
+		if err == sql.ErrNoRows {
+			return sql.ErrNoRows
+		}
+		if domain.Role(currentRole) == domain.RoleAdmin {
+			var adminCount int
+			_ = r.db.QueryRowContext(ctx,
+				`SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != ?`, id).Scan(&adminCount)
+			if adminCount == 0 {
+				return store.ErrLastAdmin
+			}
+		}
+	}
+
 	res, err := r.db.ExecContext(ctx,
 		`UPDATE users SET role = ? WHERE id = ?`, role, id)
 	if err != nil {
 		return fmt.Errorf("update role: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *userRepo) Delete(ctx context.Context, id string) error {
+	// Prevent deleting the last admin.
+	var currentRole string
+	err := r.db.QueryRowContext(ctx, `SELECT role FROM users WHERE id = ?`, id).Scan(&currentRole)
+	if err == sql.ErrNoRows {
+		return sql.ErrNoRows
+	}
+	if domain.Role(currentRole) == domain.RoleAdmin {
+		var adminCount int
+		_ = r.db.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != ?`, id).Scan(&adminCount)
+		if adminCount == 0 {
+			return store.ErrLastAdmin
+		}
+	}
+
+	res, err := r.db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
+	if err != nil {
+		if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
+			return store.ErrHasContent
+		}
+		return fmt.Errorf("delete user: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {

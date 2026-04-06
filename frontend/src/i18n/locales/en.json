@@ -99,6 +99,25 @@
     "nodesEvaluated": "Nodes Evaluated",
     "parallelLevels": "Parallel Levels"
   },
+  "user": {
+    "title": "User Management",
+    "subtitle": "{{count}} users registered",
+    "username": "Username",
+    "role": "Role",
+    "createdAt": "Registered At",
+    "actions": "Actions",
+    "you": "You",
+    "roleUpdated": "Role updated.",
+    "deleted": "User deleted.",
+    "deleteConfirm": "Delete user \"{{username}}\"?",
+    "adminOnly": "Only administrators can manage users.",
+    "roles": {
+      "admin": "Admin",
+      "editor": "Editor",
+      "reviewer": "Reviewer",
+      "viewer": "Viewer"
+    }
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",

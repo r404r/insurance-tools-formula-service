@@ -81,7 +81,7 @@ Backend reads env vars:
 2. Fill in 需求 and 设计 sections, get user confirmation
 3. Break down into TODO checklist
 4. Implement step by step, marking each TODO as done
-5. After each logical step: commit + codex review
+5. When feature is complete: run `/codex review`, fix any P1/P2 findings, then commit
 
 ### On Interruption
 Before ending a session or when token is running low:

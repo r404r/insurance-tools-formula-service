@@ -99,6 +99,25 @@
     "nodesEvaluated": "評価ノード数",
     "parallelLevels": "並列レベル"
   },
+  "user": {
+    "title": "ユーザー管理",
+    "subtitle": "登録ユーザー {{count}} 名",
+    "username": "ユーザー名",
+    "role": "ロール",
+    "createdAt": "登録日時",
+    "actions": "操作",
+    "you": "自分",
+    "roleUpdated": "ロールを更新しました。",
+    "deleted": "ユーザーを削除しました。",
+    "deleteConfirm": "ユーザー「{{username}}」を削除しますか？",
+    "adminOnly": "ユーザー管理は管理者のみ利用できます。",
+    "roles": {
+      "admin": "管理者",
+      "editor": "編集者",
+      "reviewer": "レビュアー",
+      "viewer": "閲覧者"
+    }
+  },
   "common": {
     "save": "保存",
     "cancel": "キャンセル",
