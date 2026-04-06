@@ -30,15 +30,15 @@
 ## TODO
 
 - [x] 创建任务文件
-- [ ] 后端：TableRepository 接口添加 Update/Delete
-- [ ] 后端：SQLite 实现 Update/Delete
-- [ ] 后端：dto.go 添加 UpdateTableRequest
-- [ ] 后端：table_handler.go 添加 Update/Delete handler
-- [ ] 后端：路由添加 PUT/DELETE /api/v1/tables/{id}
-- [ ] 前端：创建 api/tables.ts
-- [ ] 前端：创建 TableManagementPage.tsx
-- [ ] 前端：更新 App.tsx 路由
-- [ ] 前端：NodePropertiesPanel tableId 改为下拉
-- [ ] 前端：更新三语言 i18n
-- [ ] codex review + fix
-- [ ] 提交
+- [x] 后端：TableRepository 接口添加 Update/Delete
+- [x] 后端：SQLite 实现 Update/Delete
+- [x] 后端：dto.go 添加 UpdateTableRequest
+- [x] 后端：table_handler.go 添加 Update/Delete handler
+- [x] 后端：路由添加 PUT/DELETE /api/v1/tables/{id}
+- [x] 前端：创建 api/tables.ts
+- [x] 前端：创建 TableManagementPage.tsx
+- [x] 前端：更新 App.tsx 路由
+- [x] 前端：NodePropertiesPanel tableId 改为下拉
+- [x] 前端：更新三语言 i18n
+- [x] codex review + fix
+- [x] 提交
