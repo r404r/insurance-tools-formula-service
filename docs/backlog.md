@@ -14,8 +14,9 @@
 
 ## 已排期
 
-- [002-lookup-table-management.md](tasks/002-lookup-table-management.md) — Lookup Tables 管理实现（in-progress）
+（创建 task 文件后移到这里）
 
 ## 已完成
 
 - [001-user-management.md](tasks/001-user-management.md) — 用户管理实现（2026-04-06）
+- [002-lookup-table-management.md](tasks/002-lookup-table-management.md) — Lookup Tables 管理实现（2026-04-06）

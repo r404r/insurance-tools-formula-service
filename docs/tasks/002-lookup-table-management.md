@@ -1,6 +1,6 @@
 # 002 - Lookup Tables 管理实现
 
-**Status**: in-progress
+**Status**: completed
 **Created**: 2026-04-06
 
 ## 需求
