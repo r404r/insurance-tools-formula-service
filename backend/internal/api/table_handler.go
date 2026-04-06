@@ -28,10 +28,17 @@ func validateTableData(data json.RawMessage) error {
 	return nil
 }
 
+// CacheInvalidator can clear all cached calculation results.
+// Implemented by the calculation engine.
+type CacheInvalidator interface {
+	ClearCache()
+}
+
 // TableHandler implements lookup table HTTP endpoints.
 type TableHandler struct {
 	Tables     store.TableRepository
 	Categories store.CategoryRepository
+	Cache      CacheInvalidator // optional; cleared on table data changes
 }
 
 // List returns lookup tables, optionally filtered by domain.
@@ -142,6 +149,9 @@ func (h *TableHandler) Update(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to update table", Code: http.StatusInternalServerError})
 		return
 	}
+	if h.Cache != nil {
+		h.Cache.ClearCache()
+	}
 	writeJSON(w, http.StatusOK, existing)
 }
 
@@ -159,6 +169,9 @@ func (h *TableHandler) Delete(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to delete table", Code: http.StatusInternalServerError})
 		}
 		return
+	}
+	if h.Cache != nil {
+		h.Cache.ClearCache()
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

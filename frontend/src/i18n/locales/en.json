@@ -1,6 +1,6 @@
 {
   "app": { "title": "Insurance Formula Engine" },
-  "nav": { "formulas": "Formulas", "tables": "Lookup Tables", "categories": "Categories", "users": "Users", "logout": "Logout" },
+  "nav": { "formulas": "Formulas", "tables": "Lookup Tables", "categories": "Categories", "users": "Users", "cache": "Cache", "logout": "Logout" },
   "auth": {
     "login": "Login",
     "register": "Register",
@@ -145,5 +145,18 @@
     "noData": "No Data",
     "delete": "Delete",
     "edit": "Edit"
+  },
+  "cache": {
+    "title": "Cache Management",
+    "subtitle": "View calculation result cache status and clear it when needed",
+    "stats": "Cache Statistics",
+    "entries": "Current Entries",
+    "capacity": "Max Capacity",
+    "usage": "Usage",
+    "refresh": "Refresh",
+    "clear": "Clear Cache",
+    "clearConfirm": "Clear all cache entries? This cannot be undone.",
+    "clearSuccess": "Cache cleared",
+    "hint": "Tip: After updating lookup table data, clear the cache manually to ensure calculations use the latest data."
   }
 }

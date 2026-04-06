@@ -94,6 +94,7 @@ func run(logger zerolog.Logger) error {
 	versionHandler := &api.VersionHandler{
 		Versions: store.Versions(),
 		Formulas: store.Formulas(),
+		Cache:    eng,
 	}
 	calcHandler := &api.CalcHandler{
 		Engine:   eng,
@@ -105,12 +106,14 @@ func run(logger zerolog.Logger) error {
 	tableHandler := &api.TableHandler{
 		Tables:     store.Tables(),
 		Categories: store.Categories(),
+		Cache:      eng,
 	}
 	userHandler := &api.UserHandler{
 		Users: store.Users(),
 	}
 	categoryHandler := api.NewCategoryHandler(store.Categories(), store.Formulas(), store.Tables())
 	parseHandler := &api.ParseHandler{}
+	cacheHandler := &api.CacheHandler{Engine: eng}
 
 	// Build the router.
 	router := api.NewRouter(api.RouterConfig{
@@ -122,6 +125,7 @@ func run(logger zerolog.Logger) error {
 		UserHandler:     userHandler,
 		CategoryHandler: categoryHandler,
 		ParseHandler:    parseHandler,
+		CacheHandler:    cacheHandler,
 		JWTManager:      jwtMgr,
 		Logger:          logger,
 		CORSOrigins:     cfg.Server.CORSOrigins,

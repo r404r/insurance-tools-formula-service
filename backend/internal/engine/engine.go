@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -20,6 +21,13 @@ type Engine interface {
 	// Validate checks the formula graph for structural errors without
 	// executing it.
 	Validate(graph *domain.FormulaGraph) []ValidationError
+
+	// ClearCache removes all cached computation results.
+	ClearCache()
+
+	// CacheStats returns the current number of cached entries and the maximum
+	// cache capacity.
+	CacheStats() (size int, maxSize int)
 }
 
 // CalculationResult holds the output of a formula evaluation.
@@ -40,6 +48,10 @@ type CalculationResult struct {
 
 	// ExecutionTime is the wall-clock duration of the calculation.
 	ExecutionTime time.Duration `json:"executionTime"`
+
+	// CacheHit is true when the result was served from cache without
+	// re-evaluating the graph.
+	CacheHit bool `json:"cacheHit"`
 }
 
 // ValidationError describes a structural problem with a formula graph.
@@ -102,6 +114,15 @@ func NewEngine(cfg EngineConfig) Engine {
 	return engine
 }
 
+// graphHash returns a short SHA-256 digest of the serialised graph, used as
+// the cache key's "formula" dimension so that two different graph versions
+// never share a cache entry.
+func graphHash(graph *domain.FormulaGraph) string {
+	b, _ := json.Marshal(graph)
+	sum := sha256.Sum256(b)
+	return fmt.Sprintf("%x", sum[:8]) // 16 hex chars — enough for uniqueness
+}
+
 // Calculate implements Engine.Calculate.
 func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]string) (*CalculationResult, error) {
 	start := time.Now()
@@ -112,6 +133,31 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 		return nil, fmt.Errorf("parse inputs: %w", err)
 	}
 
+	// Check cache before executing the graph.
+	cacheKey := CacheKey{
+		FormulaID: graphHash(graph),
+		Version:   "1",
+		InputHash: ComputeInputHash(decInputs),
+	}
+	if cached, ok := e.cache.Get(cacheKey); ok {
+		outputs := make(map[string]string, len(cached.Outputs))
+		for k, v := range cached.Outputs {
+			outputs[k] = v.String()
+		}
+		intermediates := make(map[string]string, len(cached.Intermediates))
+		for k, v := range cached.Intermediates {
+			intermediates[k] = v.String()
+		}
+		return &CalculationResult{
+			Outputs:        outputs,
+			Intermediates:  intermediates,
+			NodesEvaluated: cached.NodesEvaluated,
+			ParallelLevels: cached.ParallelLevels,
+			ExecutionTime:  time.Since(start),
+			CacheHit:       true,
+		}, nil
+	}
+
 	plan, allResults, err := e.calculateGraph(ctx, graph, decInputs)
 	if err != nil {
 		return nil, err
@@ -120,16 +166,28 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 	// Collect outputs.
 	outputValues := collectOutputValues(plan, allResults)
 	outputs := make(map[string]string, len(outputValues))
+	outputDecimals := make(map[string]Decimal, len(outputValues))
 	for outID, val := range outputValues {
-			rounded := e.config.Precision.RoundOutput(val)
-			outputs[outID] = rounded.String()
+		rounded := e.config.Precision.RoundOutput(val)
+		outputs[outID] = rounded.String()
+		outputDecimals[outID] = rounded
 	}
 
 	// Collect all intermediates.
 	intermediates := make(map[string]string, len(allResults))
+	intermediateDecimals := make(map[string]Decimal, len(allResults))
 	for k, v := range allResults {
 		intermediates[k] = v.String()
+		intermediateDecimals[k] = v
 	}
+
+	// Store full result in cache (outputs + intermediates + metadata).
+	e.cache.Set(cacheKey, CachedResult{
+		Outputs:        outputDecimals,
+		Intermediates:  intermediateDecimals,
+		NodesEvaluated: len(allResults),
+		ParallelLevels: len(plan.Levels),
+	})
 
 	return &CalculationResult{
 		Outputs:        outputs,
@@ -137,7 +195,18 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 		NodesEvaluated: len(allResults),
 		ParallelLevels: len(plan.Levels),
 		ExecutionTime:  time.Since(start),
+		CacheHit:       false,
 	}, nil
+}
+
+// ClearCache implements Engine.ClearCache.
+func (e *defaultEngine) ClearCache() {
+	e.cache.Clear()
+}
+
+// CacheStats implements Engine.CacheStats.
+func (e *defaultEngine) CacheStats() (size int, maxSize int) {
+	return e.cache.Len(), e.cache.maxSize
 }
 
 func (e *defaultEngine) calculateGraph(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]Decimal) (*ExecutionPlan, map[string]Decimal, error) {

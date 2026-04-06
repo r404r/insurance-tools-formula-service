@@ -19,11 +19,19 @@ func (ck CacheKey) String() string {
 	return ck.FormulaID + ":" + ck.Version + ":" + ck.InputHash
 }
 
+// CachedResult holds the full output of a formula evaluation for cache storage.
+type CachedResult struct {
+	Outputs        map[string]Decimal
+	Intermediates  map[string]Decimal
+	NodesEvaluated int
+	ParallelLevels int
+}
+
 // cacheEntry stores a cached result and its insertion order for LRU eviction.
 type cacheEntry struct {
-	key     string
-	results map[string]Decimal
-	order   uint64
+	key    string
+	result CachedResult
+	order  uint64
 }
 
 // ResultCache is a thread-safe LRU cache for formula computation results.
@@ -46,28 +54,29 @@ func NewResultCache(maxSize int) *ResultCache {
 	}
 }
 
-// Get retrieves a cached result for the given key. Returns the result map
-// and true on a cache hit, or nil and false on a miss.
-func (rc *ResultCache) Get(key CacheKey) (map[string]Decimal, bool) {
+// Get retrieves a cached result for the given key. Returns the result and true
+// on a cache hit, or a zero value and false on a miss.
+func (rc *ResultCache) Get(key CacheKey) (CachedResult, bool) {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
 
 	entry, ok := rc.items[key.String()]
 	if !ok {
-		return nil, false
+		return CachedResult{}, false
 	}
 
-	// Return a copy to prevent callers from mutating cached data.
-	result := make(map[string]Decimal, len(entry.results))
-	for k, v := range entry.results {
-		result[k] = v
-	}
-	return result, true
+	// Return deep copies to prevent callers from mutating cached data.
+	return CachedResult{
+		Outputs:        copyResults(entry.result.Outputs),
+		Intermediates:  copyResults(entry.result.Intermediates),
+		NodesEvaluated: entry.result.NodesEvaluated,
+		ParallelLevels: entry.result.ParallelLevels,
+	}, true
 }
 
 // Set stores a computation result in the cache. If the cache is at capacity,
 // the oldest entry is evicted.
-func (rc *ResultCache) Set(key CacheKey, results map[string]Decimal) {
+func (rc *ResultCache) Set(key CacheKey, result CachedResult) {
 	rc.mu.Lock()
 	defer rc.mu.Unlock()
 
@@ -75,7 +84,12 @@ func (rc *ResultCache) Set(key CacheKey, results map[string]Decimal) {
 
 	// If key already exists, update it.
 	if entry, ok := rc.items[k]; ok {
-		entry.results = copyResults(results)
+		entry.result = CachedResult{
+			Outputs:        copyResults(result.Outputs),
+			Intermediates:  copyResults(result.Intermediates),
+			NodesEvaluated: result.NodesEvaluated,
+			ParallelLevels: result.ParallelLevels,
+		}
 		rc.counter++
 		entry.order = rc.counter
 		return
@@ -88,9 +102,14 @@ func (rc *ResultCache) Set(key CacheKey, results map[string]Decimal) {
 
 	rc.counter++
 	rc.items[k] = &cacheEntry{
-		key:     k,
-		results: copyResults(results),
-		order:   rc.counter,
+		key: k,
+		result: CachedResult{
+			Outputs:        copyResults(result.Outputs),
+			Intermediates:  copyResults(result.Intermediates),
+			NodesEvaluated: result.NodesEvaluated,
+			ParallelLevels: result.ParallelLevels,
+		},
+		order: rc.counter,
 	}
 }
 

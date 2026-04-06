@@ -72,6 +72,7 @@ type CalculateResponse struct {
 	ExecutionTimeMs float64           `json:"executionTimeMs"`
 	NodesEvaluated  int               `json:"nodesEvaluated"`
 	ParallelLevels  int               `json:"parallelLevels"`
+	CacheHit        bool              `json:"cacheHit"`
 }
 
 // BatchCalculateRequest carries parameters for multiple calculations.

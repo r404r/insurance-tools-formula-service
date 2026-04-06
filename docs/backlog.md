@@ -7,6 +7,7 @@
 - [ ] 版本 diff 视图
 - [ ] 保险领域公式模板（life/property/auto）
 - [ ] PostgreSQL Store 实现
+- [ ] MySQL Store 实现
 - [ ] 自定义 react-flow 节点组件（OperatorNode, VariableNode 等）
 - [ ] E2E 测试
 - [ ] 负载测试

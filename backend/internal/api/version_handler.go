@@ -19,6 +19,7 @@ import (
 type VersionHandler struct {
 	Versions store.VersionRepository
 	Formulas store.FormulaRepository
+	Cache    CacheInvalidator // optional; cleared when a version is published
 }
 
 // List returns all versions for a given formula.
@@ -170,6 +171,12 @@ func (h *VersionHandler) UpdateState(w http.ResponseWriter, r *http.Request) {
 	if err := h.Versions.UpdateState(r.Context(), formulaID, ver, req.State); err != nil {
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to update version state", Code: http.StatusInternalServerError})
 		return
+	}
+
+	// Invalidate cache when a new version is published so callers do not
+	// receive stale results computed against the previous graph.
+	if req.State == domain.StatePublished && h.Cache != nil {
+		h.Cache.ClearCache()
 	}
 
 	version.State = req.State

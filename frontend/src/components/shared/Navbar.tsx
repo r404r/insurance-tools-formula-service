@@ -74,6 +74,15 @@ export default function Navbar() {
               {t('nav.users')}
             </Link>
           )}
+
+          {isAdmin && (
+            <Link
+              to="/cache"
+              className="rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
+            >
+              {t('nav.cache')}
+            </Link>
+          )}
         </div>
       </div>
 

@@ -18,6 +18,7 @@ type RouterConfig struct {
 	UserHandler     *UserHandler
 	CategoryHandler *CategoryHandler
 	ParseHandler    *ParseHandler
+	CacheHandler    *CacheHandler
 	JWTManager      *auth.JWTManager
 	Logger          zerolog.Logger
 	CORSOrigins     []string
@@ -122,6 +123,13 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 					r.Delete("/", cfg.UserHandler.Delete)
 				})
 			})
+
+			// Cache management endpoints (admin only — both read and clear).
+			r.With(auth.RequirePermission(auth.PermUserManage)).
+				Route("/cache", func(r chi.Router) {
+					r.Get("/", cfg.CacheHandler.Stats)
+					r.Delete("/", cfg.CacheHandler.Clear)
+				})
 		})
 	})
 

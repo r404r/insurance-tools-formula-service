@@ -16,6 +16,8 @@ import (
 type CalculationEngine interface {
 	Calculate(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]string) (*engine.CalculationResult, error)
 	Validate(graph *domain.FormulaGraph) []engine.ValidationError
+	ClearCache()
+	CacheStats() (size int, maxSize int)
 }
 
 // CalcHandler implements calculation HTTP endpoints.
@@ -58,6 +60,7 @@ func (h *CalcHandler) Calculate(w http.ResponseWriter, r *http.Request) {
 		ExecutionTimeMs: float64(result.ExecutionTime.Microseconds()) / 1000.0,
 		NodesEvaluated:  result.NodesEvaluated,
 		ParallelLevels:  result.ParallelLevels,
+		CacheHit:        result.CacheHit,
 	})
 }
 
@@ -101,6 +104,7 @@ func (h *CalcHandler) BatchCalculate(w http.ResponseWriter, r *http.Request) {
 			ExecutionTimeMs: float64(result.ExecutionTime.Microseconds()) / 1000.0,
 			NodesEvaluated:  result.NodesEvaluated,
 			ParallelLevels:  result.ParallelLevels,
+			CacheHit:        result.CacheHit,
 		})
 	}
 
