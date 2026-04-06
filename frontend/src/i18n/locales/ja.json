@@ -99,6 +99,23 @@
     "nodesEvaluated": "評価ノード数",
     "parallelLevels": "並列レベル"
   },
+  "table": {
+    "title": "ルックアップテーブル",
+    "subtitle": "{{count}} 件のルックアップテーブル",
+    "create": "テーブルを追加",
+    "name": "テーブル名",
+    "domain": "分類",
+    "tableType": "テーブルタイプ",
+    "data": "テーブルデータ（JSON）",
+    "dataHint": "形式：[{\"key\":\"1\", \"col\":\"val\"}, ...]",
+    "selectDomain": "分類を選択",
+    "selectTable": "テーブルを選択",
+    "createSuccess": "テーブルを作成しました。",
+    "updateSuccess": "テーブルを更新しました。",
+    "deleteSuccess": "テーブルを削除しました。",
+    "deleteConfirm": "テーブル「{{name}}」を削除しますか？",
+    "invalidJson": "JSONフォーマットが無効です。確認してください。"
+  },
   "user": {
     "title": "ユーザー管理",
     "subtitle": "登録ユーザー {{count}} 名",

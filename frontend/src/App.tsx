@@ -9,6 +9,7 @@ import Layout from './components/shared/Layout'
 import FormulaList from './components/shared/FormulaList'
 import CategoryManagementPage from './components/shared/CategoryManagementPage'
 import UserManagementPage from './components/shared/UserManagementPage'
+import TableManagementPage from './components/shared/TableManagementPage'
 import FormulaEditorPage from './components/editor/FormulaEditorPage'
 import VersionsPage from './components/version/VersionsPage'
 
@@ -52,6 +53,7 @@ function App() {
             <Route element={<Layout />}>
               <Route path="/" element={<FormulaList />} />
               <Route path="/categories" element={<CategoryManagementPage />} />
+              <Route path="/tables" element={<TableManagementPage />} />
               <Route path="/users" element={<UserManagementPage />} />
               <Route path="/formulas/:id/versions" element={<VersionsPage />} />
             </Route>

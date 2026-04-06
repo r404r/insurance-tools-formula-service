@@ -96,6 +96,13 @@ type CreateTableRequest struct {
 	Data      json.RawMessage        `json:"data"`
 }
 
+// UpdateTableRequest carries fields for updating an existing lookup table.
+type UpdateTableRequest struct {
+	Name      string          `json:"name"`
+	TableType string          `json:"tableType"`
+	Data      json.RawMessage `json:"data"`
+}
+
 // --- Category DTOs ---
 
 // CreateCategoryRequest carries data for creating a new category.

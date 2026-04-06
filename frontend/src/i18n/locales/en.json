@@ -99,6 +99,23 @@
     "nodesEvaluated": "Nodes Evaluated",
     "parallelLevels": "Parallel Levels"
   },
+  "table": {
+    "title": "Lookup Tables",
+    "subtitle": "{{count}} lookup tables",
+    "create": "Create Table",
+    "name": "Table Name",
+    "domain": "Category",
+    "tableType": "Table Type",
+    "data": "Table Data (JSON)",
+    "dataHint": "Format: [{\"key\":\"1\", \"col\":\"val\"}, ...]",
+    "selectDomain": "Select category",
+    "selectTable": "Select table",
+    "createSuccess": "Table created.",
+    "updateSuccess": "Table updated.",
+    "deleteSuccess": "Table deleted.",
+    "deleteConfirm": "Delete table \"{{name}}\"?",
+    "invalidJson": "Invalid JSON — please check the format."
+  },
   "user": {
     "title": "User Management",
     "subtitle": "{{count}} users registered",

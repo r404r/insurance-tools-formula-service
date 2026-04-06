@@ -545,6 +545,43 @@ func (r *tableRepo) List(ctx context.Context, domainFilter *domain.InsuranceDoma
 	return result, nil
 }
 
+func (r *tableRepo) Update(ctx context.Context, t *domain.LookupTable) error {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE lookup_tables SET name = ?, table_type = ?, data_json = ? WHERE id = ?`,
+		t.Name, t.TableType, string(t.Data), t.ID,
+	)
+	if err != nil {
+		return fmt.Errorf("update lookup table: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
+func (r *tableRepo) Delete(ctx context.Context, id string) error {
+	// Prevent deletion if any formula version references this table.
+	var refCount int
+	_ = r.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM formula_versions WHERE graph_json LIKE ?`,
+		"%\"tableId\":\""+id+"\"%",
+	).Scan(&refCount)
+	if refCount > 0 {
+		return store.ErrTableInUse
+	}
+
+	res, err := r.db.ExecContext(ctx, `DELETE FROM lookup_tables WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete lookup table: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // Scan helpers
 // ---------------------------------------------------------------------------

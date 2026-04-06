@@ -94,7 +94,13 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 				r.Get("/", cfg.TableHandler.List)
 				r.With(auth.RequirePermission(auth.PermTableManage)).
 					Post("/", cfg.TableHandler.Create)
-				r.Get("/{id}", cfg.TableHandler.Get)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", cfg.TableHandler.Get)
+					r.With(auth.RequirePermission(auth.PermTableManage)).
+						Put("/", cfg.TableHandler.Update)
+					r.With(auth.RequirePermission(auth.PermTableManage)).
+						Delete("/", cfg.TableHandler.Delete)
+				})
 			})
 
 			// Category endpoints (list for all, CUD for admin).

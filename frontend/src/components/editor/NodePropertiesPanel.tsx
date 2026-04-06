@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { Node } from '@xyflow/react'
 import { api } from '../../api/client'
-import type { Formula, FormulaVersion } from '../../types/formula'
+import { listTables } from '../../api/tables'
+import type { Formula, FormulaVersion, LookupTable } from '../../types/formula'
 
 interface Props {
   node: Node | null
@@ -30,6 +31,11 @@ export default function NodePropertiesPanel({ node, onChange, currentFormulaId }
         .get<{ versions: FormulaVersion[] }>(`/formulas/${selectedFormulaId}/versions`)
         .then((response) => response.versions ?? []),
     enabled: !!selectedFormulaId,
+  })
+
+  const { data: tables = [] } = useQuery<LookupTable[]>({
+    queryKey: ['tables'],
+    queryFn: () => listTables().then((r) => r.tables ?? []),
   })
 
   if (!node) {
@@ -160,12 +166,19 @@ export default function NodePropertiesPanel({ node, onChange, currentFormulaId }
         {nodeType === 'tableLookup' && (
           <>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Table ID</label>
-              <input
+              <label className="block text-xs text-gray-500 mb-1">{t('table.title')}</label>
+              <select
                 className="w-full text-xs border border-gray-300 rounded px-2 py-1"
                 value={(config.tableId as string) ?? ''}
                 onChange={(e) => updateConfig('tableId', e.target.value)}
-              />
+              >
+                <option value="">— {t('table.selectTable')} —</option>
+                {tables.map((tbl) => (
+                  <option key={tbl.id} value={tbl.id}>
+                    {tbl.name} ({tbl.tableType})
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Lookup Key</label>

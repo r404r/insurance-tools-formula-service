@@ -11,6 +11,7 @@ import (
 var (
 	ErrLastAdmin  = errors.New("cannot remove the last administrator")
 	ErrHasContent = errors.New("user has associated content and cannot be deleted")
+	ErrTableInUse = errors.New("table is referenced by one or more formula versions")
 )
 
 // FormulaRepository manages formula metadata persistence.
@@ -46,6 +47,8 @@ type TableRepository interface {
 	Create(ctx context.Context, t *domain.LookupTable) error
 	GetByID(ctx context.Context, id string) (*domain.LookupTable, error)
 	List(ctx context.Context, domain *domain.InsuranceDomain) ([]*domain.LookupTable, error)
+	Update(ctx context.Context, t *domain.LookupTable) error
+	Delete(ctx context.Context, id string) error
 }
 
 // CategoryRepository manages category persistence.

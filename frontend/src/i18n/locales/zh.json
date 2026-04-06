@@ -99,6 +99,23 @@
     "nodesEvaluated": "计算节点数",
     "parallelLevels": "并行层级"
   },
+  "table": {
+    "title": "查找表",
+    "subtitle": "当前共 {{count}} 个查找表",
+    "create": "新建查找表",
+    "name": "表名称",
+    "domain": "所属分类",
+    "tableType": "表类型",
+    "data": "表数据（JSON）",
+    "dataHint": "格式：[{\"key\":\"1\", \"col\":\"val\"}, ...]",
+    "selectDomain": "选择分类",
+    "selectTable": "选择查找表",
+    "createSuccess": "查找表已创建",
+    "updateSuccess": "查找表已更新",
+    "deleteSuccess": "查找表已删除",
+    "deleteConfirm": "确认删除查找表 {{name}}？",
+    "invalidJson": "JSON 格式无效，请检查"
+  },
   "user": {
     "title": "用户管理",
     "subtitle": "当前共 {{count}} 个用户",
