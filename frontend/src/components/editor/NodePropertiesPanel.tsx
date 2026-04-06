@@ -181,12 +181,37 @@ export default function NodePropertiesPanel({ node, onChange, currentFormulaId }
               </select>
             </div>
             <div>
-              <label className="block text-xs text-gray-500 mb-1">Lookup Key</label>
-              <input
-                className="w-full text-xs border border-gray-300 rounded px-2 py-1"
-                value={(config.lookupKey as string) ?? ''}
-                onChange={(e) => updateConfig('lookupKey', e.target.value)}
-              />
+              <label className="block text-xs text-gray-500 mb-1">Key Columns</label>
+              {((config.keyColumns as string[] | undefined) ?? ['key']).map((col, i, arr) => (
+                <div key={i} className="flex gap-1 mb-1">
+                  <input
+                    className="flex-1 text-xs border border-gray-300 rounded px-2 py-1"
+                    value={col}
+                    onChange={(e) => {
+                      const next = [...arr]
+                      next[i] = e.target.value
+                      updateConfig('keyColumns', next)
+                    }}
+                  />
+                  {arr.length > 1 && (
+                    <button
+                      className="text-xs text-red-500 px-1 hover:text-red-700"
+                      onClick={() => updateConfig('keyColumns', arr.filter((_, j) => j !== i))}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <button
+                className="mt-0.5 text-xs text-indigo-600 hover:text-indigo-800"
+                onClick={() => {
+                  const existing = (config.keyColumns as string[] | undefined) ?? ['key']
+                  updateConfig('keyColumns', [...existing, `key${existing.length}`])
+                }}
+              >
+                + Add key column
+              </button>
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-1">Column</label>

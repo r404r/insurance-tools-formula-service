@@ -102,8 +102,15 @@ export function getInputPorts(nodeType: string, config: Record<string, unknown>)
       return [{ id: 'in', top: '50%', label: 'In' }]
     case 'subFormula':
       return [{ id: 'in', top: '50%', label: 'In' }]
-    case 'tableLookup':
-      return [{ id: 'key', top: '50%', label: 'Key' }]
+    case 'tableLookup': {
+      const keyColumns = (config.keyColumns as string[] | undefined) ?? ['key']
+      const n = keyColumns.length
+      return keyColumns.map((col, i) => ({
+        id: col,
+        top: `${Math.round(((i + 1) / (n + 1)) * 100)}%`,
+        label: col,
+      }))
+    }
     case 'conditional':
       return [
         { id: 'condition', top: '18%', label: 'If' },
@@ -131,7 +138,7 @@ export function defaultNodeConfig(type: NodeType): Record<string, unknown> {
     case 'subFormula':
       return { formulaId: '' }
     case 'tableLookup':
-      return { tableId: '', lookupKey: '', column: '' }
+      return { tableId: '', keyColumns: ['key'], column: '' }
     case 'conditional':
       return { comparator: 'gt' }
     case 'aggregate':

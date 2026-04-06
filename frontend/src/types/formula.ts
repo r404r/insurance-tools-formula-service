@@ -62,7 +62,7 @@ export interface SubFormulaConfig {
 
 export interface TableLookupConfig {
   tableId: string
-  lookupKey: string
+  keyColumns: string[]  // composite key columns; each becomes an input port
   column: string
 }
 

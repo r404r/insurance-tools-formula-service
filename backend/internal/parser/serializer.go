@@ -537,12 +537,16 @@ func dagToASTWalk(
 		if err := json.Unmarshal(fn.Config, &cfg); err != nil {
 			return nil, fmt.Errorf("node %s: bad table lookup config: %w", nodeID, err)
 		}
+		keyColumns := cfg.EffectiveKeyColumns()
+		if len(keyColumns) > 1 {
+			return nil, fmt.Errorf("node %s: multi-key table lookup cannot be represented in text mode", nodeID)
+		}
 		edges := inEdges[nodeID]
 		node := &ASTNode{Kind: KindFunctionCall, FuncName: "lookup"}
 		// First arg: table name as a variable reference.
 		node.Children = append(node.Children, &ASTNode{Kind: KindVariable, Value: cfg.TableID})
-		// Second arg: the key expression.
-		keyID := findEdgeSource(edges, "key")
+		// Second arg: the key expression (port name equals the single key column).
+		keyID := findEdgeSource(edges, keyColumns[0])
 		if keyID != "" {
 			keyNode, err := dagToASTWalk(keyID, nodeMap, inEdges)
 			if err != nil {

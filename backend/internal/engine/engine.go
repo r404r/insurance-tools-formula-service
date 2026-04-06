@@ -56,10 +56,11 @@ func (ve ValidationError) Error() string {
 	return ve.Message
 }
 
-// TableResolver resolves lookup table data by table ID. It returns a map
-// from lookup key (as string) to the column value (as string-encoded decimal).
+// TableResolver resolves lookup table data by table ID. keyColumns specifies
+// which columns form the composite lookup key (values joined with "|").
+// Returns a map from composite key to column value (as string-encoded decimal).
 type TableResolver interface {
-	ResolveTable(ctx context.Context, tableID string, column string) (map[string]string, error)
+	ResolveTable(ctx context.Context, tableID string, keyColumns []string, column string) (map[string]string, error)
 }
 
 // EngineConfig holds configuration for the default engine implementation.
@@ -309,7 +310,7 @@ func (e *defaultEngine) preloadTableData(ctx context.Context, graph *domain.Form
 		if err := json.Unmarshal(node.Config, &cfg); err != nil {
 			return fmt.Errorf("node %s: invalid tableLookup config: %w", node.ID, err)
 		}
-		tableData, err := e.tableResolver.ResolveTable(ctx, cfg.TableID, cfg.Column)
+		tableData, err := e.tableResolver.ResolveTable(ctx, cfg.TableID, cfg.EffectiveKeyColumns(), cfg.Column)
 		if err != nil {
 			return fmt.Errorf("node %s: resolve table %s: %w", node.ID, cfg.TableID, err)
 		}
@@ -510,11 +511,17 @@ func validateRequiredPorts(graph *domain.FormulaGraph, dag *DAG) []ValidationErr
 			}
 
 		case domain.NodeTableLookup:
-			if !hasPort("key") {
-				errs = append(errs, ValidationError{
-					NodeID:  n.ID,
-					Message: "tableLookup node missing 'key' input connection",
-				})
+			var tlCfg domain.TableLookupConfig
+			if err := json.Unmarshal(n.Config, &tlCfg); err != nil {
+				continue
+			}
+			for _, kc := range tlCfg.EffectiveKeyColumns() {
+				if !hasPort(kc) {
+					errs = append(errs, ValidationError{
+						NodeID:  n.ID,
+						Message: fmt.Sprintf("tableLookup node missing %q input connection", kc),
+					})
+				}
 			}
 		}
 	}

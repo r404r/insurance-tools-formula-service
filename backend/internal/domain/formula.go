@@ -106,9 +106,17 @@ type SubFormulaConfig struct {
 }
 
 type TableLookupConfig struct {
-	TableID   string `json:"tableId"`
-	LookupKey string `json:"lookupKey"`
-	Column    string `json:"column"`
+	TableID    string   `json:"tableId"`
+	KeyColumns []string `json:"keyColumns"` // columns used as composite lookup key; defaults to ["key"]
+	Column     string   `json:"column"`
+}
+
+// EffectiveKeyColumns returns KeyColumns, falling back to ["key"] for backward compatibility.
+func (c *TableLookupConfig) EffectiveKeyColumns() []string {
+	if len(c.KeyColumns) == 0 {
+		return []string{"key"}
+	}
+	return c.KeyColumns
 }
 
 type ConditionalConfig struct {

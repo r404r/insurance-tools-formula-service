@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/shopspring/decimal"
 
@@ -213,25 +214,29 @@ func (ev *Evaluator) evalFunction(node *domain.FormulaNode, inputs map[string]De
 }
 
 // evalTableLookup looks up a value from table data provided in the inputs map.
-// The "key" input contains the lookup key value. The table data is expected to
-// be pre-loaded into the inputs map as encoded column values.
+// One input port per key column provides the lookup values; together they form a
+// composite key ("|"-joined) that maps to a pre-loaded "table:<compositeKey>" entry.
 func (ev *Evaluator) evalTableLookup(node *domain.FormulaNode, inputs map[string]Decimal) (Decimal, error) {
 	var cfg domain.TableLookupConfig
 	if err := json.Unmarshal(node.Config, &cfg); err != nil {
 		return Zero, fmt.Errorf("node %s: invalid tableLookup config: %w", node.ID, err)
 	}
 
-	key, ok := inputs["key"]
-	if !ok {
-		return Zero, fmt.Errorf("node %s: missing 'key' input for table lookup", node.ID)
+	keyColumns := cfg.EffectiveKeyColumns()
+	parts := make([]string, 0, len(keyColumns))
+	for _, kc := range keyColumns {
+		v, ok := inputs[kc]
+		if !ok {
+			return Zero, fmt.Errorf("node %s: missing %q input for table lookup", node.ID, kc)
+		}
+		parts = append(parts, v.String())
 	}
+	compositeKey := strings.Join(parts, "|")
 
-	// Table data is provided as inputs keyed by "table:<key_value>", where
-	// the value is the result column entry for that row.
-	tableKey := "table:" + key.String()
+	tableKey := "table:" + compositeKey
 	val, ok := inputs[tableKey]
 	if !ok {
-		return Zero, fmt.Errorf("node %s: no table entry for key %s in table %s", node.ID, key.String(), cfg.TableID)
+		return Zero, fmt.Errorf("node %s: no table entry for key %q in table %s", node.ID, compositeKey, cfg.TableID)
 	}
 	return val, nil
 }

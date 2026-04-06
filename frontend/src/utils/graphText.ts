@@ -129,7 +129,12 @@ export function reactFlowToText(nodes: Node[], edges: Edge[]): string {
         break
       }
       case 'tableLookup': {
-        const keyId = incomingSource(edges, nodeId, 'key')
+        const keyColumns = (config.keyColumns as string[] | undefined) ?? ['key']
+        if (keyColumns.length > 1) {
+          throw new Error(`Table lookup node ${nodeId} uses multi-key lookup which is not supported in text mode. Use the visual editor.`)
+        }
+        const keyPort = keyColumns[0] ?? 'key'
+        const keyId = incomingSource(edges, nodeId, keyPort)
         if (!keyId) {
           throw new Error(`Table lookup node ${nodeId} is missing key input`)
         }

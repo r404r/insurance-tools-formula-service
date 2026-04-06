@@ -58,9 +58,14 @@ function validateGraph(nodes: Node[], edges: Edge[]): string | null {
       case 'subFormula':
         if (!String(config.formulaId ?? '').trim()) return `Sub-formula node ${node.id} must reference a formula`
         break
-      case 'tableLookup':
-        if (!ports.has('key')) return `Table lookup node ${node.id} must have a key input`
+      case 'tableLookup': {
+        const kcs = (config.keyColumns as string[] | undefined) ?? ['key']
+        for (const kc of kcs) {
+          if (!kc.trim()) return `Table lookup node ${node.id} has an empty key column name`
+          if (!ports.has(kc)) return `Table lookup node ${node.id} must have ${kc} input connected`
+        }
         break
+      }
       case 'conditional':
         for (const port of ['condition', 'conditionRight', 'thenValue', 'elseValue']) {
           if (!ports.has(port)) return `Conditional node ${node.id} must have ${port} input`
