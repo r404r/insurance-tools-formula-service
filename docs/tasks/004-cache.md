@@ -1,6 +1,6 @@
 # 004 - 缓存功能实现
 
-**Status**: in-progress
+**Status**: completed
 **Created**: 2026-04-07
 
 ## 需求
