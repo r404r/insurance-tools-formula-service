@@ -15,6 +15,13 @@ if ! echo "$COMMAND" | grep -q 'git commit'; then
   exit 0
 fi
 
+# Allow docs-only commits (task status update, backlog update) without full checks
+STAGED_FILES=$(git -C "$PROJECT_ROOT" diff --cached --name-only 2>/dev/null)
+NON_DOCS_FILES=$(echo "$STAGED_FILES" | grep -vE '^(docs/|CLAUDE\.md$)' || true)
+if [ -z "$NON_DOCS_FILES" ]; then
+  exit 0
+fi
+
 ERRORS=""
 
 # Check 1: in-progress task file exists in docs/tasks/
