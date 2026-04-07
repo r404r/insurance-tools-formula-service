@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"runtime/debug"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/rs/cors"
@@ -62,13 +63,17 @@ func Recovery() func(http.Handler) http.Handler {
 
 // DynamicConcurrencyLimiter is a semaphore-based concurrency cap whose limit
 // can be updated at runtime without restarting the server.
-// Swapping the limit creates a fresh buffered channel; in-flight requests
-// draining the old channel are harmless — the channel is garbage-collected
-// once all slot-holders release it.
+//
+// In-flight tracking: an atomic counter records how many requests are currently
+// holding a slot. When SetLimit is called, the new semaphore is pre-filled with
+// min(inflight, newLimit) tokens so that the available capacity equals
+// max(0, newLimit - inflight), preventing a fresh-channel bypass where a
+// limit change could allow more concurrent requests than intended.
 type DynamicConcurrencyLimiter struct {
-	mu    sync.RWMutex
-	sem   chan struct{}
-	limit int
+	mu       sync.RWMutex
+	sem      chan struct{}
+	limit    int
+	inflight atomic.Int64
 }
 
 // NewDynamicConcurrencyLimiter creates a limiter with an initial cap of n.
@@ -81,7 +86,8 @@ func NewDynamicConcurrencyLimiter(n int) *DynamicConcurrencyLimiter {
 	return d
 }
 
-// SetLimit replaces the semaphore with a new one of capacity n.
+// SetLimit swaps the semaphore to capacity n, accounting for currently in-flight
+// requests so the effective available slots stay correct across the transition.
 // n ≤ 0 disables the limit.
 func (d *DynamicConcurrencyLimiter) SetLimit(n int) {
 	d.mu.Lock()
@@ -91,7 +97,17 @@ func (d *DynamicConcurrencyLimiter) SetLimit(n int) {
 		d.sem = nil
 		return
 	}
-	d.sem = make(chan struct{}, n)
+	newSem := make(chan struct{}, n)
+	// Pre-fill for currently in-flight requests so the new cap is accurate.
+	inFlight := int(d.inflight.Load())
+	preFill := inFlight
+	if preFill > n {
+		preFill = n
+	}
+	for i := 0; i < preFill; i++ {
+		newSem <- struct{}{}
+	}
+	d.sem = newSem
 }
 
 // Limit returns the current cap (0 means unlimited).
@@ -111,13 +127,19 @@ func (d *DynamicConcurrencyLimiter) Middleware() func(http.Handler) http.Handler
 			d.mu.RUnlock()
 
 			if sem == nil {
+				d.inflight.Add(1)
+				defer d.inflight.Add(-1)
 				next.ServeHTTP(w, r)
 				return
 			}
 
 			select {
 			case sem <- struct{}{}:
-				defer func() { <-sem }()
+				d.inflight.Add(1)
+				defer func() {
+					<-sem
+					d.inflight.Add(-1)
+				}()
 				next.ServeHTTP(w, r)
 			default:
 				w.Header().Set("Retry-After", "1")

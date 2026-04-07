@@ -76,6 +76,9 @@ func Load() (*Config, error) {
 	parallelThreshold := envInt("ENGINE_PARALLEL_THRESHOLD", 8)
 	cacheSize := envInt("ENGINE_CACHE_SIZE", 1000)
 	maxConcurrentCalcs := envInt("ENGINE_MAX_CONCURRENT_CALCS", 100)
+	if maxConcurrentCalcs < 0 {
+		return nil, fmt.Errorf("ENGINE_MAX_CONCURRENT_CALCS must be >= 0 (0 = unlimited), got %d", maxConcurrentCalcs)
+	}
 
 	jwtSecret := envString("AUTH_JWT_SECRET", "")
 	tokenExpiry := envDuration("AUTH_TOKEN_EXPIRY", 24*time.Hour)
