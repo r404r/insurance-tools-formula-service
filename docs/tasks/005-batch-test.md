@@ -1,6 +1,6 @@
 # 005 - 大批量测试功能
 
-**Status**: in-progress
+**Status**: completed
 **Created**: 2026-04-07
 
 ## 需求
@@ -59,13 +59,13 @@ label,deathBenefit,expectedDeaths,policyCount,expected_n6
 ## TODO
 
 - [x] 创建任务文件
-- [ ] 后端：DTO（BatchTestRequest / BatchTestResponse）
-- [ ] 后端：batch-test handler（含容差对比逻辑）
-- [ ] 后端：router 注册 POST /calculate/batch-test
-- [ ] 前端：BatchTestPage.tsx（公式选择 + 文件上传 + 结果表格）
-- [ ] 前端：CSV 解析工具函数
-- [ ] 前端：App.tsx 路由
-- [ ] 前端：Navbar 入口
-- [ ] 前端：i18n（zh/en/ja）
-- [ ] codex review + fix
-- [ ] 提交
+- [x] 后端：DTO（BatchTestRequest / BatchTestResponse）
+- [x] 后端：batch-test handler（含容差对比逻辑）
+- [x] 后端：router 注册 POST /calculate/batch-test
+- [x] 前端：BatchTestPage.tsx（公式选择 + 文件上传 + 结果表格）
+- [x] 前端：CSV 解析工具函数
+- [x] 前端：App.tsx 路由
+- [x] 前端：Navbar 入口
+- [x] 前端：i18n（zh/en/ja）
+- [x] codex review + fix
+- [x] 提交

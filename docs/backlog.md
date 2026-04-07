@@ -13,7 +13,7 @@
 
 ## 已排期
 
-- [005-batch-test.md](tasks/005-batch-test.md) — 大批量测试功能
+（创建 task 文件后移到这里）
 
 ## 已完成
 
@@ -21,3 +21,4 @@
 - [002-lookup-table-management.md](tasks/002-lookup-table-management.md) — Lookup Tables 管理实现（2026-04-06）
 - [003-multi-key-lookup-table.md](tasks/003-multi-key-lookup-table.md) — Lookup Table 多 Key 支持（2026-04-06）
 - [004-cache.md](tasks/004-cache.md) — 计算结果缓存 + 管理页面（2026-04-07）
+- [005-batch-test.md](tasks/005-batch-test.md) — 大批量测试功能（2026-04-07）
