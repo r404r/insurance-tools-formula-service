@@ -6,7 +6,7 @@
 - [ ] 公式编辑功能中，进行公式保存时，从公式结构校验公式的合理性
 - [ ] Lookup Tables改造成能管理多种表，且能自定义每个表的表结构（比如有a，b，c，d四个字段，实际使用的时候通过a，b，c字段来定位d字段），并能批量通过csv or Excel上传表内容的功能
 - [x] 追加公式Description修改功能
-- [ ] PostgreSQL Store 实现
+- [x] PostgreSQL Store 实现
 - [ ] MySQL Store 实现
 - [ ] 自定义 react-flow 节点组件（OperatorNode, VariableNode 等）
 - [ ] E2E 测试
@@ -30,3 +30,4 @@
 - [010-workflow-guard-hooks.md](tasks/010-workflow-guard-hooks.md) — 工作流守卫 Hook（2026-04-07）
 - [012-formula-list-pagination.md](tasks/012-formula-list-pagination.md) — 公式一览分页（2026-04-07）
 - [013-formula-description-edit.md](tasks/013-formula-description-edit.md) — 公式 Description 内联编辑（2026-04-08）
+- [014-postgres-store.md](tasks/014-postgres-store.md) — PostgreSQL Store 实现（2026-04-08）

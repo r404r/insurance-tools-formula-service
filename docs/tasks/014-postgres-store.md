@@ -1,6 +1,6 @@
 # Task #014: PostgreSQL Store 实现
 
-## Status: in-progress
+## Status: done
 
 ## 需求
 
