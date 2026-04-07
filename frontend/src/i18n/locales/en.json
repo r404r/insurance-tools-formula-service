@@ -32,7 +32,8 @@
     "auto": "Auto Insurance",
     "createTitle": "Create Formula",
     "cancel": "Cancel",
-    "createdAt": "Created At"
+    "createdAt": "Created At",
+    "totalCount": "{{count}} total"
   },
   "category": {
     "title": "Category Management",

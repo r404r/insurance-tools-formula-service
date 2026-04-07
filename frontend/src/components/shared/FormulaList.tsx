@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useAuthStore } from '../../store/authStore'
 import { listCategories } from '../../api/categories'
 import TemplateGallery from './TemplateGallery'
 import type { Category, Formula, InsuranceDomain } from '../../types/formula'
+
+const PAGE_SIZE = 20
 
 export default function FormulaList() {
   const { t } = useTranslation()
@@ -16,6 +18,7 @@ export default function FormulaList() {
 
   const [search, setSearch] = useState('')
   const [domainFilter, setDomainFilter] = useState<InsuranceDomain | 'all'>('all')
+  const [page, setPage] = useState(1)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showTemplateGallery, setShowTemplateGallery] = useState(false)
   const [newName, setNewName] = useState('')
@@ -35,20 +38,33 @@ export default function FormulaList() {
     [categories]
   )
 
-  const { data: formulas = [], isLoading, error } = useQuery({
-    queryKey: ['formulas', search, domainFilter],
+  const { data, isLoading, error } = useQuery({
+    queryKey: ['formulas', search, domainFilter, page],
     queryFn: () => {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
       if (domainFilter !== 'all') params.set('domain', domainFilter)
-      const qs = params.toString()
-      return api.get<{ formulas: Formula[]; total: number }>(`/formulas${qs ? `?${qs}` : ''}`).then((r) => r.formulas ?? [])
+      params.set('limit', String(PAGE_SIZE))
+      params.set('offset', String((page - 1) * PAGE_SIZE))
+      return api.get<{ formulas: Formula[]; total: number; limit: number; offset: number }>(
+        `/formulas?${params.toString()}`
+      )
     },
+    placeholderData: keepPreviousData,
   })
 
+  const formulas = data?.formulas ?? []
+  const total = data?.total ?? 0
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+
+  // Clamp page when total shrinks (e.g. after delete or narrowed search).
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages)
+  }, [totalPages, page])
+
   const createMutation = useMutation({
-    mutationFn: (data: { name: string; domain: InsuranceDomain; description: string }) =>
-      api.post<Formula>('/formulas', data),
+    mutationFn: (d: { name: string; domain: InsuranceDomain; description: string }) =>
+      api.post<Formula>('/formulas', d),
     onSuccess: (formula) => {
       queryClient.invalidateQueries({ queryKey: ['formulas'] })
       setShowCreateModal(false)
@@ -62,18 +78,14 @@ export default function FormulaList() {
   useEffect(() => {
     if (categories.length === 0) {
       setNewDomain('')
-      if (domainFilter !== 'all') {
-        setDomainFilter('all')
-      }
+      if (domainFilter !== 'all') setDomainFilter('all')
       return
     }
-
     setNewDomain((current) =>
       current && categories.some((category) => category.slug === current)
         ? current
         : categories[0].slug
     )
-
     if (domainFilter !== 'all' && !categories.some((category) => category.slug === domainFilter)) {
       setDomainFilter('all')
     }
@@ -88,18 +100,27 @@ export default function FormulaList() {
     const category = categoryMap.get(categorySlug)
     const color = category?.color ?? '#6366f1'
     const label = category?.name ?? categorySlug
-
     return (
       <span
         className="inline-block rounded-full px-2.5 py-0.5 text-xs font-medium"
-        style={{
-          color,
-          backgroundColor: `${color}18`,
-        }}
+        style={{ color, backgroundColor: `${color}18` }}
       >
         {label}
       </span>
     )
+  }
+
+  // Build a compact page number list: always show first, last, current ±2, with … gaps.
+  function pageNumbers(): Array<number | '…'> {
+    if (totalPages <= 7) return Array.from({ length: totalPages }, (_, i) => i + 1)
+    const nums = new Set<number>([1, totalPages, page, page - 1, page + 1, page - 2, page + 2])
+    const sorted = [...nums].filter((n) => n >= 1 && n <= totalPages).sort((a, b) => a - b)
+    const result: Array<number | '…'> = []
+    for (let i = 0; i < sorted.length; i++) {
+      if (i > 0 && sorted[i] - sorted[i - 1] > 1) result.push('…')
+      result.push(sorted[i])
+    }
+    return result
   }
 
   return (
@@ -138,7 +159,7 @@ export default function FormulaList() {
         <input
           type="text"
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setPage(1) }}
           placeholder={t('formula.search')}
           className="w-full max-w-md rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
         />
@@ -148,7 +169,7 @@ export default function FormulaList() {
         {(['all', ...categories.map((category) => category.slug)] as Array<InsuranceDomain | 'all'>).map((d) => (
           <button
             key={d}
-            onClick={() => setDomainFilter(d)}
+            onClick={() => { setDomainFilter(d); setPage(1) }}
             className={`rounded-md px-4 py-2 text-sm font-medium transition ${
               domainFilter === d
                 ? 'bg-white text-indigo-600 shadow-sm'
@@ -167,40 +188,87 @@ export default function FormulaList() {
       ) : formulas.length === 0 ? (
         <div className="py-12 text-center text-gray-400">{t('common.noData')}</div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="w-full text-left text-sm">
-            <thead className="border-b border-gray-200 bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 font-medium text-gray-600">{t('formula.name')}</th>
-                <th className="px-6 py-3 font-medium text-gray-600">{t('formula.id')}</th>
-                {domainFilter === 'all' && (
-                  <th className="px-6 py-3 font-medium text-gray-600">{t('formula.domain')}</th>
-                )}
-                <th className="px-6 py-3 font-medium text-gray-600">{t('formula.description')}</th>
-                <th className="px-6 py-3 font-medium text-gray-600">{t('formula.createdAt')}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {formulas.map((f) => (
-                <tr
-                  key={f.id}
-                  onClick={() => navigate(`/formulas/${f.id}`)}
-                  className="cursor-pointer transition hover:bg-gray-50"
-                >
-                  <td className="px-6 py-4 font-medium text-gray-900">{f.name}</td>
-                  <td className="px-6 py-4 font-mono text-xs text-gray-500">{f.id}</td>
+        <>
+          <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-gray-200 bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 font-medium text-gray-600">{t('formula.name')}</th>
+                  <th className="px-6 py-3 font-medium text-gray-600">{t('formula.id')}</th>
                   {domainFilter === 'all' && (
-                    <td className="px-6 py-4">{renderCategoryBadge(f.domain)}</td>
+                    <th className="px-6 py-3 font-medium text-gray-600">{t('formula.domain')}</th>
                   )}
-                  <td className="px-6 py-4 text-gray-500">{f.description}</td>
-                  <td className="px-6 py-4 text-gray-400">
-                    {new Date(f.createdAt).toLocaleDateString()}
-                  </td>
+                  <th className="px-6 py-3 font-medium text-gray-600">{t('formula.description')}</th>
+                  <th className="px-6 py-3 font-medium text-gray-600">{t('formula.createdAt')}</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {formulas.map((f) => (
+                  <tr
+                    key={f.id}
+                    onClick={() => navigate(`/formulas/${f.id}`)}
+                    className="cursor-pointer transition hover:bg-gray-50"
+                  >
+                    <td className="px-6 py-4 font-medium text-gray-900">{f.name}</td>
+                    <td className="px-6 py-4 font-mono text-xs text-gray-500">{f.id}</td>
+                    {domainFilter === 'all' && (
+                      <td className="px-6 py-4">{renderCategoryBadge(f.domain)}</td>
+                    )}
+                    <td className="px-6 py-4 text-gray-500">{f.description}</td>
+                    <td className="px-6 py-4 text-gray-400">
+                      {new Date(f.createdAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination bar — only rendered when there is more than one page */}
+          {totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between text-sm text-gray-500">
+              <span>{t('formula.totalCount', { count: total })}</span>
+
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="rounded px-2 py-1 transition hover:bg-gray-100 disabled:opacity-40"
+                >
+                  ‹
+                </button>
+
+                {pageNumbers().map((n, idx) =>
+                  n === '…' ? (
+                    <span key={`ellipsis-${idx}`} className="px-2">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={n}
+                      onClick={() => setPage(n)}
+                      className={`min-w-[2rem] rounded px-2 py-1 transition ${
+                        n === page
+                          ? 'bg-indigo-600 font-semibold text-white'
+                          : 'hover:bg-gray-100'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  )
+                )}
+
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="rounded px-2 py-1 transition hover:bg-gray-100 disabled:opacity-40"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
       {showTemplateGallery && (

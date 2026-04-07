@@ -32,7 +32,8 @@
     "auto": "车险",
     "createTitle": "新建公式",
     "cancel": "取消",
-    "createdAt": "创建时间"
+    "createdAt": "创建时间",
+    "totalCount": "共 {{count}} 条"
   },
   "category": {
     "title": "分类管理",

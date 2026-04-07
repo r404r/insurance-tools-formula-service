@@ -32,7 +32,8 @@
     "auto": "自動車保険",
     "createTitle": "新規計算式作成",
     "cancel": "キャンセル",
-    "createdAt": "作成日時"
+    "createdAt": "作成日時",
+    "totalCount": "全 {{count}} 件"
   },
   "category": {
     "title": "分類管理",
