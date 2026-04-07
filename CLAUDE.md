@@ -105,3 +105,17 @@ Before ending a session or when token is running low:
 ### Task Numbering
 - Sequential: 001, 002, 003...
 - Check existing files in `docs/tasks/` to determine next number
+
+### Task Completion Self-Check
+
+停止工作前，验证以下各项：
+
+- [ ] **Task 文件存在**：`docs/tasks/NNN-slug.md`，Status 为 in-progress（或刚改为 done）
+- [ ] **backlog.md 已更新**：如 task 完成，已移至「已完成」
+- [ ] **codex review 已执行**：每次 `git commit` 前都运行过 `/codex review`
+- [ ] **无遗漏变更**：`git status` 确认所有变更已提交
+- [ ] **中断记录已写**：如中途停止，task 文件已更新 TODO 勾选和中断记录
+
+> **Hook 强制执行**：`git commit` 会被 PreToolUse hook 拦截，当：
+> 1. `docs/tasks/` 中无 Status 为 in-progress 的 task 文件
+> 2. 上次 commit 后未运行 `codex review`

@@ -38,3 +38,6 @@ Thumbs.db
 .env.production
 backend/bin/
 .gstack/
+
+# Workflow marker
+.codex-review-done
