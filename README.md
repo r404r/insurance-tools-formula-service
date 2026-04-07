@@ -19,6 +19,9 @@ A visual formula calculation engine for the insurance industry, supporting life 
 ### Batch Test — Results
 ![Batch Test Results](docs/screenshots/05-batch-test-results.png)
 
+### Version Diff
+![Version Diff](docs/screenshots/06-version-diff.png)
+
 ## Features
 
 - **Visual Formula Editor** — Drag-and-drop DAG editor powered by React Flow, with 8 node types (variable, constant, operator, function, subFormula, tableLookup, conditional, aggregate)
