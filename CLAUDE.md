@@ -82,6 +82,14 @@ Backend reads env vars:
 3. Break down into TODO checklist
 4. Implement step by step, marking each TODO as done
 5. When feature is complete: run `/codex review`, fix any P1/P2 findings, then commit
+6. Update `docs/backlog.md`: move task to 已完成
+
+> **强制执行提醒（曾违反过）：**
+> - 步骤 1（task 文件）和步骤 5（codex review）是**硬性前提条件**，不得跳过。
+>   无论需求多小、多紧急，没有 task 文件 = 不能开始实现；没有 codex review = 不能 commit。
+> - 同一个会话内连续实现多个功能时，**每个功能**都要独立走完上述步骤，不能批量合并处理。
+> - 过去曾发生：在用户要求的任务（006 并发控制）完成后，立即被追加了新需求（007 管理员设置页），
+>   直接开始实现而未先创建 task 文件、也未在 commit 前执行 codex review，导致事后补救。
 
 ### On Interruption
 Before ending a session or when token is running low:
