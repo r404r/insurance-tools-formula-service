@@ -186,6 +186,17 @@
     "clearSuccess": "缓存已清空",
     "hint": "提示：更新查找表数据后，请手动清除缓存以确保计算使用最新数据。"
   },
+  "template": {
+    "fromTemplate": "从模板创建",
+    "galleryTitle": "公式模板画廊",
+    "confirmTitle": "从模板新建公式",
+    "confirmHint": "基于「{{name}}」创建新公式，可修改名称和分类。",
+    "use": "使用此模板",
+    "back": "返回",
+    "create": "创建",
+    "nodeCount": "{{count}} 个节点",
+    "initialVersionNote": "从模板创建（初始版本）"
+  },
   "diff": {
     "title": "版本对比：v{{from}} → v{{to}}",
     "summary": "{{nodes}} 个节点变更，{{edges}} 条边变更",

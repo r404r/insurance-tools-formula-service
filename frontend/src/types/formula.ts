@@ -252,6 +252,15 @@ export interface ValidationError {
   message: string
 }
 
+// Matches backend api.FormulaTemplate
+export interface FormulaTemplate {
+  id: string
+  domain: InsuranceDomain
+  name: string
+  description: string
+  graph: FormulaGraph
+}
+
 export interface LoginRequest {
   username: string
   password: string

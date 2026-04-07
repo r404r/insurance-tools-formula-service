@@ -114,6 +114,7 @@ func run(logger zerolog.Logger) error {
 	categoryHandler := api.NewCategoryHandler(store.Categories(), store.Formulas(), store.Tables())
 	parseHandler := &api.ParseHandler{}
 	cacheHandler := &api.CacheHandler{Engine: eng}
+	templateHandler := &api.TemplateHandler{}
 
 	// Load persisted settings and initialise dynamic concurrency limiter.
 	maxCalcs := cfg.Engine.MaxConcurrentCalcs
@@ -140,6 +141,7 @@ func run(logger zerolog.Logger) error {
 		ParseHandler:    parseHandler,
 		CacheHandler:    cacheHandler,
 		SettingsHandler: settingsHandler,
+		TemplateHandler: templateHandler,
 		JWTManager:      jwtMgr,
 		Logger:          logger,
 		CORSOrigins:     cfg.Server.CORSOrigins,

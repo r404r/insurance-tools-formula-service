@@ -186,6 +186,17 @@
     "clearSuccess": "キャッシュをクリアしました",
     "hint": "ヒント：ルックアップテーブルのデータを更新した後は、最新データを使用するためにキャッシュを手動でクリアしてください。"
   },
+  "template": {
+    "fromTemplate": "テンプレートから作成",
+    "galleryTitle": "計算式テンプレート",
+    "confirmTitle": "テンプレートから新規作成",
+    "confirmHint": "「{{name}}」を元に新しい計算式を作成します。名称と分類は変更できます。",
+    "use": "このテンプレートを使用",
+    "back": "戻る",
+    "create": "作成",
+    "nodeCount": "{{count}} ノード",
+    "initialVersionNote": "テンプレートから作成（初期バージョン）"
+  },
   "diff": {
     "title": "バージョン比較：v{{from}} → v{{to}}",
     "summary": "ノード変更 {{nodes}} 件、エッジ変更 {{edges}} 件",

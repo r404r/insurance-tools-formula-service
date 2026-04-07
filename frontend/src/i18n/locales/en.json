@@ -186,6 +186,17 @@
     "clearSuccess": "Cache cleared",
     "hint": "Tip: After updating lookup table data, clear the cache manually to ensure calculations use the latest data."
   },
+  "template": {
+    "fromTemplate": "From Template",
+    "galleryTitle": "Formula Template Gallery",
+    "confirmTitle": "Create from Template",
+    "confirmHint": "Creating a new formula based on \"{{name}}\". You can rename it and change the category.",
+    "use": "Use Template",
+    "back": "Back",
+    "create": "Create",
+    "nodeCount": "{{count}} nodes",
+    "initialVersionNote": "Created from template (initial version)"
+  },
   "diff": {
     "title": "Diff: v{{from}} → v{{to}}",
     "summary": "{{nodes}} node change(s), {{edges}} edge change(s)",

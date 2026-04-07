@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import { useAuthStore } from '../../store/authStore'
 import { listCategories } from '../../api/categories'
+import TemplateGallery from './TemplateGallery'
 import type { Category, Formula, InsuranceDomain } from '../../types/formula'
 
 export default function FormulaList() {
@@ -16,6 +17,7 @@ export default function FormulaList() {
   const [search, setSearch] = useState('')
   const [domainFilter, setDomainFilter] = useState<InsuranceDomain | 'all'>('all')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showTemplateGallery, setShowTemplateGallery] = useState(false)
   const [newName, setNewName] = useState('')
   const [newDomain, setNewDomain] = useState<InsuranceDomain>('')
   const [newDescription, setNewDescription] = useState('')
@@ -114,12 +116,20 @@ export default function FormulaList() {
             </button>
           )}
           {isEditor && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
-            >
-              {t('formula.create')}
-            </button>
+            <>
+              <button
+                onClick={() => setShowTemplateGallery(true)}
+                className="rounded-lg border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50"
+              >
+                {t('template.fromTemplate')}
+              </button>
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              >
+                {t('formula.create')}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -191,6 +201,10 @@ export default function FormulaList() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {showTemplateGallery && (
+        <TemplateGallery onClose={() => setShowTemplateGallery(false)} />
       )}
 
       {showCreateModal && (

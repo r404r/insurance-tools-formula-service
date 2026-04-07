@@ -2,7 +2,6 @@
 
 ## 待规划
 
-- [ ] 保险领域公式模板（life/property/auto）
 - [ ] PostgreSQL Store 实现
 - [ ] MySQL Store 实现
 - [ ] 自定义 react-flow 节点组件（OperatorNode, VariableNode 等）
@@ -12,7 +11,7 @@
 
 ## 已排期
 
-（创建 task 文件后移到这里）
+- [009-formula-templates.md](tasks/009-formula-templates.md) — 保险领域公式模板画廊（life/property/auto）
 
 ## 已完成
 
