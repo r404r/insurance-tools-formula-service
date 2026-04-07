@@ -1,6 +1,6 @@
 {
   "app": { "title": "保険計算式エンジン" },
-  "nav": { "formulas": "計算式管理", "tables": "ルックアップテーブル", "categories": "分類管理", "users": "ユーザー管理", "cache": "キャッシュ管理", "logout": "ログアウト" },
+  "nav": { "formulas": "計算式管理", "tables": "ルックアップテーブル", "categories": "分類管理", "users": "ユーザー管理", "cache": "キャッシュ管理", "batchTest": "バッチテスト", "logout": "ログアウト" },
   "auth": {
     "login": "ログイン",
     "register": "登録",
@@ -145,6 +145,33 @@
     "noData": "データなし",
     "delete": "削除",
     "edit": "編集"
+  },
+  "batchTest": {
+    "title": "バッチテスト",
+    "subtitle": "テストケースをアップロードし、計算式に対して一括実行して期待値と比較します",
+    "config": "テスト設定",
+    "formula": "計算式",
+    "selectFormula": "計算式を選択",
+    "version": "バージョン",
+    "latestPublished": "最新公開バージョン",
+    "tolerance": "許容誤差",
+    "toleranceHint": "（相対、0=完全一致）",
+    "testData": "テストデータ",
+    "uploadFile": "ファイルをアップロード (JSON/CSV)",
+    "dataHint": "JSON形式：[{\"label\":\"...\",\"inputs\":{...},\"expected\":{...}}]  CSV形式：ヘッダー行、expected_<key>列が期待値",
+    "placeholder": "JSONテストデータを貼り付けるか、JSON/CSVファイルをアップロード...",
+    "run": "テスト実行",
+    "parseError": "データ形式エラー",
+    "total": "合計",
+    "passed": "成功",
+    "failed": "失敗",
+    "passRate": "成功率",
+    "label": "ケース名",
+    "status": "状態",
+    "expected": "期待値",
+    "actual": "実際値",
+    "diff": "差異",
+    "timeMs": "実行時間(ms)"
   },
   "cache": {
     "title": "キャッシュ管理",

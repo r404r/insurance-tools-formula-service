@@ -1,6 +1,6 @@
 {
   "app": { "title": "保险公式计算引擎" },
-  "nav": { "formulas": "公式管理", "tables": "查找表", "categories": "分类管理", "users": "用户管理", "cache": "缓存管理", "logout": "退出登录" },
+  "nav": { "formulas": "公式管理", "tables": "查找表", "categories": "分类管理", "users": "用户管理", "cache": "缓存管理", "batchTest": "批量测试", "logout": "退出登录" },
   "auth": {
     "login": "登录",
     "register": "注册",
@@ -145,6 +145,33 @@
     "noData": "暂无数据",
     "delete": "删除",
     "edit": "编辑"
+  },
+  "batchTest": {
+    "title": "批量测试",
+    "subtitle": "上传测试用例，批量对公式进行计算并对比期待结果",
+    "config": "测试配置",
+    "formula": "公式",
+    "selectFormula": "选择公式",
+    "version": "版本",
+    "latestPublished": "最新已发布版本",
+    "tolerance": "容差",
+    "toleranceHint": "（相对，0=精确）",
+    "testData": "测试数据",
+    "uploadFile": "上传文件 (JSON/CSV)",
+    "dataHint": "JSON 格式：[{\"label\":\"...\",\"inputs\":{...},\"expected\":{...}}]  CSV 格式：首行表头，expected_<key> 为期待值列",
+    "placeholder": "粘贴 JSON 测试数据，或上传 JSON/CSV 文件...",
+    "run": "运行测试",
+    "parseError": "数据格式错误",
+    "total": "总用例",
+    "passed": "通过",
+    "failed": "失败",
+    "passRate": "通过率",
+    "label": "用例名称",
+    "status": "状态",
+    "expected": "期待值",
+    "actual": "实际值",
+    "diff": "差异",
+    "timeMs": "耗时(ms)"
   },
   "cache": {
     "title": "缓存管理",

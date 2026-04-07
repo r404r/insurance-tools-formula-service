@@ -87,6 +87,51 @@ type BatchCalculateResponse struct {
 	Results []CalculateResponse `json:"results"`
 }
 
+// --- Batch-test DTOs ---
+
+// BatchTestCase is one test case in a batch-test request.
+type BatchTestCase struct {
+	Label    string            `json:"label,omitempty"`
+	Inputs   map[string]string `json:"inputs"`
+	Expected map[string]string `json:"expected"`
+}
+
+// BatchTestRequest carries a batch of test cases with expected results.
+type BatchTestRequest struct {
+	FormulaID string          `json:"formulaId"`
+	Version   *int            `json:"version,omitempty"`
+	Tolerance string          `json:"tolerance,omitempty"` // relative, e.g. "0.01" = 1%
+	Cases     []BatchTestCase `json:"cases"`
+}
+
+// BatchTestCaseResult holds the outcome for a single test case.
+type BatchTestCaseResult struct {
+	Index           int               `json:"index"`
+	Label           string            `json:"label,omitempty"`
+	Pass            bool              `json:"pass"`
+	Inputs          map[string]string `json:"inputs"`
+	Expected        map[string]string `json:"expected"`
+	Actual          map[string]string `json:"actual"`
+	Diff            map[string]string `json:"diff,omitempty"`
+	ExecutionTimeMs float64           `json:"executionTimeMs"`
+	CacheHit        bool              `json:"cacheHit"`
+	Error           string            `json:"error,omitempty"`
+}
+
+// BatchTestSummary aggregates the batch-test results.
+type BatchTestSummary struct {
+	Total    int     `json:"total"`
+	Passed   int     `json:"passed"`
+	Failed   int     `json:"failed"`
+	PassRate float64 `json:"passRate"`
+}
+
+// BatchTestResponse is the full response for a batch-test run.
+type BatchTestResponse struct {
+	Summary BatchTestSummary      `json:"summary"`
+	Results []BatchTestCaseResult `json:"results"`
+}
+
 // --- Table DTOs ---
 
 // CreateTableRequest carries data for creating a lookup table.

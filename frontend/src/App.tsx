@@ -11,6 +11,7 @@ import CategoryManagementPage from './components/shared/CategoryManagementPage'
 import UserManagementPage from './components/shared/UserManagementPage'
 import TableManagementPage from './components/shared/TableManagementPage'
 import CacheSettingsPage from './components/shared/CacheSettingsPage'
+import BatchTestPage from './components/shared/BatchTestPage'
 import FormulaEditorPage from './components/editor/FormulaEditorPage'
 import VersionsPage from './components/version/VersionsPage'
 
@@ -57,6 +58,7 @@ function App() {
               <Route path="/tables" element={<TableManagementPage />} />
               <Route path="/users" element={<UserManagementPage />} />
               <Route path="/cache" element={<CacheSettingsPage />} />
+              <Route path="/batch-test" element={<BatchTestPage />} />
               <Route path="/formulas/:id/versions" element={<VersionsPage />} />
             </Route>
             <Route path="/formulas/:id" element={<FormulaEditorPage />} />

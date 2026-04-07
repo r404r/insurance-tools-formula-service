@@ -1,6 +1,6 @@
 {
   "app": { "title": "Insurance Formula Engine" },
-  "nav": { "formulas": "Formulas", "tables": "Lookup Tables", "categories": "Categories", "users": "Users", "cache": "Cache", "logout": "Logout" },
+  "nav": { "formulas": "Formulas", "tables": "Lookup Tables", "categories": "Categories", "users": "Users", "cache": "Cache", "batchTest": "Batch Test", "logout": "Logout" },
   "auth": {
     "login": "Login",
     "register": "Register",
@@ -145,6 +145,33 @@
     "noData": "No Data",
     "delete": "Delete",
     "edit": "Edit"
+  },
+  "batchTest": {
+    "title": "Batch Test",
+    "subtitle": "Upload test cases, run them against a formula, and compare actual vs expected results",
+    "config": "Test Configuration",
+    "formula": "Formula",
+    "selectFormula": "Select formula",
+    "version": "Version",
+    "latestPublished": "Latest published",
+    "tolerance": "Tolerance",
+    "toleranceHint": "(relative, 0=exact)",
+    "testData": "Test Data",
+    "uploadFile": "Upload File (JSON/CSV)",
+    "dataHint": "JSON: [{\"label\":\"...\",\"inputs\":{...},\"expected\":{...}}]  CSV: header row, expected_<key> columns for expected values",
+    "placeholder": "Paste JSON test data, or upload a JSON/CSV file...",
+    "run": "Run Tests",
+    "parseError": "Invalid data format",
+    "total": "Total",
+    "passed": "Passed",
+    "failed": "Failed",
+    "passRate": "Pass Rate",
+    "label": "Label",
+    "status": "Status",
+    "expected": "Expected",
+    "actual": "Actual",
+    "diff": "Diff",
+    "timeMs": "Time (ms)"
   },
   "cache": {
     "title": "Cache Management",

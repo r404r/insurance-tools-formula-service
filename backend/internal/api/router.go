@@ -87,6 +87,7 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 				r.Use(auth.RequirePermission(auth.PermCalculate))
 				r.Post("/", cfg.CalcHandler.Calculate)
 				r.Post("/batch", cfg.CalcHandler.BatchCalculate)
+				r.Post("/batch-test", cfg.CalcHandler.BatchTest)
 				r.Post("/validate", cfg.CalcHandler.Validate)
 			})
 

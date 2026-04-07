@@ -190,6 +190,44 @@ export interface ValidationResult {
   errors: ValidationError[]
 }
 
+export interface BatchTestCase {
+  label?: string
+  inputs: Record<string, string>
+  expected: Record<string, string>
+}
+
+export interface BatchTestRequest {
+  formulaId: string
+  version?: number
+  tolerance?: string
+  cases: BatchTestCase[]
+}
+
+export interface BatchTestCaseResult {
+  index: number
+  label?: string
+  pass: boolean
+  inputs: Record<string, string>
+  expected: Record<string, string>
+  actual: Record<string, string>
+  diff?: Record<string, string>
+  executionTimeMs: number
+  cacheHit: boolean
+  error?: string
+}
+
+export interface BatchTestSummary {
+  total: number
+  passed: number
+  failed: number
+  passRate: number
+}
+
+export interface BatchTestResponse {
+  summary: BatchTestSummary
+  results: BatchTestCaseResult[]
+}
+
 export interface ValidationError {
   nodeId?: string
   edgeId?: string
