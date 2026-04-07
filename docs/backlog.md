@@ -11,7 +11,7 @@
 
 ## 已排期
 
-- [011-merge-cache-into-settings.md](tasks/011-merge-cache-into-settings.md) — Cache 管理整合到 Settings 页面
+（创建 task 文件后移到这里）
 
 ## 已完成
 
@@ -24,4 +24,5 @@
 - [007-admin-settings.md](tasks/007-admin-settings.md) — 管理员系统设置页面（最大并发数）（2026-04-07）
 - [008-version-diff.md](tasks/008-version-diff.md) — 版本 diff 视图（2026-04-07）
 - [009-formula-templates.md](tasks/009-formula-templates.md) — 保险领域公式模板画廊（2026-04-07）
+- [011-merge-cache-into-settings.md](tasks/011-merge-cache-into-settings.md) — Cache 管理整合到 Settings 页面（2026-04-07）
 - [010-workflow-guard-hooks.md](tasks/010-workflow-guard-hooks.md) — 工作流守卫 Hook（2026-04-07）
