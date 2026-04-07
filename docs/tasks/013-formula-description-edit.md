@@ -1,6 +1,6 @@
 # Task #013: 公式 Description 内联编辑
 
-## Status: in-progress
+## Status: done
 
 ## 需求
 
@@ -30,14 +30,14 @@
 ## TODO
 
 - [x] 创建任务文件
-- [ ] FormulaEditorPage.tsx：追加 description 编辑状态和 handler
-- [ ] FormulaEditorPage.tsx：header 追加 description 行 UI
-- [ ] tsc --noEmit 通过
-- [ ] codex review + fix P1/P2
-- [ ] 提交
+- [x] FormulaEditorPage.tsx：追加 description 编辑状态和 handler
+- [x] FormulaEditorPage.tsx：header 追加 description 行 UI
+- [x] tsc --noEmit 通过
+- [x] codex review + fix P1/P2
+- [x] 提交
 
 ## 完成标准
 
-- [ ] 功能正常
-- [ ] 测试通过
-- [ ] commit + codex review
+- [x] 功能正常
+- [x] 测试通过
+- [x] commit + codex review
