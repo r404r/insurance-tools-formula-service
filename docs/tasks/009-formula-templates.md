@@ -1,6 +1,6 @@
 # Task #009: 保险领域公式模板
 
-## Status: in-progress
+## Status: done
 
 ## 需求
 
@@ -87,10 +87,10 @@
 - [x] 前端：FormulaList.tsx 追加入口按钮
 - [x] i18n（zh/en/ja）
 - [x] codex review + fix P1/P2
-- [ ] 提交
+- [x] 提交
 
 ## 完成标准
 
-- [ ] 功能正常（从模板创建公式，图谱正确出现在编辑器）
-- [ ] 测试通过
-- [ ] commit + codex review
+- [x] 功能正常（从模板创建公式，图谱正确出现在编辑器）
+- [x] 测试通过
+- [x] commit + codex review
