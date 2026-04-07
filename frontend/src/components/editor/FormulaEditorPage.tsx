@@ -106,6 +106,9 @@ export default function FormulaEditorPage() {
   const [isUpdatingCategory, setIsUpdatingCategory] = useState(false)
   const [isEditingName, setIsEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
+  const [isEditingDesc, setIsEditingDesc] = useState(false)
+  const [descDraft, setDescDraft] = useState('')
+  const [isSavingDesc, setIsSavingDesc] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
   const autoLayout = useAutoLayout()
@@ -218,6 +221,10 @@ export default function FormulaEditorPage() {
   useEffect(() => {
     setNameDraft(formula?.name ?? '')
   }, [formula?.name])
+
+  useEffect(() => {
+    setDescDraft(formula?.description ?? '')
+  }, [formula?.description])
 
   useEffect(() => {
     if (editorMode !== 'text') {
@@ -336,6 +343,36 @@ export default function FormulaEditorPage() {
     }
   }, [formula, id, nameDraft, queryClient, setCurrentFormula, t])
 
+  const handleDescSave = useCallback(async () => {
+    if (!id || !formula) return
+
+    const trimmed = descDraft.trim()
+    if (trimmed === (formula.description ?? '').trim()) {
+      setIsEditingDesc(false)
+      return
+    }
+
+    setIsSavingDesc(true)
+    setSaveMessage(null)
+    try {
+      const updatedFormula = await api.put<Formula>(`/formulas/${id}`, { description: trimmed })
+      setCurrentFormula(updatedFormula)
+      setDescDraft(updatedFormula.description ?? '')
+      setIsEditingDesc(false)
+      setSaveMessage(t('editor.saved'))
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['formula', id] }),
+        queryClient.invalidateQueries({ queryKey: ['formulas'] }),
+      ])
+      setTimeout(() => setSaveMessage(null), 3000)
+    } catch (err) {
+      setSaveMessage((err as Error).message)
+      setDescDraft(formula.description ?? '')
+    } finally {
+      setIsSavingDesc(false)
+    }
+  }, [descDraft, formula, id, queryClient, setCurrentFormula, t])
+
   const handleCategoryChange = useCallback(
     async (nextDomain: InsuranceDomain) => {
       if (!id || !formula || !nextDomain || nextDomain === formula.domain) {
@@ -386,7 +423,8 @@ export default function FormulaEditorPage() {
   return (
     <div className="min-h-screen flex flex-col overflow-x-scroll overflow-y-scroll bg-white">
       {/* Header */}
-      <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 bg-white px-4 py-2">
+      <div className="shrink-0 flex flex-col gap-1 border-b border-gray-200 bg-white px-4 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <Link to="/" className="text-gray-400 hover:text-gray-600">&larr;</Link>
           {isEditingName ? (
@@ -493,6 +531,37 @@ export default function FormulaEditorPage() {
             {isSaving ? t('common.loading') : t('editor.save')}
           </button>
         </div>
+        </div>
+
+        {/* Description row */}
+        {isEditor ? (
+          isEditingDesc ? (
+            <input
+              autoFocus
+              value={descDraft}
+              onChange={(e) => setDescDraft(e.target.value)}
+              onBlur={() => { void handleDescSave() }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); void handleDescSave() }
+                if (e.key === 'Escape') { setDescDraft(formula?.description ?? ''); setIsEditingDesc(false) }
+              }}
+              disabled={isSavingDesc}
+              placeholder={t('formula.description')}
+              className="w-full rounded border border-blue-300 bg-white px-2 py-0.5 text-xs text-slate-600 shadow-sm outline-none ring-2 ring-blue-100"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => { setDescDraft(formula?.description ?? ''); setIsEditingDesc(true) }}
+              className="w-full truncate rounded px-1 text-left text-xs text-slate-500 hover:bg-slate-100"
+              title={formula?.description || t('formula.description')}
+            >
+              {formula?.description || <span className="italic text-slate-400">{t('formula.description')}</span>}
+            </button>
+          )
+        ) : formula?.description ? (
+          <p className="truncate px-1 text-xs text-slate-500">{formula.description}</p>
+        ) : null}
       </div>
 
       {/* Editor Area */}
