@@ -2,7 +2,6 @@
 
 ## 待规划
 
-- [ ] Cache Management功能整合到Settings中
 - [ ] PostgreSQL Store 实现
 - [ ] MySQL Store 实现
 - [ ] 自定义 react-flow 节点组件（OperatorNode, VariableNode 等）
@@ -12,7 +11,7 @@
 
 ## 已排期
 
-（创建 task 文件后移到这里）
+- [011-merge-cache-into-settings.md](tasks/011-merge-cache-into-settings.md) — Cache 管理整合到 Settings 页面
 
 ## 已完成
 

@@ -10,7 +10,6 @@ import FormulaList from './components/shared/FormulaList'
 import CategoryManagementPage from './components/shared/CategoryManagementPage'
 import UserManagementPage from './components/shared/UserManagementPage'
 import TableManagementPage from './components/shared/TableManagementPage'
-import CacheSettingsPage from './components/shared/CacheSettingsPage'
 import AdminSettingsPage from './components/shared/AdminSettingsPage'
 import BatchTestPage from './components/shared/BatchTestPage'
 import FormulaEditorPage from './components/editor/FormulaEditorPage'
@@ -58,7 +57,7 @@ function App() {
               <Route path="/categories" element={<CategoryManagementPage />} />
               <Route path="/tables" element={<TableManagementPage />} />
               <Route path="/users" element={<UserManagementPage />} />
-              <Route path="/cache" element={<CacheSettingsPage />} />
+              <Route path="/cache" element={<Navigate to="/admin/settings" replace />} />
               <Route path="/admin/settings" element={<AdminSettingsPage />} />
               <Route path="/batch-test" element={<BatchTestPage />} />
               <Route path="/formulas/:id/versions" element={<VersionsPage />} />
