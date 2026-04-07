@@ -61,6 +61,13 @@ type CategoryRepository interface {
 	Delete(ctx context.Context, id string) error
 }
 
+// SettingsRepository manages persistent application settings as key-value pairs.
+type SettingsRepository interface {
+	Get(ctx context.Context, key string) (string, error)
+	Set(ctx context.Context, key, value string) error
+	All(ctx context.Context) (map[string]string, error)
+}
+
 // Store is the top-level storage abstraction aggregating all repositories.
 type Store interface {
 	Formulas() FormulaRepository
@@ -68,6 +75,7 @@ type Store interface {
 	Users() UserRepository
 	Tables() TableRepository
 	Categories() CategoryRepository
+	Settings() SettingsRepository
 	Migrate(ctx context.Context) error
 	Close() error
 }

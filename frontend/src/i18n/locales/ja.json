@@ -1,6 +1,6 @@
 {
   "app": { "title": "保険計算式エンジン" },
-  "nav": { "formulas": "計算式管理", "tables": "ルックアップテーブル", "categories": "分類管理", "users": "ユーザー管理", "cache": "キャッシュ管理", "batchTest": "バッチテスト", "logout": "ログアウト" },
+  "nav": { "formulas": "計算式管理", "tables": "ルックアップテーブル", "categories": "分類管理", "users": "ユーザー管理", "cache": "キャッシュ管理", "batchTest": "バッチテスト", "adminSettings": "システム設定", "logout": "ログアウト" },
   "auth": {
     "login": "ログイン",
     "register": "登録",
@@ -185,5 +185,15 @@
     "clearConfirm": "全キャッシュをクリアしますか？この操作は元に戻せません。",
     "clearSuccess": "キャッシュをクリアしました",
     "hint": "ヒント：ルックアップテーブルのデータを更新した後は、最新データを使用するためにキャッシュを手動でクリアしてください。"
+  },
+  "adminSettings": {
+    "title": "システム設定",
+    "subtitle": "管理者はここでサーバーのパラメータを調整できます。変更は再起動不要で即座に反映されます。",
+    "engineSection": "計算エンジン",
+    "maxConcurrentCalcs": "最大同時計算数",
+    "maxConcurrentCalcsHint": "同時に処理する計算リクエストの上限。この値を超えたリクエストは 503 を受け取りリトライが必要です。",
+    "zeroMeansUnlimited": "（0 = 無制限）",
+    "save": "設定を保存",
+    "saveSuccess": "設定を保存しました"
   }
 }

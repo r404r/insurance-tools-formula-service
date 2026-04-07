@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"runtime/debug"
+	"sync"
 	"time"
 
 	"github.com/rs/cors"
@@ -59,16 +60,61 @@ func Recovery() func(http.Handler) http.Handler {
 	}
 }
 
-// ConcurrencyLimiter returns middleware that caps concurrent in-flight requests
-// at n. When the cap is reached callers receive 503 Service Unavailable with a
-// Retry-After: 1 header. Passing n ≤ 0 disables the limit (pass-through).
-func ConcurrencyLimiter(n int) func(http.Handler) http.Handler {
-	if n <= 0 {
-		return func(next http.Handler) http.Handler { return next }
+// DynamicConcurrencyLimiter is a semaphore-based concurrency cap whose limit
+// can be updated at runtime without restarting the server.
+// Swapping the limit creates a fresh buffered channel; in-flight requests
+// draining the old channel are harmless — the channel is garbage-collected
+// once all slot-holders release it.
+type DynamicConcurrencyLimiter struct {
+	mu    sync.RWMutex
+	sem   chan struct{}
+	limit int
+}
+
+// NewDynamicConcurrencyLimiter creates a limiter with an initial cap of n.
+// n ≤ 0 means unlimited.
+func NewDynamicConcurrencyLimiter(n int) *DynamicConcurrencyLimiter {
+	d := &DynamicConcurrencyLimiter{limit: n}
+	if n > 0 {
+		d.sem = make(chan struct{}, n)
 	}
-	sem := make(chan struct{}, n)
+	return d
+}
+
+// SetLimit replaces the semaphore with a new one of capacity n.
+// n ≤ 0 disables the limit.
+func (d *DynamicConcurrencyLimiter) SetLimit(n int) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.limit = n
+	if n <= 0 {
+		d.sem = nil
+		return
+	}
+	d.sem = make(chan struct{}, n)
+}
+
+// Limit returns the current cap (0 means unlimited).
+func (d *DynamicConcurrencyLimiter) Limit() int {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	return d.limit
+}
+
+// Middleware returns an http.Handler middleware that enforces the current limit.
+// When the cap is reached the handler returns 503 + Retry-After: 1 immediately.
+func (d *DynamicConcurrencyLimiter) Middleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			d.mu.RLock()
+			sem := d.sem
+			d.mu.RUnlock()
+
+			if sem == nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			select {
 			case sem <- struct{}{}:
 				defer func() { <-sem }()

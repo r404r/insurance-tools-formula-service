@@ -22,6 +22,7 @@ type SQLiteStore struct {
 	users      *userRepo
 	tables     *tableRepo
 	categories *categoryRepo
+	settings   *settingsRepo
 }
 
 // New opens a SQLite database and returns a Store implementation.
@@ -49,6 +50,7 @@ func New(dsn string) (*SQLiteStore, error) {
 	s.users = &userRepo{db: db}
 	s.tables = &tableRepo{db: db}
 	s.categories = &categoryRepo{db: db}
+	s.settings = &settingsRepo{db: db}
 	return s, nil
 }
 
@@ -57,6 +59,7 @@ func (s *SQLiteStore) Versions() store.VersionRepository    { return s.versions 
 func (s *SQLiteStore) Users() store.UserRepository          { return s.users }
 func (s *SQLiteStore) Tables() store.TableRepository        { return s.tables }
 func (s *SQLiteStore) Categories() store.CategoryRepository { return s.categories }
+func (s *SQLiteStore) Settings() store.SettingsRepository   { return s.settings }
 
 func (s *SQLiteStore) Close() error {
 	return s.db.Close()
@@ -115,6 +118,11 @@ func (s *SQLiteStore) Migrate(ctx context.Context) error {
 		`CREATE INDEX IF NOT EXISTS idx_formula_versions_formula ON formula_versions(formula_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_formula_versions_state ON formula_versions(state)`,
 		`CREATE INDEX IF NOT EXISTS idx_lookup_tables_domain ON lookup_tables(domain)`,
+		`CREATE TABLE IF NOT EXISTS settings (
+			key        TEXT PRIMARY KEY,
+			value      TEXT NOT NULL,
+			updated_at TEXT NOT NULL
+		)`,
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)

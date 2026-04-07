@@ -1,6 +1,6 @@
 {
   "app": { "title": "Insurance Formula Engine" },
-  "nav": { "formulas": "Formulas", "tables": "Lookup Tables", "categories": "Categories", "users": "Users", "cache": "Cache", "batchTest": "Batch Test", "logout": "Logout" },
+  "nav": { "formulas": "Formulas", "tables": "Lookup Tables", "categories": "Categories", "users": "Users", "cache": "Cache", "batchTest": "Batch Test", "adminSettings": "Settings", "logout": "Logout" },
   "auth": {
     "login": "Login",
     "register": "Register",
@@ -185,5 +185,15 @@
     "clearConfirm": "Clear all cache entries? This cannot be undone.",
     "clearSuccess": "Cache cleared",
     "hint": "Tip: After updating lookup table data, clear the cache manually to ensure calculations use the latest data."
+  },
+  "adminSettings": {
+    "title": "System Settings",
+    "subtitle": "Adjust server parameters here. Changes take effect immediately without a restart.",
+    "engineSection": "Calculation Engine",
+    "maxConcurrentCalcs": "Max Concurrent Calculations",
+    "maxConcurrentCalcsHint": "Maximum number of calculation requests processed simultaneously. Requests beyond this limit receive a 503 and should be retried.",
+    "zeroMeansUnlimited": "(0 = unlimited)",
+    "save": "Save Settings",
+    "saveSuccess": "Settings saved"
   }
 }

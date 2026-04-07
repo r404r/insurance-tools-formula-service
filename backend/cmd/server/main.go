@@ -115,6 +115,19 @@ func run(logger zerolog.Logger) error {
 	parseHandler := &api.ParseHandler{}
 	cacheHandler := &api.CacheHandler{Engine: eng}
 
+	// Load persisted settings and initialise dynamic concurrency limiter.
+	maxCalcs := cfg.Engine.MaxConcurrentCalcs
+	if v, err := store.Settings().Get(context.Background(), api.SettingMaxConcurrentCalcs); err == nil {
+		if n := parseInt(v, maxCalcs); n >= 0 {
+			maxCalcs = n
+		}
+	}
+	calcLimiter := api.NewDynamicConcurrencyLimiter(maxCalcs)
+	settingsHandler := &api.SettingsHandler{
+		Settings: store.Settings(),
+		Limiter:  calcLimiter,
+	}
+
 	// Build the router.
 	router := api.NewRouter(api.RouterConfig{
 		AuthHandler:     authHandler,
@@ -126,10 +139,11 @@ func run(logger zerolog.Logger) error {
 		CategoryHandler: categoryHandler,
 		ParseHandler:    parseHandler,
 		CacheHandler:    cacheHandler,
-		JWTManager:         jwtMgr,
-		Logger:             logger,
-		CORSOrigins:        cfg.Server.CORSOrigins,
-		MaxConcurrentCalcs: cfg.Engine.MaxConcurrentCalcs,
+		SettingsHandler: settingsHandler,
+		JWTManager:      jwtMgr,
+		Logger:          logger,
+		CORSOrigins:     cfg.Server.CORSOrigins,
+		CalcLimiter:     calcLimiter,
 	})
 
 	// Start HTTP server.
@@ -572,6 +586,14 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 	}
 
 	return nil
+}
+
+func parseInt(s string, fallback int) int {
+	var n int
+	if _, err := fmt.Sscanf(s, "%d", &n); err != nil {
+		return fallback
+	}
+	return n
 }
 
 func mustJSON(v any) json.RawMessage {

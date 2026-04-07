@@ -19,10 +19,11 @@ type RouterConfig struct {
 	CategoryHandler    *CategoryHandler
 	ParseHandler       *ParseHandler
 	CacheHandler       *CacheHandler
+	SettingsHandler    *SettingsHandler
 	JWTManager         *auth.JWTManager
 	Logger             zerolog.Logger
 	CORSOrigins        []string
-	MaxConcurrentCalcs int
+	CalcLimiter        *DynamicConcurrencyLimiter
 }
 
 // NewRouter creates a chi.Mux with all API routes wired up.
@@ -86,7 +87,7 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 			// Calculation endpoints.
 			r.Route("/calculate", func(r chi.Router) {
 				r.Use(auth.RequirePermission(auth.PermCalculate))
-				r.Use(ConcurrencyLimiter(cfg.MaxConcurrentCalcs))
+				r.Use(cfg.CalcLimiter.Middleware())
 				r.Post("/", cfg.CalcHandler.Calculate)
 				r.Post("/batch", cfg.CalcHandler.BatchCalculate)
 				r.Post("/batch-test", cfg.CalcHandler.BatchTest)
@@ -132,6 +133,13 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 				Route("/cache", func(r chi.Router) {
 					r.Get("/", cfg.CacheHandler.Stats)
 					r.Delete("/", cfg.CacheHandler.Clear)
+				})
+
+			// Settings endpoints (admin only).
+			r.With(auth.RequirePermission(auth.PermUserManage)).
+				Route("/settings", func(r chi.Router) {
+					r.Get("/", cfg.SettingsHandler.Get)
+					r.Put("/", cfg.SettingsHandler.Update)
 				})
 		})
 	})

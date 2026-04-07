@@ -194,3 +194,15 @@ type ErrorResponse struct {
 type UpdateUserRoleRequest struct {
 	Role domain.Role `json:"role"`
 }
+
+// --- Settings DTOs ---
+
+// SettingsResponse carries the current application settings.
+type SettingsResponse struct {
+	MaxConcurrentCalcs int `json:"maxConcurrentCalcs"`
+}
+
+// UpdateSettingsRequest carries the fields to update; nil fields are unchanged.
+type UpdateSettingsRequest struct {
+	MaxConcurrentCalcs *int `json:"maxConcurrentCalcs"`
+}

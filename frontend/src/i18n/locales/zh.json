@@ -1,6 +1,6 @@
 {
   "app": { "title": "保险公式计算引擎" },
-  "nav": { "formulas": "公式管理", "tables": "查找表", "categories": "分类管理", "users": "用户管理", "cache": "缓存管理", "batchTest": "批量测试", "logout": "退出登录" },
+  "nav": { "formulas": "公式管理", "tables": "查找表", "categories": "分类管理", "users": "用户管理", "cache": "缓存管理", "batchTest": "批量测试", "adminSettings": "系统设置", "logout": "退出登录" },
   "auth": {
     "login": "登录",
     "register": "注册",
@@ -185,5 +185,15 @@
     "clearConfirm": "确认清空全部缓存？此操作不可撤销。",
     "clearSuccess": "缓存已清空",
     "hint": "提示：更新查找表数据后，请手动清除缓存以确保计算使用最新数据。"
+  },
+  "adminSettings": {
+    "title": "系统设置",
+    "subtitle": "管理员可在此调整服务器运行参数，修改即时生效，无需重启。",
+    "engineSection": "计算引擎",
+    "maxConcurrentCalcs": "最大并发计算数",
+    "maxConcurrentCalcsHint": "同时处理的计算请求上限。超过此值的请求将收到 503 并可重试。",
+    "zeroMeansUnlimited": "（0 表示不限制）",
+    "save": "保存设置",
+    "saveSuccess": "设置已保存"
   }
 }
