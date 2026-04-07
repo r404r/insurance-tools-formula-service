@@ -22,6 +22,7 @@ import (
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/engine"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store"
+	"github.com/r404r/insurance-tools/formula-service/backend/internal/store/postgres"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store/sqlite"
 )
 
@@ -47,11 +48,20 @@ func run(logger zerolog.Logger) error {
 		logger.Warn().Msg("AUTH_JWT_SECRET not set, using insecure default (development only)")
 	}
 
-	// Open database.
-	store, err := sqlite.New(cfg.Database.DSN)
+	// Open database — driver selected by DB_DRIVER env var.
+	var st store.Store
+	switch cfg.Database.Driver {
+	case "postgres":
+		st, err = postgres.New(cfg.Database.DSN)
+	case "sqlite":
+		st, err = sqlite.New(cfg.Database.DSN)
+	default:
+		return fmt.Errorf("DB_DRIVER %q is not yet supported; use sqlite or postgres", cfg.Database.Driver)
+	}
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
 	}
+	store := st
 	defer store.Close()
 
 	// Run migrations.
