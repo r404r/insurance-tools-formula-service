@@ -59,6 +59,31 @@ func Recovery() func(http.Handler) http.Handler {
 	}
 }
 
+// ConcurrencyLimiter returns middleware that caps concurrent in-flight requests
+// at n. When the cap is reached callers receive 503 Service Unavailable with a
+// Retry-After: 1 header. Passing n ≤ 0 disables the limit (pass-through).
+func ConcurrencyLimiter(n int) func(http.Handler) http.Handler {
+	if n <= 0 {
+		return func(next http.Handler) http.Handler { return next }
+	}
+	sem := make(chan struct{}, n)
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			select {
+			case sem <- struct{}{}:
+				defer func() { <-sem }()
+				next.ServeHTTP(w, r)
+			default:
+				w.Header().Set("Retry-After", "1")
+				writeJSON(w, http.StatusServiceUnavailable, ErrorResponse{
+					Error: "server busy: too many concurrent calculations, please retry",
+					Code:  http.StatusServiceUnavailable,
+				})
+			}
+		})
+	}
+}
+
 // CORS returns middleware that sets Cross-Origin Resource Sharing headers for
 // the given list of allowed origins.
 func CORS(origins []string) func(http.Handler) http.Handler {

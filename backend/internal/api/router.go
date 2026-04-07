@@ -10,18 +10,19 @@ import (
 
 // RouterConfig holds the dependencies needed to construct the API router.
 type RouterConfig struct {
-	AuthHandler     *AuthHandler
-	FormulaHandler  *FormulaHandler
-	VersionHandler  *VersionHandler
-	CalcHandler     *CalcHandler
-	TableHandler    *TableHandler
-	UserHandler     *UserHandler
-	CategoryHandler *CategoryHandler
-	ParseHandler    *ParseHandler
-	CacheHandler    *CacheHandler
-	JWTManager      *auth.JWTManager
-	Logger          zerolog.Logger
-	CORSOrigins     []string
+	AuthHandler        *AuthHandler
+	FormulaHandler     *FormulaHandler
+	VersionHandler     *VersionHandler
+	CalcHandler        *CalcHandler
+	TableHandler       *TableHandler
+	UserHandler        *UserHandler
+	CategoryHandler    *CategoryHandler
+	ParseHandler       *ParseHandler
+	CacheHandler       *CacheHandler
+	JWTManager         *auth.JWTManager
+	Logger             zerolog.Logger
+	CORSOrigins        []string
+	MaxConcurrentCalcs int
 }
 
 // NewRouter creates a chi.Mux with all API routes wired up.
@@ -85,6 +86,7 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 			// Calculation endpoints.
 			r.Route("/calculate", func(r chi.Router) {
 				r.Use(auth.RequirePermission(auth.PermCalculate))
+				r.Use(ConcurrencyLimiter(cfg.MaxConcurrentCalcs))
 				r.Post("/", cfg.CalcHandler.Calculate)
 				r.Post("/batch", cfg.CalcHandler.BatchCalculate)
 				r.Post("/batch-test", cfg.CalcHandler.BatchTest)

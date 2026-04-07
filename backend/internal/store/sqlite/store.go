@@ -37,6 +37,12 @@ func New(dsn string) (*SQLiteStore, error) {
 		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}
 
+	// SQLite with WAL mode supports concurrent reads but serialises writes.
+	// Capping the pool prevents "database is locked" errors under high load.
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(time.Hour)
+
 	s := &SQLiteStore{db: db}
 	s.formulas = &formulaRepo{db: db}
 	s.versions = &versionRepo{db: db}

@@ -36,6 +36,7 @@ type EngineConfig struct {
 	OutputPrecision       int32
 	ParallelThreshold     int
 	CacheSize             int
+	MaxConcurrentCalcs    int
 }
 
 // AuthConfig holds authentication settings.
@@ -74,6 +75,7 @@ func Load() (*Config, error) {
 	outputPrecision := int32(envInt("ENGINE_OUTPUT_PRECISION", 18))
 	parallelThreshold := envInt("ENGINE_PARALLEL_THRESHOLD", 8)
 	cacheSize := envInt("ENGINE_CACHE_SIZE", 1000)
+	maxConcurrentCalcs := envInt("ENGINE_MAX_CONCURRENT_CALCS", 100)
 
 	jwtSecret := envString("AUTH_JWT_SECRET", "")
 	tokenExpiry := envDuration("AUTH_TOKEN_EXPIRY", 24*time.Hour)
@@ -93,6 +95,7 @@ func Load() (*Config, error) {
 			OutputPrecision:       outputPrecision,
 			ParallelThreshold:     parallelThreshold,
 			CacheSize:             cacheSize,
+			MaxConcurrentCalcs:    maxConcurrentCalcs,
 		},
 		Auth: AuthConfig{
 			JWTSecret:   jwtSecret,

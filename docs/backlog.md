@@ -22,3 +22,4 @@
 - [003-multi-key-lookup-table.md](tasks/003-multi-key-lookup-table.md) — Lookup Table 多 Key 支持（2026-04-06）
 - [004-cache.md](tasks/004-cache.md) — 计算结果缓存 + 管理页面（2026-04-07）
 - [005-batch-test.md](tasks/005-batch-test.md) — 大批量测试功能（2026-04-07）
+- [006-concurrency-control.md](tasks/006-concurrency-control.md) — 并发控制与 DB 连接池（2026-04-07）

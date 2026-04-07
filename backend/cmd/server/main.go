@@ -126,9 +126,10 @@ func run(logger zerolog.Logger) error {
 		CategoryHandler: categoryHandler,
 		ParseHandler:    parseHandler,
 		CacheHandler:    cacheHandler,
-		JWTManager:      jwtMgr,
-		Logger:          logger,
-		CORSOrigins:     cfg.Server.CORSOrigins,
+		JWTManager:         jwtMgr,
+		Logger:             logger,
+		CORSOrigins:        cfg.Server.CORSOrigins,
+		MaxConcurrentCalcs: cfg.Engine.MaxConcurrentCalcs,
 	})
 
 	// Start HTTP server.
