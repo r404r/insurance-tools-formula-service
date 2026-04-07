@@ -1,6 +1,6 @@
 # Task #010: 工作流守卫 Hook
 
-## Status: in-progress
+## Status: done
 
 ## 需求
 
