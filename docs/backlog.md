@@ -2,6 +2,8 @@
 
 ## 待规划
 
+- [ ] Lookup Tables改造成能管理多种表，且能自定义每个表的表结构（比如有a，b，c，d四个字段，实际使用的时候通过a，b，c字段来定位d字段），并能批量通过csv or Excel上传表内容的功能
+- [ ] 追加公式Description修改功能
 - [ ] PostgreSQL Store 实现
 - [ ] MySQL Store 实现
 - [ ] 自定义 react-flow 节点组件（OperatorNode, VariableNode 等）
@@ -10,8 +12,6 @@
 - [ ] 更丰富的节点视觉效果
 
 ## 已排期
-
-（创建 task 文件后移到这里）
 
 ## 已完成
 
@@ -26,3 +26,4 @@
 - [009-formula-templates.md](tasks/009-formula-templates.md) — 保险领域公式模板画廊（2026-04-07）
 - [011-merge-cache-into-settings.md](tasks/011-merge-cache-into-settings.md) — Cache 管理整合到 Settings 页面（2026-04-07）
 - [010-workflow-guard-hooks.md](tasks/010-workflow-guard-hooks.md) — 工作流守卫 Hook（2026-04-07）
+- [012-formula-list-pagination.md](tasks/012-formula-list-pagination.md) — 公式一览分页（2026-04-07）

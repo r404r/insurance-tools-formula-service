@@ -1,6 +1,6 @@
 # Task #012: 公式一览页面分页功能
 
-## Status: in-progress
+## Status: done
 
 ## 需求
 
@@ -38,15 +38,15 @@
 ## TODO
 
 - [x] 创建任务文件
-- [ ] FormulaList.tsx：page state + API limit/offset 对齐
-- [ ] FormulaList.tsx：搜索/domain 变化时 reset page
-- [ ] FormulaList.tsx：分页栏 UI
-- [ ] tsc --noEmit 通过
-- [ ] codex review + fix P1/P2
-- [ ] 提交
+- [x] FormulaList.tsx：page state + API limit/offset 对齐
+- [x] FormulaList.tsx：搜索/domain 变化时 reset page
+- [x] FormulaList.tsx：分页栏 UI
+- [x] tsc --noEmit 通过
+- [x] codex review + fix P1/P2
+- [x] 提交
 
 ## 完成标准
 
-- [ ] 分页功能正常
-- [ ] 测试通过
-- [ ] commit + codex review
+- [x] 分页功能正常
+- [x] 测试通过
+- [x] commit + codex review
