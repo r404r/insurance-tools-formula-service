@@ -186,6 +186,17 @@
     "clearSuccess": "キャッシュをクリアしました",
     "hint": "ヒント：ルックアップテーブルのデータを更新した後は、最新データを使用するためにキャッシュを手動でクリアしてください。"
   },
+  "diff": {
+    "title": "バージョン比較：v{{from}} → v{{to}}",
+    "summary": "ノード変更 {{nodes}} 件、エッジ変更 {{edges}} 件",
+    "noChanges": "2つのバージョン間に差異はありません",
+    "addedNodes": "追加ノード（{{count}}）",
+    "removedNodes": "削除ノード（{{count}}）",
+    "modifiedNodes": "変更ノード（{{count}}）",
+    "edgeChanges": "エッジ変更（+{{added}} / -{{removed}}）",
+    "before": "変更前",
+    "after": "変更後"
+  },
   "adminSettings": {
     "title": "システム設定",
     "subtitle": "管理者はここでサーバーのパラメータを調整できます。変更は再起動不要で即座に反映されます。",

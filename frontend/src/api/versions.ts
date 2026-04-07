@@ -1,19 +1,9 @@
 import { api } from './client'
-import type { FormulaVersion, FormulaGraph, VersionState } from '../types/formula'
+import type { FormulaVersion, FormulaGraph, VersionState, VersionDiff } from '../types/formula'
 
 export interface CreateVersionData {
   graph: FormulaGraph
   changeNote: string
-}
-
-export interface VersionDiff {
-  fromVersion: number
-  toVersion: number
-  addedNodes: string[]
-  removedNodes: string[]
-  modifiedNodes: string[]
-  addedEdges: string[]
-  removedEdges: string[]
 }
 
 export function listVersions(formulaId: string): Promise<FormulaVersion[]> {
@@ -42,6 +32,6 @@ export function getVersionDiff(
   toVersion: number
 ): Promise<VersionDiff> {
   return api.get<VersionDiff>(
-    `/formulas/${formulaId}/versions/diff?from=${fromVersion}&to=${toVersion}`
+    `/formulas/${formulaId}/diff?from=${fromVersion}&to=${toVersion}`
   )
 }

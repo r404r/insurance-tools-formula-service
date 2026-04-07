@@ -132,6 +132,24 @@ export interface FormulaVersion {
   createdAt: string
 }
 
+// Matches backend domain.NodeDiff
+export interface NodeDiff {
+  nodeId: string
+  before: FormulaNode
+  after: FormulaNode
+}
+
+// Matches backend domain.VersionDiff
+export interface VersionDiff {
+  fromVersion: number
+  toVersion: number
+  addedNodes: FormulaNode[]
+  removedNodes: FormulaNode[]
+  modifiedNodes: NodeDiff[]
+  addedEdges: FormulaEdge[]
+  removedEdges: FormulaEdge[]
+}
+
 export interface Formula {
   id: string
   name: string

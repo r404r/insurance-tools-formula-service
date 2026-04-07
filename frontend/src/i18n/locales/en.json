@@ -186,6 +186,17 @@
     "clearSuccess": "Cache cleared",
     "hint": "Tip: After updating lookup table data, clear the cache manually to ensure calculations use the latest data."
   },
+  "diff": {
+    "title": "Diff: v{{from}} → v{{to}}",
+    "summary": "{{nodes}} node change(s), {{edges}} edge change(s)",
+    "noChanges": "No differences between these two versions",
+    "addedNodes": "Added Nodes ({{count}})",
+    "removedNodes": "Removed Nodes ({{count}})",
+    "modifiedNodes": "Modified Nodes ({{count}})",
+    "edgeChanges": "Edge Changes (+{{added}} / -{{removed}})",
+    "before": "Before",
+    "after": "After"
+  },
   "adminSettings": {
     "title": "System Settings",
     "subtitle": "Adjust server parameters here. Changes take effect immediately without a restart.",

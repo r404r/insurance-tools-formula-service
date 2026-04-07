@@ -236,9 +236,16 @@ func isValidTransition(from, to domain.VersionState) bool {
 // computeDiff produces a VersionDiff describing the changes between two formula
 // versions by comparing their node and edge sets.
 func computeDiff(from, to *domain.FormulaVersion) domain.VersionDiff {
+	// Initialize all slices to empty (not nil) so they serialise to JSON []
+	// rather than null, which would break frontend array operations.
 	diff := domain.VersionDiff{
-		FromVersion: from.Version,
-		ToVersion:   to.Version,
+		FromVersion:   from.Version,
+		ToVersion:     to.Version,
+		AddedNodes:    []domain.FormulaNode{},
+		RemovedNodes:  []domain.FormulaNode{},
+		ModifiedNodes: []domain.NodeDiff{},
+		AddedEdges:    []domain.FormulaEdge{},
+		RemovedEdges:  []domain.FormulaEdge{},
 	}
 
 	// Index nodes by ID for both versions.

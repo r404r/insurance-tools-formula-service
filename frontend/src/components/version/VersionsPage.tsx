@@ -1,8 +1,10 @@
+import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
 import type { FormulaVersion, Formula } from '../../types/formula'
+import VersionDiffModal from './VersionDiffModal'
 
 const stateBadge: Record<string, string> = {
   draft: 'bg-yellow-100 text-yellow-700',
@@ -14,6 +16,7 @@ export default function VersionsPage() {
   const { id } = useParams<{ id: string }>()
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const [diffTarget, setDiffTarget] = useState<{ from: number; to: number } | null>(null)
 
   const { data: formula } = useQuery({
     queryKey: ['formula', id],
@@ -61,6 +64,14 @@ export default function VersionsPage() {
                 <span className="text-xs text-gray-400">{new Date(v.createdAt).toLocaleString()}</span>
               </div>
               <div className="flex items-center gap-2">
+                {v.version > 1 && (
+                  <button
+                    onClick={() => setDiffTarget({ from: v.version - 1, to: v.version })}
+                    className="text-xs bg-indigo-50 text-indigo-600 px-3 py-1 rounded border border-indigo-200 hover:bg-indigo-100"
+                  >
+                    {t('version.diff')}
+                  </button>
+                )}
                 {v.state === 'draft' && (
                   <button
                     onClick={() => updateState.mutate({ ver: v.version, state: 'published' })}
@@ -81,6 +92,15 @@ export default function VersionsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {diffTarget && id && (
+        <VersionDiffModal
+          formulaId={id}
+          fromVersion={diffTarget.from}
+          toVersion={diffTarget.to}
+          onClose={() => setDiffTarget(null)}
+        />
       )}
     </div>
   )

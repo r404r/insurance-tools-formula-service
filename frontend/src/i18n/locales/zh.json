@@ -186,6 +186,17 @@
     "clearSuccess": "缓存已清空",
     "hint": "提示：更新查找表数据后，请手动清除缓存以确保计算使用最新数据。"
   },
+  "diff": {
+    "title": "版本对比：v{{from}} → v{{to}}",
+    "summary": "{{nodes}} 个节点变更，{{edges}} 条边变更",
+    "noChanges": "两个版本之间没有差异",
+    "addedNodes": "新增节点（{{count}}）",
+    "removedNodes": "删除节点（{{count}}）",
+    "modifiedNodes": "修改节点（{{count}}）",
+    "edgeChanges": "边变更（+{{added}} / -{{removed}}）",
+    "before": "修改前",
+    "after": "修改后"
+  },
   "adminSettings": {
     "title": "系统设置",
     "subtitle": "管理员可在此调整服务器运行参数，修改即时生效，无需重启。",
