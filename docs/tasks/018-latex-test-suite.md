@@ -1,6 +1,6 @@
 # Task #018: LaTeX 公式输入功能测试套件
 
-## Status: in-progress
+## Status: done
 
 ## 需求
 
