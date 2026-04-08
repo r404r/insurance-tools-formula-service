@@ -1,0 +1,1992 @@
+[
+  {
+    "id": "TC-01",
+    "description": "Addition: \\mathrm identifiers + underscore variable names",
+    "latex": "\\mathrm{age} + \\mathrm{base\\_rate}",
+    "expectedFormulaText": "age + base_rate",
+    "screenshotFile": "tc-01-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "bb65e441-5b01-4d06-9dae-9cf88d45fad4",
+    "calcResults": [
+      {
+        "inputs": {
+          "age": "30",
+          "base_rate": "0.05"
+        },
+        "expected": "30.05",
+        "actual": "30.05",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "25",
+          "base_rate": "0.03"
+        },
+        "expected": "25.03",
+        "actual": "25.03",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "40",
+          "base_rate": "0.1"
+        },
+        "expected": "40.1",
+        "actual": "40.1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "0",
+          "base_rate": "0"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "65",
+          "base_rate": "0.15"
+        },
+        "expected": "65.15",
+        "actual": "65.15",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "18",
+          "base_rate": "0.02"
+        },
+        "expected": "18.02",
+        "actual": "18.02",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "50",
+          "base_rate": "0.08"
+        },
+        "expected": "50.08",
+        "actual": "50.08",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "1",
+          "base_rate": "0.001"
+        },
+        "expected": "1.001",
+        "actual": "1.001",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "100",
+          "base_rate": "0.5"
+        },
+        "expected": "100.5",
+        "actual": "100.5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "35",
+          "base_rate": "0.06"
+        },
+        "expected": "35.06",
+        "actual": "35.06",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-02",
+    "description": "Subtraction: premium - discount",
+    "latex": "\\mathrm{premium} - \\mathrm{discount}",
+    "expectedFormulaText": "premium - discount",
+    "screenshotFile": "tc-02-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "878caefa-2716-46f9-9347-c762f9002b25",
+    "calcResults": [
+      {
+        "inputs": {
+          "premium": "1000",
+          "discount": "100"
+        },
+        "expected": "900",
+        "actual": "900",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "premium": "500",
+          "discount": "50"
+        },
+        "expected": "450",
+        "actual": "450",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "premium": "2000",
+          "discount": "0"
+        },
+        "expected": "2000",
+        "actual": "2000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "premium": "750",
+          "discount": "250"
+        },
+        "expected": "500",
+        "actual": "500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "premium": "1500",
+          "discount": "300"
+        },
+        "expected": "1200",
+        "actual": "1200",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "premium": "100",
+          "discount": "100"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "premium": "3000",
+          "discount": "450"
+        },
+        "expected": "2550",
+        "actual": "2550",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "premium": "800",
+          "discount": "200"
+        },
+        "expected": "600",
+        "actual": "600",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "premium": "1200",
+          "discount": "120"
+        },
+        "expected": "1080",
+        "actual": "1080",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "premium": "600",
+          "discount": "60"
+        },
+        "expected": "540",
+        "actual": "540",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-03",
+    "description": "Multiplication: \\cdot → *",
+    "latex": "\\mathrm{sum\\_insured} \\cdot \\mathrm{rate}",
+    "expectedFormulaText": "sum_insured * rate",
+    "screenshotFile": "tc-03-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "c2bc8559-b997-41d6-8b54-009419fa2027",
+    "calcResults": [
+      {
+        "inputs": {
+          "sum_insured": "100000",
+          "rate": "0.005"
+        },
+        "expected": "500",
+        "actual": "500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "200000",
+          "rate": "0.003"
+        },
+        "expected": "600",
+        "actual": "600",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "50000",
+          "rate": "0.01"
+        },
+        "expected": "500",
+        "actual": "500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "1000000",
+          "rate": "0.002"
+        },
+        "expected": "2000",
+        "actual": "2000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "0",
+          "rate": "0.005"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "500000",
+          "rate": "0.004"
+        },
+        "expected": "2000",
+        "actual": "2000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "75000",
+          "rate": "0.006"
+        },
+        "expected": "450",
+        "actual": "450",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "300000",
+          "rate": "0.0025"
+        },
+        "expected": "750",
+        "actual": "750",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "800000",
+          "rate": "0.001"
+        },
+        "expected": "800",
+        "actual": "800",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "150000",
+          "rate": "0.007"
+        },
+        "expected": "1050",
+        "actual": "1050",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-04",
+    "description": "Multiplication: \\times → *",
+    "latex": "\\mathrm{principal} \\times \\mathrm{factor}",
+    "expectedFormulaText": "principal * factor",
+    "screenshotFile": "tc-04-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "455454d7-5581-4637-84db-71728b09f8cb",
+    "calcResults": [
+      {
+        "inputs": {
+          "principal": "50000",
+          "factor": "1.5"
+        },
+        "expected": "75000",
+        "actual": "75000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "principal": "10000",
+          "factor": "2"
+        },
+        "expected": "20000",
+        "actual": "20000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "principal": "1000",
+          "factor": "1"
+        },
+        "expected": "1000",
+        "actual": "1000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "principal": "5000",
+          "factor": "0.5"
+        },
+        "expected": "2500",
+        "actual": "2500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "principal": "25000",
+          "factor": "1.2"
+        },
+        "expected": "30000",
+        "actual": "30000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "principal": "100000",
+          "factor": "0.8"
+        },
+        "expected": "80000",
+        "actual": "80000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "principal": "20000",
+          "factor": "3"
+        },
+        "expected": "60000",
+        "actual": "60000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "principal": "7500",
+          "factor": "1.1"
+        },
+        "expected": "8250",
+        "actual": "8250",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "principal": "40000",
+          "factor": "1.25"
+        },
+        "expected": "50000",
+        "actual": "50000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "principal": "15000",
+          "factor": "0.9"
+        },
+        "expected": "13500",
+        "actual": "13500",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-05",
+    "description": "Division: \\frac{annual}{12}",
+    "latex": "\\frac{\\mathrm{annual}}{12}",
+    "expectedFormulaText": "(annual) / (12)",
+    "screenshotFile": "tc-05-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "ebffc418-e54d-4846-9b46-92716b48bcdb",
+    "calcResults": [
+      {
+        "inputs": {
+          "annual": "12000"
+        },
+        "expected": "1000",
+        "actual": "1000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "annual": "24000"
+        },
+        "expected": "2000",
+        "actual": "2000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "annual": "6000"
+        },
+        "expected": "500",
+        "actual": "500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "annual": "0"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "annual": "3600"
+        },
+        "expected": "300",
+        "actual": "300",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "annual": "48000"
+        },
+        "expected": "4000",
+        "actual": "4000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "annual": "1200"
+        },
+        "expected": "100",
+        "actual": "100",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "annual": "18000"
+        },
+        "expected": "1500",
+        "actual": "1500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "annual": "9600"
+        },
+        "expected": "800",
+        "actual": "800",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "annual": "36000"
+        },
+        "expected": "3000",
+        "actual": "3000",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-06",
+    "description": "Power: x^{2}",
+    "latex": "\\mathrm{x}^{2}",
+    "expectedFormulaText": "x ^ (2)",
+    "screenshotFile": "tc-06-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "1123016b-f36b-4e7f-8c5d-94ffff8405e1",
+    "calcResults": [
+      {
+        "inputs": {
+          "x": "5"
+        },
+        "expected": "25",
+        "actual": "25",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "10"
+        },
+        "expected": "100",
+        "actual": "100",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "0"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "1"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "2"
+        },
+        "expected": "4",
+        "actual": "4",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "3"
+        },
+        "expected": "9",
+        "actual": "9",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "4"
+        },
+        "expected": "16",
+        "actual": "16",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "7"
+        },
+        "expected": "49",
+        "actual": "49",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "8"
+        },
+        "expected": "64",
+        "actual": "64",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "12"
+        },
+        "expected": "144",
+        "actual": "144",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-07",
+    "description": "Natural exponent: e^{x} → exp(x)",
+    "latex": "e^{\\mathrm{r}}",
+    "expectedFormulaText": "exp(r)",
+    "screenshotFile": "tc-07-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "f4431f71-8230-40ad-b302-83a9aa493f4c",
+    "calcResults": [
+      {
+        "inputs": {
+          "r": "0"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "r": "1"
+        },
+        "expected": "2.718281828459045235",
+        "actual": "2.718281828459045",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "r": "2"
+        },
+        "expected": "7.389056098930650227",
+        "actual": "7.38905609893065",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "r": "-1"
+        },
+        "expected": "0.367879441171442322",
+        "actual": "0.36787944117144233",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "r": "0.5"
+        },
+        "expected": "1.648721270700128147",
+        "actual": "1.6487212707001282",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "r": "3"
+        },
+        "expected": "20.085536923187667741",
+        "actual": "20.085536923187668",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "r": "0.1"
+        },
+        "expected": "1.105170918075647625",
+        "actual": "1.1051709180756477",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "r": "0.693147"
+        },
+        "expected": "1.999999819512220285",
+        "actual": "1.999999638880142",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "r": "-0.5"
+        },
+        "expected": "0.606530659712633424",
+        "actual": "0.6065306597126334",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "r": "1.5"
+        },
+        "expected": "4.481689070339594636",
+        "actual": "4.4816890703380645",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-08",
+    "description": "Square root: \\sqrt{x}",
+    "latex": "\\sqrt{\\mathrm{x}}",
+    "expectedFormulaText": "sqrt(x)",
+    "screenshotFile": "tc-08-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "e7212478-1060-45fe-8dd7-27f2b01f0c96",
+    "calcResults": [
+      {
+        "inputs": {
+          "x": "4"
+        },
+        "expected": "2",
+        "actual": "2",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "9"
+        },
+        "expected": "3",
+        "actual": "3",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "16"
+        },
+        "expected": "4",
+        "actual": "4",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "25"
+        },
+        "expected": "5",
+        "actual": "5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "0"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "1"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "100"
+        },
+        "expected": "10",
+        "actual": "10",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "2"
+        },
+        "expected": "1.414213562373095049",
+        "actual": "1.4142135623730951",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "3"
+        },
+        "expected": "1.732050808056887729",
+        "actual": "1.7320508075688772",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "144"
+        },
+        "expected": "12",
+        "actual": "12",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-09",
+    "description": "Absolute value: \\left|a - b\\right|",
+    "latex": "\\left|\\mathrm{a} - \\mathrm{b}\\right|",
+    "expectedFormulaText": "abs(a - b)",
+    "screenshotFile": "tc-09-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "18e36230-9365-41fc-835e-392131eff175",
+    "calcResults": [
+      {
+        "inputs": {
+          "a": "5",
+          "b": "8"
+        },
+        "expected": "3",
+        "actual": "3",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "10",
+          "b": "3"
+        },
+        "expected": "7",
+        "actual": "7",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "0",
+          "b": "0"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "-5",
+          "b": "5"
+        },
+        "expected": "10",
+        "actual": "10",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "100",
+          "b": "100"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "1",
+          "b": "2"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "50",
+          "b": "30"
+        },
+        "expected": "20",
+        "actual": "20",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "3",
+          "b": "7"
+        },
+        "expected": "4",
+        "actual": "4",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "200",
+          "b": "150"
+        },
+        "expected": "50",
+        "actual": "50",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "-10",
+          "b": "-20"
+        },
+        "expected": "10",
+        "actual": "10",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-10",
+    "description": "Natural log: \\ln\\left(x\\right)",
+    "latex": "\\ln\\left(\\mathrm{x}\\right)",
+    "expectedFormulaText": "ln(x)",
+    "screenshotFile": "tc-10-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "eea22947-f383-47ec-8d97-df9a743d160b",
+    "calcResults": [
+      {
+        "inputs": {
+          "x": "1"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "2.718281828"
+        },
+        "expected": "1.000000000055511151",
+        "actual": "0.9999999998311266",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "10"
+        },
+        "expected": "2.302585092994045684",
+        "actual": "2.302585092994046",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "100"
+        },
+        "expected": "4.605170185988091368",
+        "actual": "4.605170185988092",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "0.5"
+        },
+        "expected": "-0.693147180559945310",
+        "actual": "-0.6931471805599453",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "2"
+        },
+        "expected": "0.693147180559945310",
+        "actual": "0.6931471805599453",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "50"
+        },
+        "expected": "3.912023005428146059",
+        "actual": "3.912023005428146",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "7.389"
+        },
+        "expected": "1.9999924078065106",
+        "actual": "1.9999924078065106",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "20"
+        },
+        "expected": "2.995732273553990993",
+        "actual": "2.995732273553991",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "x": "1000"
+        },
+        "expected": "6.907755278982137052",
+        "actual": "6.907755278982137",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-11",
+    "description": "Custom function: \\operatorname{max}",
+    "latex": "\\operatorname{max}\\left(\\mathrm{a}, \\mathrm{b}\\right)",
+    "expectedFormulaText": "max(a, b)",
+    "screenshotFile": "tc-11-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "603cc874-28ff-4e48-8d6e-6a70a06c0b0f",
+    "calcResults": [
+      {
+        "inputs": {
+          "a": "10",
+          "b": "20"
+        },
+        "expected": "20",
+        "actual": "20",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "20",
+          "b": "10"
+        },
+        "expected": "20",
+        "actual": "20",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "5",
+          "b": "5"
+        },
+        "expected": "5",
+        "actual": "5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "0",
+          "b": "1"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "-5",
+          "b": "0"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "100",
+          "b": "99"
+        },
+        "expected": "100",
+        "actual": "100",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "1000",
+          "b": "2000"
+        },
+        "expected": "2000",
+        "actual": "2000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "3.14",
+          "b": "2.71"
+        },
+        "expected": "3.14",
+        "actual": "3.14",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "0.1",
+          "b": "0.2"
+        },
+        "expected": "0.2",
+        "actual": "0.2",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "500",
+          "b": "500"
+        },
+        "expected": "500",
+        "actual": "500",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-12",
+    "description": "Min function: \\operatorname{min}",
+    "latex": "\\operatorname{min}\\left(\\mathrm{lo}, \\mathrm{hi}\\right)",
+    "expectedFormulaText": "min(lo, hi)",
+    "screenshotFile": "tc-12-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "e8c94134-1a98-43d5-b3f8-87b6c5599902",
+    "calcResults": [
+      {
+        "inputs": {
+          "lo": "5",
+          "hi": "10"
+        },
+        "expected": "5",
+        "actual": "5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "lo": "10",
+          "hi": "5"
+        },
+        "expected": "5",
+        "actual": "5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "lo": "3",
+          "hi": "3"
+        },
+        "expected": "3",
+        "actual": "3",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "lo": "0",
+          "hi": "100"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "lo": "-10",
+          "hi": "0"
+        },
+        "expected": "-10",
+        "actual": "-10",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "lo": "99",
+          "hi": "100"
+        },
+        "expected": "99",
+        "actual": "99",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "lo": "1000",
+          "hi": "500"
+        },
+        "expected": "500",
+        "actual": "500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "lo": "0.05",
+          "hi": "0.1"
+        },
+        "expected": "0.05",
+        "actual": "0.05",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "lo": "25",
+          "hi": "75"
+        },
+        "expected": "25",
+        "actual": "25",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "lo": "200",
+          "hi": "200"
+        },
+        "expected": "200",
+        "actual": "200",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-13",
+    "description": "Parentheses: (a + b) * c",
+    "latex": "\\left(\\mathrm{a} + \\mathrm{b}\\right) \\cdot \\mathrm{c}",
+    "expectedFormulaText": "(a + b) * c",
+    "screenshotFile": "tc-13-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "fe07e71f-75e4-4789-a63e-c79459e0f0eb",
+    "calcResults": [
+      {
+        "inputs": {
+          "a": "2",
+          "b": "3",
+          "c": "4"
+        },
+        "expected": "20",
+        "actual": "20",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "10",
+          "b": "5",
+          "c": "2"
+        },
+        "expected": "30",
+        "actual": "30",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "0",
+          "b": "0",
+          "c": "100"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "1",
+          "b": "1",
+          "c": "1"
+        },
+        "expected": "2",
+        "actual": "2",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "5",
+          "b": "5",
+          "c": "10"
+        },
+        "expected": "100",
+        "actual": "100",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "100",
+          "b": "50",
+          "c": "0"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "3",
+          "b": "7",
+          "c": "5"
+        },
+        "expected": "50",
+        "actual": "50",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "20",
+          "b": "30",
+          "c": "2"
+        },
+        "expected": "100",
+        "actual": "100",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "6",
+          "b": "4",
+          "c": "3"
+        },
+        "expected": "30",
+        "actual": "30",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "a": "15",
+          "b": "5",
+          "c": "4"
+        },
+        "expected": "80",
+        "actual": "80",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-14",
+    "description": "Comparison: \\ge in conditional",
+    "latex": "\\begin{cases}\n\\mathrm{premium} \\cdot 1.5, & \\text{if } \\mathrm{age} \\ge 60 \\\\\n\\mathrm{premium}, & \\text{otherwise}\n\\end{cases}",
+    "expectedFormulaText": "if age >= 60 then premium * 1.5 else premium",
+    "screenshotFile": "tc-14-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "70ab6fe3-843e-4f04-aeca-3c0fc7ed38e2",
+    "calcResults": [
+      {
+        "inputs": {
+          "age": "65",
+          "premium": "1000"
+        },
+        "expected": "1500",
+        "actual": "1500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "60",
+          "premium": "1000"
+        },
+        "expected": "1500",
+        "actual": "1500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "59",
+          "premium": "1000"
+        },
+        "expected": "1000",
+        "actual": "1000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "30",
+          "premium": "500"
+        },
+        "expected": "500",
+        "actual": "500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "70",
+          "premium": "2000"
+        },
+        "expected": "3000",
+        "actual": "3000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "45",
+          "premium": "800"
+        },
+        "expected": "800",
+        "actual": "800",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "60",
+          "premium": "600"
+        },
+        "expected": "900",
+        "actual": "900",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "0",
+          "premium": "1200"
+        },
+        "expected": "1200",
+        "actual": "1200",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "80",
+          "premium": "400"
+        },
+        "expected": "600",
+        "actual": "600",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "59.9",
+          "premium": "1000"
+        },
+        "expected": "1000",
+        "actual": "1000",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-15",
+    "description": "Comparison: \\le in conditional (discount for low risk)",
+    "latex": "\\begin{cases}\n\\mathrm{premium} \\cdot 0.9, & \\text{if } \\mathrm{risk} \\le 0.3 \\\\\n\\mathrm{premium}, & \\text{otherwise}\n\\end{cases}",
+    "expectedFormulaText": "if risk <= 0.3 then premium * 0.9 else premium",
+    "screenshotFile": "tc-15-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "587158ed-247b-43f4-8952-cca692e840dc",
+    "calcResults": [
+      {
+        "inputs": {
+          "risk": "0.1",
+          "premium": "1000"
+        },
+        "expected": "900",
+        "actual": "900",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "risk": "0.3",
+          "premium": "1000"
+        },
+        "expected": "900",
+        "actual": "900",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "risk": "0.31",
+          "premium": "1000"
+        },
+        "expected": "1000",
+        "actual": "1000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "risk": "0.5",
+          "premium": "500"
+        },
+        "expected": "500",
+        "actual": "500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "risk": "0",
+          "premium": "2000"
+        },
+        "expected": "1800",
+        "actual": "1800",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "risk": "1",
+          "premium": "800"
+        },
+        "expected": "800",
+        "actual": "800",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "risk": "0.2",
+          "premium": "600"
+        },
+        "expected": "540",
+        "actual": "540",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "risk": "0.3",
+          "premium": "1200"
+        },
+        "expected": "1080",
+        "actual": "1080",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "risk": "0.8",
+          "premium": "400"
+        },
+        "expected": "400",
+        "actual": "400",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "risk": "0.29",
+          "premium": "1000"
+        },
+        "expected": "900",
+        "actual": "900",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-16",
+    "description": "Comparison: \\ne in conditional (bonus flag)",
+    "latex": "\\begin{cases}\n\\mathrm{bonus}, & \\text{if } \\mathrm{flag} \\ne 0 \\\\\n0, & \\text{otherwise}\n\\end{cases}",
+    "expectedFormulaText": "if flag != 0 then bonus else 0",
+    "screenshotFile": "tc-16-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "d1edcb1a-8511-497b-a412-fa5760b830d9",
+    "calcResults": [
+      {
+        "inputs": {
+          "flag": "1",
+          "bonus": "500"
+        },
+        "expected": "500",
+        "actual": "500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "flag": "0",
+          "bonus": "500"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "flag": "2",
+          "bonus": "200"
+        },
+        "expected": "200",
+        "actual": "200",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "flag": "-1",
+          "bonus": "300"
+        },
+        "expected": "300",
+        "actual": "300",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "flag": "0",
+          "bonus": "100"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "flag": "100",
+          "bonus": "1000"
+        },
+        "expected": "1000",
+        "actual": "1000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "flag": "0",
+          "bonus": "750"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "flag": "1",
+          "bonus": "0"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "flag": "5",
+          "bonus": "600"
+        },
+        "expected": "600",
+        "actual": "600",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "flag": "0",
+          "bonus": "999"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-17",
+    "description": "Comparison: \\geq (alternative form) in conditional",
+    "latex": "\\begin{cases}\n100, & \\text{if } \\mathrm{score} \\geq 90 \\\\\n\\mathrm{score}, & \\text{otherwise}\n\\end{cases}",
+    "expectedFormulaText": "if score >= 90 then 100 else score",
+    "screenshotFile": "tc-17-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "2c15550f-49fb-44b8-aac6-fd71608f08e4",
+    "calcResults": [
+      {
+        "inputs": {
+          "score": "95"
+        },
+        "expected": "100",
+        "actual": "100",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "score": "90"
+        },
+        "expected": "100",
+        "actual": "100",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "score": "89"
+        },
+        "expected": "89",
+        "actual": "89",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "score": "100"
+        },
+        "expected": "100",
+        "actual": "100",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "score": "0"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "score": "50"
+        },
+        "expected": "50",
+        "actual": "50",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "score": "89.9"
+        },
+        "expected": "89.9",
+        "actual": "89.9",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "score": "90.1"
+        },
+        "expected": "100",
+        "actual": "100",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "score": "75"
+        },
+        "expected": "75",
+        "actual": "75",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "score": "91"
+        },
+        "expected": "100",
+        "actual": "100",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-18",
+    "description": "Simple conditional: \\begin{cases}",
+    "latex": "\\begin{cases}\n1.5, & \\text{if } \\mathrm{age} \\ge 65 \\\\\n1, & \\text{otherwise}\n\\end{cases}",
+    "expectedFormulaText": "if age >= 65 then 1.5 else 1",
+    "screenshotFile": "tc-18-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "23d90863-d209-419c-8c92-ddd608deaa5e",
+    "calcResults": [
+      {
+        "inputs": {
+          "age": "70"
+        },
+        "expected": "1.5",
+        "actual": "1.5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "65"
+        },
+        "expected": "1.5",
+        "actual": "1.5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "64"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "30"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "0"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "100"
+        },
+        "expected": "1.5",
+        "actual": "1.5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "66"
+        },
+        "expected": "1.5",
+        "actual": "1.5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "64.9"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "65.1"
+        },
+        "expected": "1.5",
+        "actual": "1.5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "18"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-19",
+    "description": "Nested conditional: nested \\begin{cases}",
+    "latex": "\\begin{cases}\n2, & \\text{if } \\mathrm{age} \\ge 65 \\\\\n\\begin{cases}\n1.5, & \\text{if } \\mathrm{age} \\ge 45 \\\\\n1, & \\text{otherwise}\n\\end{cases}, & \\text{otherwise}\n\\end{cases}",
+    "expectedFormulaText": "if age >= 65 then 2 else if age >= 45 then 1.5 else 1",
+    "screenshotFile": "tc-19-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "da8d430d-2b3b-4d2a-bcb9-a047390341c5",
+    "calcResults": [
+      {
+        "inputs": {
+          "age": "70"
+        },
+        "expected": "2",
+        "actual": "2",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "65"
+        },
+        "expected": "2",
+        "actual": "2",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "64"
+        },
+        "expected": "1.5",
+        "actual": "1.5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "50"
+        },
+        "expected": "1.5",
+        "actual": "1.5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "45"
+        },
+        "expected": "1.5",
+        "actual": "1.5",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "44"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "30"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "0"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "80"
+        },
+        "expected": "2",
+        "actual": "2",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "age": "44.9"
+        },
+        "expected": "1",
+        "actual": "1",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  },
+  {
+    "id": "TC-20",
+    "description": "Compound: \\frac{sum_insured * rate}{1000}",
+    "latex": "\\frac{\\mathrm{sum\\_insured} \\cdot \\mathrm{rate}}{1000}",
+    "expectedFormulaText": "(sum_insured * rate) / (1000)",
+    "screenshotFile": "tc-20-latex-panel.png",
+    "conversionOk": true,
+    "apiFormulaId": "3bc15043-8969-4f33-b8aa-e7f4dce3122b",
+    "calcResults": [
+      {
+        "inputs": {
+          "sum_insured": "100000",
+          "rate": "5"
+        },
+        "expected": "500",
+        "actual": "500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "200000",
+          "rate": "3"
+        },
+        "expected": "600",
+        "actual": "600",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "500000",
+          "rate": "2"
+        },
+        "expected": "1000",
+        "actual": "1000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "1000000",
+          "rate": "1"
+        },
+        "expected": "1000",
+        "actual": "1000",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "50000",
+          "rate": "10"
+        },
+        "expected": "500",
+        "actual": "500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "300000",
+          "rate": "4"
+        },
+        "expected": "1200",
+        "actual": "1200",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "0",
+          "rate": "5"
+        },
+        "expected": "0",
+        "actual": "0",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "750000",
+          "rate": "2"
+        },
+        "expected": "1500",
+        "actual": "1500",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "80000",
+          "rate": "7.5"
+        },
+        "expected": "600",
+        "actual": "600",
+        "pass": true
+      },
+      {
+        "inputs": {
+          "sum_insured": "400000",
+          "rate": "3.5"
+        },
+        "expected": "1400",
+        "actual": "1400",
+        "pass": true
+      }
+    ],
+    "calcPassCount": 10,
+    "errors": []
+  }
+]

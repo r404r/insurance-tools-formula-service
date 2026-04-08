@@ -29,3 +29,4 @@
 - [015-mysql-store.md](tasks/015-mysql-store.md) — MySQL Store 实现（2026-04-08）
 - [016-custom-node-components.md](tasks/016-custom-node-components.md) — 自定义 React Flow 节点组件（2026-04-08）
 - [017-latex-formula-input.md](tasks/017-latex-formula-input.md) — LaTeX 表达式输入创建公式（2026-04-08）
+- [018-latex-test-suite.md](tasks/018-latex-test-suite.md) — LaTeX 公式输入功能测试套件（2026-04-09）

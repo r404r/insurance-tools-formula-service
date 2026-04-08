@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Node, Edge } from '@xyflow/react'
@@ -85,11 +85,29 @@ function validateGraph(nodes: Node[], edges: Edge[]): string | null {
 
 export default function FormulaEditorPage() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const user = useAuthStore((state) => state.user)
   const editorMode = useFormulaStore((state) => state.editorMode)
   const setEditorMode = useFormulaStore((state) => state.setEditorMode)
+  // Allow ?mode=text URL param to set the initial mode (useful for automated tests).
+  // Clicking a mode button clears the param so the Zustand store takes over.
+  const modeParam = searchParams.get('mode')
+  const effectiveMode: 'visual' | 'text' =
+    modeParam === 'text' || modeParam === 'visual' ? modeParam : editorMode
+
+  const handleSetEditorMode = useCallback(
+    (mode: 'visual' | 'text') => {
+      setEditorMode(mode)
+      if (modeParam) {
+        // Remove the ?mode param so subsequent mode switches use the Zustand store
+        navigate(`/formulas/${id}`, { replace: true })
+      }
+    },
+    [id, modeParam, navigate, setEditorMode]
+  )
   const setCurrentFormula = useFormulaStore((state) => state.setCurrentFormula)
   const setCurrentVersion = useFormulaStore((state) => state.setCurrentVersion)
 
@@ -227,7 +245,7 @@ export default function FormulaEditorPage() {
   }, [formula?.description])
 
   useEffect(() => {
-    if (editorMode !== 'text') {
+    if (effectiveMode !== 'text') {
       return
     }
 
@@ -236,7 +254,7 @@ export default function FormulaEditorPage() {
     } catch (err) {
       setTextValue(`// ${(err as Error).message}`)
     }
-  }, [editorMode, nodes, edges])
+  }, [effectiveMode, nodes, edges])
 
   const handleNodeDataChange = useCallback(
     (nodeId: string, data: Record<string, unknown>) => {
@@ -502,14 +520,16 @@ export default function FormulaEditorPage() {
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="flex bg-gray-100 rounded-md p-0.5">
             <button
-              onClick={() => setEditorMode('visual')}
-              className={`px-3 py-1 text-xs rounded ${editorMode === 'visual' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
+              data-testid="mode-visual"
+              onClick={() => handleSetEditorMode('visual')}
+              className={`px-3 py-1 text-xs rounded ${effectiveMode === 'visual' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
             >
               {t('editor.visual')}
             </button>
             <button
-              onClick={() => setEditorMode('text')}
-              className={`px-3 py-1 text-xs rounded ${editorMode === 'text' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
+              data-testid="mode-text"
+              onClick={() => handleSetEditorMode('text')}
+              className={`px-3 py-1 text-xs rounded ${effectiveMode === 'text' ? 'bg-white shadow-sm' : 'text-gray-500'}`}
             >
               {t('editor.text')}
             </button>
@@ -566,7 +586,7 @@ export default function FormulaEditorPage() {
 
       {/* Editor Area */}
       <div className={`min-h-[520px] flex-[1_0_520px] overflow-x-scroll overflow-y-scroll ${isTestPanelCollapsed ? 'pb-20' : 'pb-44'}`}>
-        {editorMode === 'visual' ? (
+        {effectiveMode === 'visual' ? (
           <div className="flex h-full min-h-[520px] min-w-[1180px]">
             <NodePalette />
             <FormulaCanvas

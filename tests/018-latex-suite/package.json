@@ -1,0 +1,12 @@
+{
+  "name": "latex-test-suite-018",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:report": "node generate-report.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.49.0"
+  }
+}

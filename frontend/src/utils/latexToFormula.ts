@@ -115,6 +115,30 @@ function splitTopLevelCommas(s: string): string[] {
 }
 
 /**
+ * Find the matching \end{cases} for a \begin{cases} whose body starts at `pos`.
+ * Returns the index of the `\end{cases}` at depth 0, or -1 if not found.
+ */
+function findMatchingEndCases(s: string, pos: number): number {
+  let depth = 1
+  let i = pos
+  while (i < s.length) {
+    if (s.slice(i, i + 12) === '\\begin{cases') {
+      depth++
+      i += 12
+      continue
+    }
+    if (s.slice(i, i + 11) === '\\end{cases}') {
+      depth--
+      if (depth === 0) return i
+      i += 11
+      continue
+    }
+    i++
+  }
+  return -1
+}
+
+/**
  * Find the first top-level `\\` (double backslash) in a LaTeX string, skipping
  * over any nested \begin{cases}...\end{cases} blocks.
  * Returns the index of the first `\\` at nesting depth 0, or -1 if not found.
@@ -134,6 +158,34 @@ function findTopLevelDoublBackslash(s: string): number {
       continue
     }
     if (depth === 0 && s[i] === '\\' && s[i + 1] === '\\') {
+      return i
+    }
+    i++
+  }
+  return -1
+}
+
+/**
+ * Find the first top-level `& \text{otherwise}` marker in a LaTeX string,
+ * skipping over any nested \begin{cases}...\end{cases} blocks.
+ * Returns the index of the marker start at nesting depth 0, or -1 if not found.
+ */
+function findTopLevelOtherwiseMarker(s: string): number {
+  const marker = '& \\text{otherwise}'
+  let depth = 0
+  let i = 0
+  while (i < s.length) {
+    if (s.slice(i, i + 12) === '\\begin{cases') {
+      depth++
+      i += 12
+      continue
+    }
+    if (s.slice(i, i + 11) === '\\end{cases}') {
+      depth--
+      i += 11
+      continue
+    }
+    if (depth === 0 && s.slice(i, i + marker.length) === marker) {
       return i
     }
     i++
@@ -166,8 +218,9 @@ function transformCases(body: string): string {
   const condLatex = thenLine.slice(ifIdx + ifMarker.length).trim()
 
   // elseLine: "elseExpr, & \text{otherwise}"
+  // Use a nesting-aware search so nested \begin{cases} blocks are skipped.
   const otherwiseMarker = '& \\text{otherwise}'
-  const otherwiseIdx = elseLine.indexOf(otherwiseMarker)
+  const otherwiseIdx = findTopLevelOtherwiseMarker(elseLine)
   const elseLatex = otherwiseIdx !== -1
     ? elseLine.slice(0, otherwiseIdx).replace(/,\s*$/, '').trim()
     : elseLine.replace(/,?\s*&.*$/, '').trim()
@@ -388,11 +441,10 @@ function transformLatex(latex: string): string {
           const env = extractBraced(s, i)
           i = env.end
           if (env.content === 'cases') {
-            const endTag = '\\end{cases}'
-            const endIdx = s.indexOf(endTag, i)
+            const endIdx = findMatchingEndCases(s, i)
             if (endIdx === -1) break
             const casesBody = s.slice(i, endIdx)
-            i = endIdx + endTag.length
+            i = endIdx + '\\end{cases}'.length
             result += transformCases(casesBody)
           } else if (env.content === 'aligned') {
             const endTag = '\\end{aligned}'
