@@ -22,6 +22,7 @@ import (
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/engine"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store"
+	"github.com/r404r/insurance-tools/formula-service/backend/internal/store/mysql"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store/postgres"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store/sqlite"
 )
@@ -53,10 +54,12 @@ func run(logger zerolog.Logger) error {
 	switch cfg.Database.Driver {
 	case "postgres":
 		st, err = postgres.New(cfg.Database.DSN)
+	case "mysql":
+		st, err = mysql.New(cfg.Database.DSN)
 	case "sqlite":
 		st, err = sqlite.New(cfg.Database.DSN)
 	default:
-		return fmt.Errorf("DB_DRIVER %q is not yet supported; use sqlite or postgres", cfg.Database.Driver)
+		return fmt.Errorf("DB_DRIVER %q is not supported; use sqlite, postgres, or mysql", cfg.Database.Driver)
 	}
 	if err != nil {
 		return fmt.Errorf("open database: %w", err)
