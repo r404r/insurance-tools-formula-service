@@ -39,10 +39,14 @@ export interface PortDef {
 }
 
 export function estimateNodeSize(nodeType: string, config: Record<string, unknown>) {
+  if (nodeType === 'operator') {
+    return { width: 72, height: 72 }
+  }
   const inputCount = getInputPorts(nodeType, config).length
+  const baseHeight = nodeType === 'conditional' ? 110 : 64
   return {
     width: 140,
-    height: Math.max(64, 44 + inputCount * 22),
+    height: Math.max(baseHeight, 44 + inputCount * 22),
   }
 }
 
