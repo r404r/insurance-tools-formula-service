@@ -84,34 +84,34 @@ Loop 每轮执行时：
 
 ### 后端
 - [x] 创建 task 文件
-- [ ] `domain/formula.go`: 新增 `NodeLoop NodeType = "loop"` 和 `LoopConfig` struct
-- [ ] `engine/engine.go`: 新增 `MaxLoopIterations` 到 `EngineConfig`，更新 `DefaultEngineConfig`，实现 `executeLoop`，更新 `validateNodeConfig` 和 `validateRequiredPorts`
-- [ ] `engine/parallel.go`: 新增 `LoopRunner` 类型，`Executor` 持有 `loopRunner`，`NewExecutor` 接收参数，`evaluateAndStore` 分派 `NodeLoop`
-- [ ] `engine/engine.go`: `NewEngine` 将 `executeLoop` 传给 `NewExecutor`
-- [ ] `engine/loop_test.go`: 编写单元测试（见规格 §12.1）
+- [x] `domain/formula.go`: 新增 `NodeLoop NodeType = "loop"` 和 `LoopConfig` struct
+- [x] `engine/engine.go`: 新增 `MaxLoopIterations` 到 `EngineConfig`，更新 `DefaultEngineConfig`，实现 `executeLoop`，更新 `validateNodeConfig` 和 `validateRequiredPorts`
+- [x] `engine/parallel.go`: 新增 `LoopRunner` 类型，`Executor` 持有 `loopRunner`，`NewExecutor` 接收参数，`evaluateAndStore` 分派 `NodeLoop`
+- [x] `engine/engine.go`: `NewEngine` 将 `executeLoop` 传给 `NewExecutor`
+- [x] `engine/loop_test.go`: 22 个单元测试全部通过（含聚合、步进、边界、递归守卫、迭代器冲突检测等）
 
 ### 前端
-- [ ] `types/formula.ts`: `NodeType` 加 `loop`，新增 `LoopConfig` interface，`NodeConfig` 联合类型加入
-- [ ] `nodePresentation.ts`: 加 loop 颜色，`getInputPorts` 加 loop 分支，`nodeLabel` 加 loop，`defaultNodeConfig` 加 loop
-- [ ] `nodeVariants.tsx`: 新增 `LoopInner` 组件
-- [ ] `FormulaNode.tsx` / `nodeVariants.tsx` 接入 `LoopInner` 渲染
-- [ ] `NodePalette.tsx`: 加入 loop 节点
-- [ ] `NodePropertiesPanel.tsx`: 加入 loop 属性编辑面板（Body Formula / Iterator / Aggregation / InclusiveEnd / MaxIterations / Version）
-- [ ] `graphValidation.ts`: `validateGraph` 加入 loop 端口规则（start/end 必连，step 可选，aggregation 合法值）
-- [ ] `FormulaEditorPage.tsx`: 文本模式切换时检测 loop 节点，若存在则阻止并提示
-- [ ] i18n: en/zh/ja 新增 loop 相关 key（loop, iterator, aggregation, inclusiveEnd, maxIterations, start, end, step, bodyFormula, loopNoTextMode）
+- [x] `types/formula.ts`: `NodeType` 加 `loop`，新增 `LoopConfig` interface，`NodeConfig` 联合类型加入
+- [x] `nodePresentation.ts`: 加 loop 颜色（黄色），`getInputPorts` 加 loop 分支（start/end/step），`nodeLabel` 加 loop，`defaultNodeConfig` 加 loop
+- [x] `nodeVariants.tsx`: 新增 `LoopInner` 组件
+- [x] `nodeVariants.tsx` 接入 `LoopInner` 渲染（`NodeVariantInner` switch case）
+- [x] `NodePalette.tsx`: 加入 loop 节点（↺ 图标）
+- [x] `NodePropertiesPanel.tsx`: 加入 loop 属性编辑面板（Body Formula / Iterator / Aggregation / InclusiveEnd / MaxIterations / Version）
+- [x] `graphValidation.ts`: `validateGraph` 加入 loop 端口规则（start/end 必连，step 可选，aggregation 合法值，mode 校验，空 aggregation 修复）
+- [x] `FormulaEditorPage.tsx`: 文本模式切换时检测 loop 节点，若存在则阻止并提示；enrichSubFormulaNodes 扩展支持 loop 节点显示公式名
+- [x] i18n: en/zh/ja 新增 loop 相关 key（loop, iterator, aggregation, inclusiveEnd, maxIterations, bodyFormula, selectFormula, loopNoTextMode）
 
 ### 验证
-- [ ] 后端 `go test ./...` 通过
-- [ ] 前端 `npm run build` 无 TS 错误
-- [ ] 前端单元测试通过（graphValidation loop 规则）
-- [ ] 手动测试：创建 Loop 节点，配置子公式，保存计算
-- [ ] codex review + commit
+- [x] 后端 `go test ./...` 通过（22 loop + 全部 engine/parser 测试）
+- [x] 前端 `npm run build` 无 TS 错误
+- [x] 前端单元测试通过（113 tests，含 9 个 loop graphValidation 测试）
+- [x] 手动测试：创建 2 个 Loop 公式（平方和、阶乘），截图验证视觉效果（tests/screenshots/020/）
+- [x] codex review + commit + push
 
 ## 完成标准
 
-- [ ] Loop 节点可在可视化编辑器中创建、配置、连线
-- [ ] 保存含 Loop 的公式，后端成功执行并返回正确结果
-- [ ] 切换文本模式时提示不支持
-- [ ] 环路检测、孤立节点检测均不受 Loop 节点影响（Loop 本身是有向边，不引入 DAG 环）
-- [ ] 所有后端测试通过
+- [x] Loop 节点可在可视化编辑器中创建、配置、连线
+- [x] 保存含 Loop 的公式，后端成功执行并返回正确结果
+- [x] 切换文本模式时提示不支持
+- [x] 环路检测、孤立节点检测均不受 Loop 节点影响（Loop 本身是有向边，不引入 DAG 环）
+- [x] 所有后端测试通过
