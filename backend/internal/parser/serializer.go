@@ -294,7 +294,7 @@ func astToDAGSubFormula(id string, node *ASTNode, g *domain.FormulaGraph, counte
 // parseLoopFuncName checks if a function name like "sum_loop" or "product_loop"
 // is a loop function and returns the aggregation name.
 func parseLoopFuncName(fnLower string) (string, bool) {
-	validAggs := []string{"sum", "product", "count", "avg", "min", "max", "last"}
+	validAggs := []string{"sum", "product", "count", "avg", "min", "max", "last", "fold"}
 	for _, agg := range validAggs {
 		if fnLower == agg+"_loop" {
 			return agg, true
@@ -329,34 +329,54 @@ func astToDAGLoop(id string, node *ASTNode, g *domain.FormulaGraph, counter *int
 		Iterator:    iterator,
 		Aggregation: aggregation,
 	}
-	g.Nodes = append(g.Nodes, domain.FormulaNode{
-		ID:     id,
-		Type:   domain.NodeLoop,
-		Config: mustMarshal(cfg),
-	})
 
 	// Wire start (3rd arg) → "start" port
 	startID, err := astToDAGWalk(node.Children[2], g, counter)
 	if err != nil {
 		return "", err
 	}
-	g.Edges = append(g.Edges, domain.FormulaEdge{Source: startID, Target: id, SourcePort: "out", TargetPort: "start"})
 
 	// Wire end (4th arg) → "end" port
 	endID, err := astToDAGWalk(node.Children[3], g, counter)
 	if err != nil {
 		return "", err
 	}
-	g.Edges = append(g.Edges, domain.FormulaEdge{Source: endID, Target: id, SourcePort: "out", TargetPort: "end"})
 
-	// Optional step (5th arg) → "step" port
-	if len(node.Children) >= 5 {
-		stepID, err := astToDAGWalk(node.Children[4], g, counter)
-		if err != nil {
-			return "", err
+	argIdx := 4
+
+	if aggregation == "fold" {
+		// fold_loop("formulaId", iter, start, end, "accVar", initValue)
+		if len(node.Children) >= argIdx+2 {
+			if node.Children[argIdx].Kind == KindVariable {
+				cfg.AccumulatorVar = node.Children[argIdx].Value
+			}
+			if node.Children[argIdx+1].Kind == KindLiteral {
+				cfg.InitValue = node.Children[argIdx+1].Value
+			} else if node.Children[argIdx+1].Kind == KindVariable {
+				cfg.InitValue = node.Children[argIdx+1].Value
+			}
 		}
-		g.Edges = append(g.Edges, domain.FormulaEdge{Source: stepID, Target: id, SourcePort: "out", TargetPort: "step"})
+	} else {
+		// Optional step (5th arg) → "step" port
+		if len(node.Children) >= argIdx+1 {
+			stepID, err := astToDAGWalk(node.Children[argIdx], g, counter)
+			if err != nil {
+				return "", err
+			}
+			g.Edges = append(g.Edges, domain.FormulaEdge{Source: stepID, Target: id, SourcePort: "out", TargetPort: "step"})
+		}
 	}
+
+	g.Nodes = append(g.Nodes, domain.FormulaNode{
+		ID:     id,
+		Type:   domain.NodeLoop,
+		Config: mustMarshal(cfg),
+	})
+
+	g.Edges = append(g.Edges,
+		domain.FormulaEdge{Source: startID, Target: id, SourcePort: "out", TargetPort: "start"},
+		domain.FormulaEdge{Source: endID, Target: id, SourcePort: "out", TargetPort: "end"},
+	)
 
 	return id, nil
 }
@@ -608,13 +628,23 @@ func dagToASTWalk(
 			}
 			node.Children = append(node.Children, child)
 		}
-		// Arg 5 (optional): step expression
-		if stepID := findEdgeSource(edges, "step"); stepID != "" {
-			child, err := dagToASTWalk(stepID, nodeMap, inEdges)
-			if err != nil {
-				return nil, err
+		if cfg.Aggregation == "fold" {
+			// fold_loop: append accumulatorVar and initValue
+			node.Children = append(node.Children, &ASTNode{Kind: KindVariable, Value: cfg.AccumulatorVar})
+			initVal := cfg.InitValue
+			if initVal == "" {
+				initVal = "0"
 			}
-			node.Children = append(node.Children, child)
+			node.Children = append(node.Children, &ASTNode{Kind: KindLiteral, Value: initVal})
+		} else {
+			// Arg 5 (optional): step expression
+			if stepID := findEdgeSource(edges, "step"); stepID != "" {
+				child, err := dagToASTWalk(stepID, nodeMap, inEdges)
+				if err != nil {
+					return nil, err
+				}
+				node.Children = append(node.Children, child)
+			}
 		}
 		return node, nil
 

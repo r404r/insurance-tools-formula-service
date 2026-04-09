@@ -74,6 +74,11 @@ func TestLoopRoundTrip(t *testing.T) {
 			`sum_loop("body-id", t, 1, n + 1)`,
 			`sum_loop("body-id", t, 1, n + 1)`,
 		},
+		{
+			"fold_loop basic",
+			`fold_loop("reserve-step", t, 0, n, V, 0)`,
+			`fold_loop("reserve-step", t, 0, n, V, 0)`,
+		},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

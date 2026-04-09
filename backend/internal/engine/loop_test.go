@@ -371,19 +371,76 @@ func TestLoop_NonIntegerStartError(t *testing.T) {
 	}
 }
 
-func TestLoop_ZeroIterationsError(t *testing.T) {
+// Empty iteration with sum → identity element 0
+func TestLoop_EmptySum(t *testing.T) {
 	resolver := &mockFormulaResolver{formulas: map[string]*domain.FormulaVersion{
 		"body": identityFormulaVersion("body", "t"),
 	}}
 	eng := loopEngine(resolver, 0)
 
-	// step=1 but start > end → 0 iterations
 	cfg := domain.LoopConfig{Mode: "range", FormulaID: "body", Iterator: "t", Aggregation: "sum"}
-	graph := parentLoopGraph(cfg, "5", "1") // start=5 > end=1, step defaults to 1
+	graph := parentLoopGraph(cfg, "5", "3") // start=5 > end=3, step defaults to 1 → 0 iterations
+
+	result, err := eng.Calculate(context.Background(), &graph, map[string]string{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := result.Outputs["loop"]; got != "0" {
+		t.Errorf("empty sum = %s, want 0", got)
+	}
+}
+
+// Empty iteration with product → identity element 1
+func TestLoop_EmptyProduct(t *testing.T) {
+	resolver := &mockFormulaResolver{formulas: map[string]*domain.FormulaVersion{
+		"body": identityFormulaVersion("body", "t"),
+	}}
+	eng := loopEngine(resolver, 0)
+
+	cfg := domain.LoopConfig{Mode: "range", FormulaID: "body", Iterator: "t", Aggregation: "product"}
+	graph := parentLoopGraph(cfg, "5", "3") // 0 iterations
+
+	result, err := eng.Calculate(context.Background(), &graph, map[string]string{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := result.Outputs["loop"]; got != "1" {
+		t.Errorf("empty product = %s, want 1", got)
+	}
+}
+
+// Empty iteration with count → 0
+func TestLoop_EmptyCount(t *testing.T) {
+	resolver := &mockFormulaResolver{formulas: map[string]*domain.FormulaVersion{
+		"body": identityFormulaVersion("body", "t"),
+	}}
+	eng := loopEngine(resolver, 0)
+
+	cfg := domain.LoopConfig{Mode: "range", FormulaID: "body", Iterator: "t", Aggregation: "count"}
+	graph := parentLoopGraph(cfg, "5", "3") // 0 iterations
+
+	result, err := eng.Calculate(context.Background(), &graph, map[string]string{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if got := result.Outputs["loop"]; got != "0" {
+		t.Errorf("empty count = %s, want 0", got)
+	}
+}
+
+// Empty iteration with avg → error (no identity element)
+func TestLoop_EmptyAvgError(t *testing.T) {
+	resolver := &mockFormulaResolver{formulas: map[string]*domain.FormulaVersion{
+		"body": identityFormulaVersion("body", "t"),
+	}}
+	eng := loopEngine(resolver, 0)
+
+	cfg := domain.LoopConfig{Mode: "range", FormulaID: "body", Iterator: "t", Aggregation: "avg"}
+	graph := parentLoopGraph(cfg, "5", "3") // 0 iterations
 
 	_, err := eng.Calculate(context.Background(), &graph, map[string]string{})
 	if err == nil {
-		t.Fatal("expected error for zero iterations (start>end with step>0), got nil")
+		t.Fatal("expected error for empty avg, got nil")
 	}
 }
 
@@ -594,5 +651,196 @@ func TestLoop_ValidateConfig(t *testing.T) {
 	errs = eng.Validate(&badAgg)
 	if len(errs) == 0 {
 		t.Error("expected validation error for invalid aggregation 'median', got none")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Fold tests: helpers
+// ---------------------------------------------------------------------------
+
+// addFormulaVersion creates a FormulaVersion whose body computes left + right
+// using two variable nodes and an add operator. The output is the add node.
+func addFormulaVersion(formulaID, leftVar, rightVar string) *domain.FormulaVersion {
+	return &domain.FormulaVersion{
+		ID:        formulaID + "@1",
+		FormulaID: formulaID,
+		Version:   1,
+		State:     domain.StatePublished,
+		Graph: domain.FormulaGraph{
+			Nodes: []domain.FormulaNode{
+				{ID: "v_left", Type: domain.NodeVariable, Config: mustJSON(domain.VariableConfig{Name: leftVar, DataType: "decimal"})},
+				{ID: "v_right", Type: domain.NodeVariable, Config: mustJSON(domain.VariableConfig{Name: rightVar, DataType: "decimal"})},
+				{ID: "op_add", Type: domain.NodeOperator, Config: mustJSON(domain.OperatorConfig{Op: "add"})},
+			},
+			Edges: []domain.FormulaEdge{
+				{Source: "v_left", Target: "op_add", SourcePort: "out", TargetPort: "left"},
+				{Source: "v_right", Target: "op_add", SourcePort: "out", TargetPort: "right"},
+			},
+			Outputs: []string{"op_add"},
+		},
+	}
+}
+
+// reserveBodyFormulaVersion creates a body that computes: (V + 100) * 1.05 - 1000 * 0.001
+// = (V + 100) * 1.05 - 1
+// Graph: V(var) + 100(const) → add → mul(*, 1.05) → sub(-, 1000*0.001=1) → output
+func reserveBodyFormulaVersion(formulaID string) *domain.FormulaVersion {
+	return &domain.FormulaVersion{
+		ID:        formulaID + "@1",
+		FormulaID: formulaID,
+		Version:   1,
+		State:     domain.StatePublished,
+		Graph: domain.FormulaGraph{
+			Nodes: []domain.FormulaNode{
+				{ID: "v_acc", Type: domain.NodeVariable, Config: mustJSON(domain.VariableConfig{Name: "V", DataType: "decimal"})},
+				{ID: "c_100", Type: domain.NodeConstant, Config: mustJSON(domain.ConstantConfig{Value: "100"})},
+				{ID: "op_add", Type: domain.NodeOperator, Config: mustJSON(domain.OperatorConfig{Op: "add"})},
+				{ID: "c_rate", Type: domain.NodeConstant, Config: mustJSON(domain.ConstantConfig{Value: "1.05"})},
+				{ID: "op_mul", Type: domain.NodeOperator, Config: mustJSON(domain.OperatorConfig{Op: "multiply"})},
+				{ID: "c_cost", Type: domain.NodeConstant, Config: mustJSON(domain.ConstantConfig{Value: "1"})}, // 1000 * 0.001 = 1
+				{ID: "op_sub", Type: domain.NodeOperator, Config: mustJSON(domain.OperatorConfig{Op: "subtract"})},
+			},
+			Edges: []domain.FormulaEdge{
+				{Source: "v_acc", Target: "op_add", SourcePort: "out", TargetPort: "left"},
+				{Source: "c_100", Target: "op_add", SourcePort: "out", TargetPort: "right"},
+				{Source: "op_add", Target: "op_mul", SourcePort: "out", TargetPort: "left"},
+				{Source: "c_rate", Target: "op_mul", SourcePort: "out", TargetPort: "right"},
+				{Source: "op_mul", Target: "op_sub", SourcePort: "out", TargetPort: "left"},
+				{Source: "c_cost", Target: "op_sub", SourcePort: "out", TargetPort: "right"},
+			},
+			Outputs: []string{"op_sub"},
+		},
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Fold tests
+// ---------------------------------------------------------------------------
+
+// fold with body V + t, accumulator "V", init "0", t=1..5 → 0+1+2+3+4+5=15
+func TestLoop_FoldSum(t *testing.T) {
+	resolver := &mockFormulaResolver{formulas: map[string]*domain.FormulaVersion{
+		"body": addFormulaVersion("body", "V", "t"),
+	}}
+	eng := loopEngine(resolver, 0)
+
+	cfg := domain.LoopConfig{
+		Mode: "range", FormulaID: "body", Iterator: "t",
+		Aggregation: "fold", AccumulatorVar: "V", InitValue: "0",
+	}
+	graph := parentLoopGraph(cfg, "1", "5")
+
+	result, err := eng.Calculate(context.Background(), &graph, map[string]string{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := result.Outputs["loop"]
+	if got != "15" {
+		t.Errorf("fold sum 1..5 = %s, want 15", got)
+	}
+}
+
+// fold simulating reserve recursion: (V + 100) * 1.05 - 1, init=0, t=1..3
+// iter1: (0+100)*1.05 - 1 = 104
+// iter2: (104+100)*1.05 - 1 = 213.2
+// iter3: (213.2+100)*1.05 - 1 = 327.86
+func TestLoop_FoldReserve(t *testing.T) {
+	resolver := &mockFormulaResolver{formulas: map[string]*domain.FormulaVersion{
+		"body": reserveBodyFormulaVersion("body"),
+	}}
+	eng := loopEngine(resolver, 0)
+
+	cfg := domain.LoopConfig{
+		Mode: "range", FormulaID: "body", Iterator: "t",
+		Aggregation: "fold", AccumulatorVar: "V", InitValue: "0",
+	}
+	graph := parentLoopGraph(cfg, "1", "3")
+
+	result, err := eng.Calculate(context.Background(), &graph, map[string]string{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := result.Outputs["loop"]
+	if got != "327.86" {
+		t.Errorf("fold reserve 1..3 = %s, want 327.86", got)
+	}
+}
+
+// fold with 0 iterations (start > end, step > 0) → return initValue
+func TestLoop_FoldZeroIterations(t *testing.T) {
+	resolver := &mockFormulaResolver{formulas: map[string]*domain.FormulaVersion{
+		"body": addFormulaVersion("body", "V", "t"),
+	}}
+	eng := loopEngine(resolver, 0)
+
+	cfg := domain.LoopConfig{
+		Mode: "range", FormulaID: "body", Iterator: "t",
+		Aggregation: "fold", AccumulatorVar: "V", InitValue: "42",
+	}
+	// start=5 > end=1 with default step=1 → 0 iterations
+	graph := parentLoopGraph(cfg, "5", "1")
+
+	result, err := eng.Calculate(context.Background(), &graph, map[string]string{})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	got := result.Outputs["loop"]
+	if got != "42" {
+		t.Errorf("fold zero iterations = %s, want 42", got)
+	}
+}
+
+// fold with accumulatorVar same as iterator → error
+func TestLoop_FoldAccumulatorConflict(t *testing.T) {
+	resolver := &mockFormulaResolver{formulas: map[string]*domain.FormulaVersion{
+		"body": addFormulaVersion("body", "t", "t"),
+	}}
+	eng := loopEngine(resolver, 0)
+
+	cfg := domain.LoopConfig{
+		Mode: "range", FormulaID: "body", Iterator: "t",
+		Aggregation: "fold", AccumulatorVar: "t", InitValue: "0",
+	}
+	graph := parentLoopGraph(cfg, "1", "3")
+
+	_, err := eng.Calculate(context.Background(), &graph, map[string]string{})
+	if err == nil {
+		t.Fatal("expected error for accumulatorVar == iterator, got nil")
+	}
+}
+
+// fold with empty accumulatorVar → validation error
+func TestLoop_FoldMissingAccumulatorVar(t *testing.T) {
+	eng := NewEngine(DefaultEngineConfig())
+
+	graph := domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "c_start", Type: domain.NodeConstant, Config: mustJSON(domain.ConstantConfig{Value: "1"})},
+			{ID: "c_end", Type: domain.NodeConstant, Config: mustJSON(domain.ConstantConfig{Value: "5"})},
+			{ID: "loop", Type: domain.NodeLoop, Config: mustJSON(domain.LoopConfig{
+				Mode: "range", FormulaID: "some-formula", Iterator: "t", Aggregation: "fold",
+			})},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "c_start", Target: "loop", SourcePort: "out", TargetPort: "start"},
+			{Source: "c_end", Target: "loop", SourcePort: "out", TargetPort: "end"},
+		},
+		Outputs: []string{"loop"},
+	}
+	errs := eng.Validate(&graph)
+	if len(errs) == 0 {
+		t.Fatal("expected validation error for fold with empty accumulatorVar, got none")
+	}
+	found := false
+	for _, e := range errs {
+		if e.NodeID == "loop" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected validation error on 'loop' node, got: %v", errs)
 	}
 }

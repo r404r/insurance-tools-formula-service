@@ -194,6 +194,12 @@ export function reactFlowToText(nodes: Node[], edges: Edge[]): string {
         if (stepId) {
           parts.push(renderNode(stepId, nextStack))
         }
+        if (agg === 'fold') {
+          const accVar = String(config.accumulatorVar ?? 'V')
+          const initVal = String(config.initValue ?? '0')
+          parts.push(quoteIfNeeded(accVar))
+          parts.push(initVal)
+        }
         result = `${agg}_loop(${parts.join(', ')})`
         break
       }

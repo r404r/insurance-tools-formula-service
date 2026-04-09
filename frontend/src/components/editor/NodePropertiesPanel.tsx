@@ -392,8 +392,31 @@ export default function NodePropertiesPanel({ node, onChange, currentFormulaId }
                 <option value="min">Min</option>
                 <option value="max">Max</option>
                 <option value="last">Last</option>
+                <option value="fold">Fold (accumulate)</option>
               </select>
             </div>
+            {(config.aggregation as string) === 'fold' && (
+              <>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Accumulator Variable</label>
+                  <input
+                    className="w-full text-xs border border-gray-300 rounded px-2 py-1 font-mono"
+                    value={(config.accumulatorVar as string) ?? ''}
+                    onChange={(e) => updateConfig('accumulatorVar', e.target.value)}
+                    placeholder="V"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Initial Value</label>
+                  <input
+                    className="w-full text-xs border border-gray-300 rounded px-2 py-1 font-mono"
+                    value={(config.initValue as string) ?? ''}
+                    onChange={(e) => updateConfig('initValue', e.target.value)}
+                    placeholder="0"
+                  />
+                </div>
+              </>
+            )}
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"

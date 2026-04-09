@@ -268,6 +268,7 @@ const LOOP_AGG_LATEX: Record<string, string> = {
   avg_loop: '\\operatorname{avg}',
   min_loop: '\\min',
   max_loop: '\\max',
+  fold_loop: '\\operatorname{fold}',
   last_loop: '\\operatorname{last}',
 }
 

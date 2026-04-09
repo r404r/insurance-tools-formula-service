@@ -76,7 +76,7 @@ export interface AggregateConfig {
   range: string
 }
 
-export type LoopAggregation = 'sum' | 'product' | 'count' | 'avg' | 'min' | 'max' | 'last'
+export type LoopAggregation = 'sum' | 'product' | 'count' | 'avg' | 'min' | 'max' | 'last' | 'fold'
 
 export interface LoopConfig {
   mode: 'range'
@@ -87,6 +87,8 @@ export interface LoopConfig {
   aggregation: LoopAggregation
   inclusiveEnd?: boolean
   maxIterations?: number
+  accumulatorVar?: string
+  initValue?: string
 }
 
 export type NodeConfig =

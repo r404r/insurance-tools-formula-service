@@ -137,9 +137,11 @@ type LoopConfig struct {
 	FormulaID     string `json:"formulaId"`               // required: body sub-formula ID
 	Version       *int   `json:"version,omitempty"`       // nil = use published version
 	Iterator      string `json:"iterator"`                // required: variable name injected each iteration, e.g. "t"
-	Aggregation   string `json:"aggregation"`             // sum/product/count/avg/min/max/last
-	InclusiveEnd  *bool  `json:"inclusiveEnd,omitempty"`  // default true
-	MaxIterations *int   `json:"maxIterations,omitempty"` // node-level cap; falls back to engine default
+	Aggregation    string `json:"aggregation"`                // sum/product/count/avg/min/max/last/fold
+	InclusiveEnd   *bool  `json:"inclusiveEnd,omitempty"`    // default true
+	MaxIterations  *int   `json:"maxIterations,omitempty"`   // node-level cap; falls back to engine default
+	AccumulatorVar string `json:"accumulatorVar,omitempty"`  // variable name for fold accumulator
+	InitValue      string `json:"initValue,omitempty"`       // initial accumulator value (decimal string)
 }
 
 // LookupTable stores reference data (mortality tables, rating tables, etc.)

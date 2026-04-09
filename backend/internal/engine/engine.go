@@ -388,7 +388,12 @@ func (e *defaultEngine) executeLoop(ctx context.Context, node *domain.FormulaNod
 		}
 	}
 
-	// Iterate and collect results.
+	// ── Fold mode: stateful accumulation (separate path) ──
+	if cfg.Aggregation == "fold" {
+		return e.executeFoldLoop(loopCtx, node, cfg, bodyPlan, bodyOutputID, baseChildInputs, startVal, endVal, stepVal, inclusiveEnd, maxIter)
+	}
+
+	// ── Map-reduce mode: independent iterations + aggregation ──
 	var iterResults []Decimal
 	current := startVal
 
@@ -433,16 +438,93 @@ func (e *defaultEngine) executeLoop(ctx context.Context, node *domain.FormulaNod
 		current = current.Add(stepVal)
 	}
 
-	if len(iterResults) == 0 {
-		return Zero, fmt.Errorf("node %s: loop produced zero iterations (start=%s end=%s step=%s)", node.ID, startVal.String(), endVal.String(), stepVal.String())
-	}
-
-	// Aggregate results.
+	// Aggregate results (aggregateLoopResults handles empty slices for
+	// identity-element aggregations like sum/product/count).
 	return aggregateLoopResults(node.ID, cfg.Aggregation, iterResults, e.config.Precision)
 }
 
-// aggregateLoopResults applies the specified aggregation function to a non-empty
-// slice of loop iteration results.
+// executeFoldLoop implements the fold/accumulate pattern where each iteration
+// receives the previous iteration's result via an accumulator variable.
+func (e *defaultEngine) executeFoldLoop(
+	ctx context.Context,
+	node *domain.FormulaNode,
+	cfg domain.LoopConfig,
+	bodyPlan *ExecutionPlan,
+	bodyOutputID string,
+	baseChildInputs map[string]Decimal,
+	startVal, endVal, stepVal Decimal,
+	inclusiveEnd bool,
+	maxIter int,
+) (Decimal, error) {
+	if cfg.AccumulatorVar == "" {
+		return Zero, fmt.Errorf("node %s: fold mode requires accumulatorVar", node.ID)
+	}
+	if cfg.AccumulatorVar == cfg.Iterator {
+		return Zero, fmt.Errorf("node %s: fold accumulatorVar %q must differ from iterator %q", node.ID, cfg.AccumulatorVar, cfg.Iterator)
+	}
+
+	// Parse initial accumulator value (default 0).
+	acc := Zero
+	if cfg.InitValue != "" {
+		var err error
+		acc, err = decimal.NewFromString(cfg.InitValue)
+		if err != nil {
+			return Zero, fmt.Errorf("node %s: invalid fold initValue %q: %w", node.ID, cfg.InitValue, err)
+		}
+	}
+
+	current := startVal
+	iterCount := 0
+
+	for {
+		var done bool
+		if stepVal.IsPositive() {
+			if inclusiveEnd {
+				done = current.GreaterThan(endVal)
+			} else {
+				done = current.GreaterThanOrEqual(endVal)
+			}
+		} else {
+			if inclusiveEnd {
+				done = current.LessThan(endVal)
+			} else {
+				done = current.LessThanOrEqual(endVal)
+			}
+		}
+		if done {
+			break
+		}
+
+		if iterCount >= maxIter {
+			return Zero, fmt.Errorf("node %s: fold loop exceeded maxIterations (%d)", node.ID, maxIter)
+		}
+
+		childInputs := cloneDecimalMap(baseChildInputs)
+		childInputs[cfg.Iterator] = current
+		childInputs[cfg.AccumulatorVar] = acc
+
+		allResults, err := e.executor.Execute(ctx, bodyPlan, childInputs)
+		if err != nil {
+			return Zero, fmt.Errorf("node %s: fold iteration %s=%s: %w", node.ID, cfg.Iterator, current.String(), err)
+		}
+
+		if v, ok := allResults[bodyOutputID]; ok {
+			acc = v
+		}
+
+		current = current.Add(stepVal)
+		iterCount++
+	}
+
+	// 0 iterations → return initValue (this is correct for fold: fold [] init = init)
+	return acc, nil
+}
+
+// aggregateLoopResults applies the specified aggregation function to the loop
+// iteration results. For aggregations with a well-defined identity element
+// (sum, product, count) an empty slice returns that identity. For aggregations
+// that require at least one value (avg, min, max, last) an empty slice is an
+// error.
 func aggregateLoopResults(nodeID string, aggregation string, results []Decimal, prec PrecisionConfig) (Decimal, error) {
 	switch aggregation {
 	case "sum":
@@ -463,6 +545,9 @@ func aggregateLoopResults(nodeID string, aggregation string, results []Decimal, 
 		return NewDecimalFromInt(int64(len(results))), nil
 
 	case "avg":
+		if len(results) == 0 {
+			return Zero, fmt.Errorf("node %s: loop produced zero iterations", nodeID)
+		}
 		acc := Zero
 		for _, v := range results {
 			acc = acc.Add(v)
@@ -471,6 +556,9 @@ func aggregateLoopResults(nodeID string, aggregation string, results []Decimal, 
 		return acc.DivRound(count, prec.IntermediatePrecision), nil
 
 	case "min":
+		if len(results) == 0 {
+			return Zero, fmt.Errorf("node %s: loop produced zero iterations", nodeID)
+		}
 		m := results[0]
 		for _, v := range results[1:] {
 			if v.LessThan(m) {
@@ -480,6 +568,9 @@ func aggregateLoopResults(nodeID string, aggregation string, results []Decimal, 
 		return m, nil
 
 	case "max":
+		if len(results) == 0 {
+			return Zero, fmt.Errorf("node %s: loop produced zero iterations", nodeID)
+		}
 		m := results[0]
 		for _, v := range results[1:] {
 			if v.GreaterThan(m) {
@@ -489,6 +580,9 @@ func aggregateLoopResults(nodeID string, aggregation string, results []Decimal, 
 		return m, nil
 
 	case "last":
+		if len(results) == 0 {
+			return Zero, fmt.Errorf("node %s: loop produced zero iterations", nodeID)
+		}
 		return results[len(results)-1], nil
 
 	default:
@@ -757,10 +851,13 @@ func validateNodeConfig(node domain.FormulaNode) error {
 		}
 		validAggs := map[string]bool{
 			"sum": true, "product": true, "count": true, "avg": true,
-			"min": true, "max": true, "last": true,
+			"min": true, "max": true, "last": true, "fold": true,
 		}
 		if !validAggs[cfg.Aggregation] {
 			return fmt.Errorf("loop config has invalid aggregation %q", cfg.Aggregation)
+		}
+		if cfg.Aggregation == "fold" && cfg.AccumulatorVar == "" {
+			return fmt.Errorf("loop config with fold aggregation requires accumulatorVar")
 		}
 	}
 
