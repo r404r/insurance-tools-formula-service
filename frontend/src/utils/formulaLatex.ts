@@ -261,6 +261,26 @@ function escapeLatex(value: string): string {
     .replace(/}/g, '\\}')
 }
 
+const LOOP_AGG_LATEX: Record<string, string> = {
+  sum_loop: '\\sum',
+  product_loop: '\\prod',
+  count_loop: '\\operatorname{count}',
+  avg_loop: '\\operatorname{avg}',
+  min_loop: '\\min',
+  max_loop: '\\max',
+  last_loop: '\\operatorname{last}',
+}
+
+/** Render AGG_loop(formulaId, iterator, start, end[, step]) as proper math notation. */
+function formatLoopLatex(symbol: string, args: AstNode[]): string {
+  const formulaId = args[0].kind === 'string' ? args[0].value : args[0].kind === 'identifier' ? args[0].value : '?'
+  const iter = args[1].kind === 'identifier' ? args[1].value : 't'
+  const start = toLatex(args[2])
+  const end = toLatex(args[3])
+  const body = `\\operatorname{${escapeLatex(formulaId)}}\\!\\left(${iter}\\right)`
+  return `${symbol}_{${iter}=${start}}^{${end}} ${body}`
+}
+
 function formatFunction(name: string, args: string[]): string {
   switch (name) {
     case 'sqrt':
@@ -327,8 +347,13 @@ function toLatex(node: AstNode, parentPrecedence = 0): string {
       }
       return expression
     }
-    case 'call':
+    case 'call': {
+      const loopSym = LOOP_AGG_LATEX[node.name]
+      if (loopSym && node.args.length >= 4) {
+        return formatLoopLatex(loopSym, node.args)
+      }
       return formatFunction(node.name, node.args.map((arg) => toLatex(arg)))
+    }
     case 'conditional': {
       const condition = toLatex(node.condition)
       const thenBranch = toLatex(node.thenBranch)

@@ -7,6 +7,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { latexToFormulaText } from '../latexToFormula'
+import { formulaTextToLatex } from '../formulaLatex'
 
 // ---------------------------------------------------------------------------
 // TC-01: Variable identifiers with \mathrm and addition
@@ -347,5 +348,44 @@ describe('TC-20: Complex compound formula', () => {
   it('converts multi-term insurance premium formula', () => {
     const latex = '\\mathrm{base\\_premium} \\cdot \\left(1 + \\mathrm{loading}\\right)'
     expect(latexToFormulaText(latex)).toBe('base_premium * (1 + loading)')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Loop node LaTeX support
+// ---------------------------------------------------------------------------
+describe('Loop LaTeX: text → LaTeX', () => {
+  it('sum_loop renders as \\sum notation', () => {
+    const latex = formulaTextToLatex('sum_loop("body", t, 1, n)')
+    expect(latex).toContain('\\sum')
+    expect(latex).toContain('t=1')
+    expect(latex).toContain('^{')
+  })
+
+  it('product_loop renders as \\prod notation', () => {
+    const latex = formulaTextToLatex('product_loop("body", t, 1, n)')
+    expect(latex).toContain('\\prod')
+    expect(latex).toContain('t=1')
+  })
+})
+
+describe('Loop LaTeX: LaTeX → text', () => {
+  it('\\sum_{t=1}^{n} converts to sum_loop', () => {
+    const latex = '\\sum_{t=1}^{n} \\operatorname{body}\\!\\left(t\\right)'
+    const text = latexToFormulaText(latex)
+    expect(text).toBe('sum_loop("body", t, 1, n)')
+  })
+
+  it('\\prod_{t=1}^{n} converts to product_loop', () => {
+    const latex = '\\prod_{t=1}^{n} \\operatorname{body}\\!\\left(t\\right)'
+    const text = latexToFormulaText(latex)
+    expect(text).toBe('product_loop("body", t, 1, n)')
+  })
+
+  it('roundtrip: text → LaTeX → text', () => {
+    const original = 'sum_loop("my_formula", t, 1, n)'
+    const latex = formulaTextToLatex(original)
+    const back = latexToFormulaText(latex)
+    expect(back).toBe(original)
   })
 })

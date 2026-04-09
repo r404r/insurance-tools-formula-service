@@ -329,6 +329,68 @@ function transformLatex(latex: string): string {
           break
         }
 
+        case 'sum':
+        case 'prod':
+        case 'min':
+        case 'max': {
+          // \sum_{iter=start}^{end} \operatorname{body}\!\left(iter\right)
+          // or \operatorname{avg}_{...}^{...} / \operatorname{count}_{...}^{...}
+          const aggMap: Record<string, string> = { sum: 'sum', prod: 'product', min: 'min', max: 'max' }
+          const agg = aggMap[cmd] ?? cmd
+          i = skipSpaces(s, i)
+          // Parse subscript _{iter=start}
+          let iter = 't', startExpr = '1', endExpr = 'n'
+          if (s[i] === '_') {
+            i++ // skip _
+            i = skipSpaces(s, i)
+            const sub = extractBraced(s, i)
+            i = sub.end
+            const eqIdx = sub.content.indexOf('=')
+            if (eqIdx !== -1) {
+              iter = transformLatex(sub.content.slice(0, eqIdx)).trim()
+              startExpr = transformLatex(sub.content.slice(eqIdx + 1)).trim()
+            }
+          }
+          i = skipSpaces(s, i)
+          // Parse superscript ^{end}
+          if (s[i] === '^') {
+            i++ // skip ^
+            i = skipSpaces(s, i)
+            const sup = extractBraced(s, i)
+            i = sup.end
+            endExpr = transformLatex(sup.content).trim()
+          }
+          i = skipSpaces(s, i)
+          // Parse body: \operatorname{name}\!\left(iter\right) or just a token
+          let bodyId = ''
+          if (s.slice(i, i + 14) === '\\operatorname{' || s.slice(i, i + 15) === '\\operatorname {') {
+            // Skip \operatorname
+            i += 14
+            if (s[i - 1] === ' ') i++ // handle space before {
+            // Find the { after \operatorname
+            const braceStart = s.indexOf('{', i - 2)
+            if (braceStart !== -1) {
+              const nameContent = extractBraced(s, braceStart)
+              i = nameContent.end
+              bodyId = nameContent.content.replace(/\\_/g, '_')
+            }
+            // Skip optional \! and \left(...\right)
+            i = skipSpaces(s, i)
+            if (s.slice(i, i + 2) === '\\!') i += 2
+            i = skipSpaces(s, i)
+            if (s.slice(i, i + 6) === '\\left(') {
+              i += 6
+              const { end } = extractLeftRight(s, i, ')')
+              i = end
+            }
+          } else {
+            // Just grab the next identifier-like token
+            while (i < s.length && /[a-zA-Z0-9_]/.test(s[i])) { bodyId += s[i++] }
+          }
+          result += `${agg}_loop("${bodyId}", ${iter}, ${startExpr}, ${endExpr})`
+          break
+        }
+
         case 'operatorname': {
           i = skipSpaces(s, i)
           const name = extractBraced(s, i)
