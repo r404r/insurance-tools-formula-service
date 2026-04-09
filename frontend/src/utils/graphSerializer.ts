@@ -50,7 +50,7 @@ export function apiToReactFlow(graph: FormulaGraph): ReactFlowData {
       id: node.id,
       type: 'formulaNode',
       position: positions[node.id] ?? { x: 0, y: 0 },
-      data: createNodeData(node.type, node.config),
+      data: createNodeData(node.type, node.config, node.description),
     }
   })
 
@@ -80,10 +80,12 @@ export function reactFlowToApi(
 
   const formulaNodes = nodes.map((node) => {
     positions[node.id] = { x: node.position.x, y: node.position.y }
+    const desc = String(node.data.description ?? '')
     return {
       id: node.id,
       type: ((node.data.nodeType ?? node.type) as string),
       config: (node.data.config as Record<string, unknown>) ?? {},
+      ...(desc ? { description: desc } : {}),
     }
   })
 

@@ -148,7 +148,7 @@ export default function FormulaEditorPage() {
           data: createNodeData(nodeType as NodeType, {
             ...config,
             formulaName,
-          }),
+          }, String(node.data.description ?? '')),
         }
       })
       return changed ? result : inputNodes
@@ -238,7 +238,7 @@ export default function FormulaEditorPage() {
           if (n.id !== nodeId) return n
           const nodeType = String(data.nodeType ?? n.data.nodeType ?? n.type) as NodeType
           const config = (data.config as Record<string, unknown>) ?? {}
-          return { ...n, data: createNodeData(nodeType, config) }
+          return { ...n, data: createNodeData(nodeType, config, String(data.description ?? n.data.description ?? '')) }
         })
       )
     },

@@ -42,9 +42,10 @@ type FormulaGraph struct {
 
 // FormulaNode represents a computation node in the formula DAG
 type FormulaNode struct {
-	ID     string          `json:"id"`
-	Type   NodeType        `json:"type"`
-	Config json.RawMessage `json:"config"`
+	ID          string          `json:"id"`
+	Type        NodeType        `json:"type"`
+	Config      json.RawMessage `json:"config"`
+	Description string          `json:"description,omitempty"`
 }
 
 // NodeType enumerates the types of formula nodes

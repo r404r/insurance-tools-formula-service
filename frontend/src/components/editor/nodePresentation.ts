@@ -31,6 +31,7 @@ export interface FormulaNodeData {
   label: string
   nodeType: NodeType
   config: Record<string, unknown>
+  description?: string
 }
 
 export interface PortDef {
@@ -84,11 +85,12 @@ export function subFormulaName(config: Record<string, unknown>): string {
   return String(config.formulaName ?? '').trim()
 }
 
-export function createNodeData(type: NodeType, config: Record<string, unknown>): FormulaNodeData {
+export function createNodeData(type: NodeType, config: Record<string, unknown>, description?: string): FormulaNodeData {
   return {
     label: nodeLabel(type, config),
     nodeType: type,
     config,
+    description: description ?? '',
   }
 }
 

@@ -111,6 +111,7 @@ export interface FormulaNode {
   id: string
   type: NodeType
   config: Record<string, unknown>
+  description?: string
 }
 
 // Matches backend domain.FormulaEdge (source/target, not sourceId/targetId)

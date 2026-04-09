@@ -78,6 +78,16 @@ export default function NodePropertiesPanel({ node, onChange, currentFormulaId }
           <label className="block text-xs text-gray-500 mb-1">Type</label>
           <input className="w-full text-xs bg-gray-100 rounded px-2 py-1" value={nodeType} disabled />
         </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">{t('formula.description')}</label>
+          <textarea
+            className="w-full text-xs border border-gray-300 rounded px-2 py-1 resize-none"
+            rows={2}
+            value={String(node.data.description ?? '')}
+            onChange={(e) => onChange(node.id, { ...node.data, description: e.target.value })}
+            placeholder={t('formula.description')}
+          />
+        </div>
 
         {nodeType === 'variable' && (
           <>

@@ -53,8 +53,10 @@ export default function FormulaNode({ id, data, selected }: NodeProps) {
         boxShadow,
       }
 
+  const description = String(nodeData.description ?? '')
+
   return (
-    <div className={containerClass} style={containerStyle}>
+    <div className={containerClass} style={containerStyle} title={description || undefined}>
       {inputPorts.map((port) => (
         <div key={port.id}>
           <PortLabel side="left" top={port.top} label={port.label} />
