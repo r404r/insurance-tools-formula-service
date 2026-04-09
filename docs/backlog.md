@@ -9,9 +9,9 @@
 
 ## 已排期
 
-- [019-formula-graph-validation.md](tasks/019-formula-graph-validation.md) — 公式图结构合理性校验增强
-
 ## 已完成
+
+- [019-formula-graph-validation.md](tasks/019-formula-graph-validation.md) — 公式图结构合理性校验增强（2026-04-09）
 
 - [001-user-management.md](tasks/001-user-management.md) — 用户管理实现（2026-04-06）
 - [002-lookup-table-management.md](tasks/002-lookup-table-management.md) — Lookup Tables 管理实现（2026-04-06）

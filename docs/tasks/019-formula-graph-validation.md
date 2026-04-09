@@ -1,6 +1,6 @@
 # Task #019: 公式图结构合理性校验增强
 
-## Status: in-progress
+## Status: done
 
 ## 需求
 
