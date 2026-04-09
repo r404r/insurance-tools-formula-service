@@ -42,13 +42,24 @@ export default function FormulaEditorPage() {
 
   const handleSetEditorMode = useCallback(
     (mode: 'visual' | 'text') => {
+      if (mode === 'text') {
+        // Warn if any loop node has non-default settings that text mode can't represent
+        const lossyLoop = nodes.some((n) => {
+          if ((n.data.nodeType as string) !== 'loop') return false
+          const cfg = (n.data.config as Record<string, unknown>) ?? {}
+          return cfg.inclusiveEnd === false || cfg.maxIterations != null || cfg.version != null
+        })
+        if (lossyLoop) {
+          setSaveMessage(t('editor.loopTextLossy'))
+        }
+      }
       setEditorMode(mode)
       if (modeParam) {
         // Remove the ?mode param so subsequent mode switches use the Zustand store
         navigate(`/formulas/${id}`, { replace: true })
       }
     },
-    [id, modeParam, navigate, setEditorMode]
+    [id, modeParam, navigate, nodes, setEditorMode, t]
   )
   const [edges, setEdges] = useState<Edge[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)

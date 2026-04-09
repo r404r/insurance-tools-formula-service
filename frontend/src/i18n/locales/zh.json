@@ -88,7 +88,8 @@
     "aggregation": "聚合方式",
     "inclusiveEnd": "包含终点",
     "maxIterations": "最大迭代次数",
-    "loopNoTextMode": "当前公式包含 Loop 节点，暂不支持切换到文本模式，请使用可视化编辑器。"
+    "loopNoTextMode": "当前公式包含 Loop 节点，暂不支持切换到文本模式，请使用可视化编辑器。",
+    "loopTextLossy": "注意：Loop 的部分设置（inclusiveEnd、maxIterations、version）在文本模式下不会保留。"
   },
   "node": {
     "variable": "变量",

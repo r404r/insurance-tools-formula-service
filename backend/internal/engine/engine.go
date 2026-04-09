@@ -625,6 +625,24 @@ func parseInputs(inputs map[string]string) (map[string]Decimal, error) {
 
 // validateNodeConfig checks that a node's config can be unmarshalled into
 // the appropriate config struct for its type.
+func isValidIdentifier(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for i, c := range s {
+		if i == 0 {
+			if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_') {
+				return false
+			}
+		} else {
+			if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func validateNodeConfig(node domain.FormulaNode) error {
 	if node.Config == nil {
 		return fmt.Errorf("missing config")
@@ -733,6 +751,9 @@ func validateNodeConfig(node domain.FormulaNode) error {
 		}
 		if cfg.Iterator == "" {
 			return fmt.Errorf("loop config missing iterator")
+		}
+		if !isValidIdentifier(cfg.Iterator) {
+			return fmt.Errorf("loop config iterator %q must be a valid identifier (letters, digits, underscores)", cfg.Iterator)
 		}
 		validAggs := map[string]bool{
 			"sum": true, "product": true, "count": true, "avg": true,

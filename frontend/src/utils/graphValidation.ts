@@ -191,6 +191,8 @@ export function validateGraph(nodes: Node[], edges: Edge[]): ValidationIssue[] {
           issues.push({ message: 'Loop must reference a body formula', nodeIds: [node.id], severity: 'error' })
         if (!String(loopCfg.iterator ?? '').trim())
           issues.push({ message: 'Loop must have an iterator variable name', nodeIds: [node.id], severity: 'error' })
+        else if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(String(loopCfg.iterator ?? '')))
+          issues.push({ message: `Loop iterator "${loopCfg.iterator}" must be a valid identifier (letters, digits, underscores)`, nodeIds: [node.id], severity: 'error' })
         if (!loopCfg.aggregation || !VALID_LOOP_AGGREGATIONS.has(loopCfg.aggregation))
           issues.push({ message: `Loop has invalid aggregation "${loopCfg.aggregation ?? ''}"`, nodeIds: [node.id], severity: 'error' })
         if (loopCfg.mode && loopCfg.mode !== 'range')

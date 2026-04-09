@@ -396,6 +396,51 @@ function transformLatex(latex: string): string {
           const name = extractBraced(s, i)
           i = name.end
           i = skipSpaces(s, i)
+          // Check if this is a loop aggregation: \operatorname{avg}_{iter=start}^{end} body
+          const loopAggs: Record<string, string> = { count: 'count', avg: 'avg', last: 'last' }
+          if (loopAggs[name.content] && s[i] === '_') {
+            const agg = loopAggs[name.content]
+            let iter = 't', startExpr = '1', endExpr = 'n'
+            i++ // skip _
+            i = skipSpaces(s, i)
+            const sub = extractBraced(s, i)
+            i = sub.end
+            const eqIdx = sub.content.indexOf('=')
+            if (eqIdx !== -1) {
+              iter = transformLatex(sub.content.slice(0, eqIdx)).trim()
+              startExpr = transformLatex(sub.content.slice(eqIdx + 1)).trim()
+            }
+            i = skipSpaces(s, i)
+            if (s[i] === '^') {
+              i++
+              i = skipSpaces(s, i)
+              const sup = extractBraced(s, i)
+              i = sup.end
+              endExpr = transformLatex(sup.content).trim()
+            }
+            i = skipSpaces(s, i)
+            let bodyId = ''
+            if (s.slice(i, i + 14) === '\\operatorname{' || s.slice(i, i + 15) === '\\operatorname {') {
+              i += 14
+              if (s[i - 1] === ' ') i++
+              const braceStart = s.indexOf('{', i - 2)
+              if (braceStart !== -1) {
+                const nameContent = extractBraced(s, braceStart)
+                i = nameContent.end
+                bodyId = nameContent.content.replace(/\\_/g, '_')
+              }
+              i = skipSpaces(s, i)
+              if (s.slice(i, i + 2) === '\\!') i += 2
+              i = skipSpaces(s, i)
+              if (s.slice(i, i + 6) === '\\left(') {
+                i += 6
+                const { end } = extractLeftRight(s, i, ')')
+                i = end
+              }
+            }
+            result += `${agg}_loop("${bodyId}", ${iter}, ${startExpr}, ${endExpr})`
+            break
+          }
           if (s.slice(i, i + 6) === '\\left(') {
             i += 6
             const { content, end } = extractLeftRight(s, i, ')')

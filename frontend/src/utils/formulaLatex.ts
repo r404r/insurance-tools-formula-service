@@ -277,8 +277,10 @@ function formatLoopLatex(symbol: string, args: AstNode[]): string {
   const iter = args[1].kind === 'identifier' ? args[1].value : 't'
   const start = toLatex(args[2])
   const end = toLatex(args[3])
+  const step = args.length >= 5 ? toLatex(args[4]) : ''
+  const subscript = step ? `${iter}=${start},\\, \\Delta=${step}` : `${iter}=${start}`
   const body = `\\operatorname{${escapeLatex(formulaId)}}\\!\\left(${iter}\\right)`
-  return `${symbol}_{${iter}=${start}}^{${end}} ${body}`
+  return `${symbol}_{${subscript}}^{${end}} ${body}`
 }
 
 function formatFunction(name: string, args: string[]): string {

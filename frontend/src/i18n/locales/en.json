@@ -88,7 +88,8 @@
     "aggregation": "Aggregation",
     "inclusiveEnd": "Inclusive End",
     "maxIterations": "Max Iterations",
-    "loopNoTextMode": "This formula contains Loop nodes. Text mode is not supported — please use the visual editor."
+    "loopNoTextMode": "This formula contains Loop nodes. Text mode is not supported — please use the visual editor.",
+    "loopTextLossy": "Warning: Loop settings (inclusiveEnd, maxIterations, version) will not be preserved in text mode."
   },
   "node": {
     "variable": "Variable",
