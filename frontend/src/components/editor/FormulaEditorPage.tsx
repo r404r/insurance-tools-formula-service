@@ -122,9 +122,10 @@ export default function FormulaEditorPage() {
         return inputNodes
       }
 
-      return inputNodes.map((node) => {
+      let changed = false
+      const result = inputNodes.map((node) => {
         const nodeType = String(node.data.nodeType ?? node.type)
-        if (nodeType !== 'subFormula') {
+        if (nodeType !== 'subFormula' && nodeType !== 'loop') {
           return node
         }
 
@@ -137,14 +138,16 @@ export default function FormulaEditorPage() {
           return node
         }
 
+        changed = true
         return {
           ...node,
-          data: createNodeData('subFormula', {
+          data: createNodeData(nodeType as NodeType, {
             ...config,
             formulaName,
           }),
         }
       })
+      return changed ? result : inputNodes
     },
     [allFormulas]
   )
