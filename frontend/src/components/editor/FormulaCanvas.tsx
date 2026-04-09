@@ -1,4 +1,5 @@
 import { useCallback, useRef } from 'react'
+import { ValidationContext, type ValidationState } from './ValidationContext'
 import {
   ReactFlow,
   Background,
@@ -29,6 +30,7 @@ interface Props {
   onNodesChange: (nodes: Node[]) => void
   onEdgesChange: (edges: Edge[]) => void
   onNodeSelect: (node: Node | null) => void
+  validation?: ValidationState
 }
 
 let idCounter = 0
@@ -40,7 +42,9 @@ const nodeTypes = {
   formulaNode: FormulaNode,
 }
 
-export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeSelect }: Props) {
+const emptyValidation: ValidationState = { invalidNodeIds: new Set(), warnNodeIds: new Set() }
+
+export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeSelect, validation }: Props) {
   const autoLayout = useAutoLayout()
   const rfInstance = useRef<ReactFlowInstance | null>(null)
 
@@ -173,6 +177,7 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
   }, [nodes, edges, autoLayout, onNodesChange])
 
   return (
+    <ValidationContext.Provider value={validation ?? emptyValidation}>
     <div className="relative flex-1 h-full min-h-[400px]">
       <div className="pointer-events-none absolute top-2 right-2 z-10">
         <button
@@ -202,5 +207,6 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
         <MiniMap pannable zoomable />
       </ReactFlow>
     </div>
+    </ValidationContext.Provider>
   )
 }

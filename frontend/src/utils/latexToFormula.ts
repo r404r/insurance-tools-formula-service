@@ -45,7 +45,7 @@ function extractBraced(s: string, pos: number): { content: string; end: number }
  * `pos` points to the character right after \left<openDelim>.
  * Returns inner content and the index after \right<closeDelim>.
  */
-function extractLeftRight(s: string, pos: number, closeDelim: string): { content: string; end: number } {
+function extractLeftRight(s: string, pos: number, _closeDelim: string): { content: string; end: number } {
   let depth = 1
   let content = ''
   let i = pos
@@ -58,7 +58,6 @@ function extractLeftRight(s: string, pos: number, closeDelim: string): { content
       continue
     }
     if (s.slice(i, i + 6) === '\\right') {
-      const delim = s[i + 6] ?? ''
       depth--
       if (depth === 0) {
         // Consumed \right + closeDelim (7 chars total)
@@ -219,7 +218,6 @@ function transformCases(body: string): string {
 
   // elseLine: "elseExpr, & \text{otherwise}"
   // Use a nesting-aware search so nested \begin{cases} blocks are skipped.
-  const otherwiseMarker = '& \\text{otherwise}'
   const otherwiseIdx = findTopLevelOtherwiseMarker(elseLine)
   const elseLatex = otherwiseIdx !== -1
     ? elseLine.slice(0, otherwiseIdx).replace(/,\s*$/, '').trim()

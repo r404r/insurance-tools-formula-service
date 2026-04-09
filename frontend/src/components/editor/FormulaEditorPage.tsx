@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -15,73 +15,10 @@ import TextEditor from './TextEditor'
 import NodePalette from './NodePalette'
 import NodePropertiesPanel from './NodePropertiesPanel'
 import type { Formula, FormulaVersion, InsuranceDomain, NodeType } from '../../types/formula'
-import { createNodeData, getInputPorts } from './nodePresentation'
+import { createNodeData } from './nodePresentation'
 import { useAutoLayout } from './hooks/useAutoLayout'
-
-function validateGraph(nodes: Node[], edges: Edge[]): string | null {
-  if (nodes.length === 0) return 'Graph is empty'
-
-  const connectedPorts = new Map<string, Set<string>>()
-  for (const edge of edges) {
-    if (!edge.source || !edge.target) return 'Edge is missing source or target'
-    if (!edge.sourceHandle) return `Edge from ${edge.source} is missing source port`
-    if (!edge.targetHandle) return `Edge into ${edge.target} is missing target port`
-    if (edge.source === edge.target) return `Node ${edge.source} cannot connect to itself`
-
-    const ports = connectedPorts.get(edge.target) ?? new Set<string>()
-    if (ports.has(edge.targetHandle)) return `Node ${edge.target} already has a connection on ${edge.targetHandle}`
-    ports.add(edge.targetHandle)
-    connectedPorts.set(edge.target, ports)
-  }
-
-  for (const node of nodes) {
-    const nodeType = String(node.data.nodeType ?? node.type)
-    const config = (node.data.config as Record<string, unknown>) ?? {}
-    const ports = connectedPorts.get(node.id) ?? new Set<string>()
-    const validTargetPorts = new Set(getInputPorts(nodeType, config).map((port) => port.id))
-
-    for (const port of ports) {
-      if (!validTargetPorts.has(port)) return `Node ${node.id} has invalid input port ${port}`
-    }
-
-    switch (nodeType) {
-      case 'operator':
-        if (!ports.has('left') || !ports.has('right')) return `Operator node ${node.id} must have left and right inputs`
-        break
-      case 'function':
-        if (config.fn === 'min' || config.fn === 'max') {
-          if (!ports.has('left') || !ports.has('right')) return `Function node ${node.id} must have left and right inputs`
-        } else if (!ports.has('in')) {
-          return `Function node ${node.id} must have an in input`
-        }
-        break
-      case 'subFormula':
-        if (!String(config.formulaId ?? '').trim()) return `Sub-formula node ${node.id} must reference a formula`
-        break
-      case 'tableLookup': {
-        const kcs = (config.keyColumns as string[] | undefined) ?? ['key']
-        for (const kc of kcs) {
-          if (!kc.trim()) return `Table lookup node ${node.id} has an empty key column name`
-          if (!ports.has(kc)) return `Table lookup node ${node.id} must have ${kc} input connected`
-        }
-        break
-      }
-      case 'conditional':
-        for (const port of ['condition', 'conditionRight', 'thenValue', 'elseValue']) {
-          if (!ports.has(port)) return `Conditional node ${node.id} must have ${port} input`
-        }
-        break
-      case 'aggregate':
-        if (!ports.has('items')) return `Aggregate node ${node.id} must have an items input`
-        break
-    }
-  }
-
-  const outputNodes = nodes.filter((n) => edges.every((e) => e.source !== n.id))
-  if (outputNodes.length === 0) return 'Graph must contain at least one output node'
-
-  return null
-}
+import { validateGraph, type ValidationIssue } from '../../utils/graphValidation'
+export type { ValidationIssue } from '../../utils/graphValidation'
 
 export default function FormulaEditorPage() {
   const { id } = useParams<{ id: string }>()
@@ -118,6 +55,16 @@ export default function FormulaEditorPage() {
   const [testInputs, setTestInputs] = useState<Record<string, string>>({})
   const [testResult, setTestResult] = useState<Record<string, string> | null>(null)
   const [isTestPanelCollapsed, setIsTestPanelCollapsed] = useState(false)
+  const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
+  const validationState = useMemo(() => ({
+    invalidNodeIds: new Set(
+      validationIssues.filter((i) => i.severity === 'error').flatMap((i) => i.nodeIds)
+    ),
+    warnNodeIds: new Set(
+      validationIssues.filter((i) => i.severity === 'warning').flatMap((i) => i.nodeIds)
+    ),
+  }), [validationIssues])
+  const saveMessageTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [isParsing, setIsParsing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isRenaming, setIsRenaming] = useState(false)
@@ -244,6 +191,13 @@ export default function FormulaEditorPage() {
     setDescDraft(formula?.description ?? '')
   }, [formula?.description])
 
+  // Clear stale validation highlights when graph structure changes.
+  // Uses functional updater: if already empty, returns same reference → React bails out and skips
+  // the context value update, preventing unnecessary FormulaNode re-renders on every drag event.
+  useEffect(() => {
+    setValidationIssues((prev) => (prev.length === 0 ? prev : []))
+  }, [nodes, edges])
+
   useEffect(() => {
     if (effectiveMode !== 'text') {
       return
@@ -293,19 +247,55 @@ export default function FormulaEditorPage() {
 
   const handleSave = async () => {
     if (!id) return
+    // Cancel any pending "clear highlights" timeout from a prior save
+    if (saveMessageTimeoutRef.current !== null) {
+      clearTimeout(saveMessageTimeoutRef.current)
+      saveMessageTimeoutRef.current = null
+    }
     setIsSaving(true)
     setSaveMessage(null)
+    setValidationIssues([])
     try {
-      const validationError = validateGraph(nodes, edges)
-      if (validationError) {
-        setSaveMessage(validationError)
+      // Step 1: Frontend structural validation (instant feedback)
+      const frontendIssues = validateGraph(nodes, edges)
+      const frontendErrors = frontendIssues.filter((i) => i.severity === 'error')
+      if (frontendErrors.length > 0) {
+        setValidationIssues(frontendIssues)
+        setSaveMessage(frontendErrors.map((e) => e.message).join(' · '))
         return
       }
 
+      const saveSourceIds = new Set(edges.map((e) => e.source))
       const outputNodes = nodes
-        .filter((n) => edges.every((e) => e.source !== n.id))
+        .filter((n) => !saveSourceIds.has(n.id))
         .map((n) => n.id)
       const graph = reactFlowToApi(nodes, edges, outputNodes)
+
+      // Step 2: Backend deep validation (cycle detection, engine-level checks)
+      try {
+        const validationResult = await api.post<{ valid: boolean; errors: { nodeId: string; message: string }[] }>(
+          '/calculate/validate',
+          graph
+        )
+        const backendErrors = validationResult.errors ?? []
+        if (!validationResult.valid && backendErrors.length > 0) {
+          const backendIssues: ValidationIssue[] = backendErrors.map((e) => ({
+            message: e.message,
+            nodeIds: e.nodeId ? [e.nodeId] : [],
+            severity: 'error' as const,
+          }))
+          setValidationIssues([...frontendIssues, ...backendIssues])
+          setSaveMessage(backendErrors.map((e) => e.message).join(' · '))
+          return
+        }
+      } catch {
+        // Backend validation is best-effort; don't block save on network error
+      }
+
+      // Carry through any frontend warnings even on success
+      if (frontendIssues.length > 0) setValidationIssues(frontendIssues)
+
+      // Step 3: Save
       const savedVersion = await api.post<FormulaVersion>(`/formulas/${id}/versions`, {
         graph,
         changeNote: 'Updated via editor',
@@ -314,7 +304,11 @@ export default function FormulaEditorPage() {
       setActiveVersionNumber(savedVersion.version)
       await queryClient.invalidateQueries({ queryKey: ['versions', id] })
       setSaveMessage(t('editor.saved'))
-      setTimeout(() => setSaveMessage(null), 3000)
+      saveMessageTimeoutRef.current = setTimeout(() => {
+        setSaveMessage(null)
+        setValidationIssues([])
+        saveMessageTimeoutRef.current = null
+      }, 3000)
     } catch (err) {
       setSaveMessage((err as Error).message)
     } finally {
@@ -541,7 +535,12 @@ export default function FormulaEditorPage() {
             {t('version.versions')}
           </Link>
           {saveMessage && (
-            <span className={`text-xs ${saveMessage === t('editor.saved') ? 'text-green-600' : 'text-red-600'}`}>{saveMessage}</span>
+            <span className={`max-w-[360px] truncate text-xs ${saveMessage === t('editor.saved') ? 'text-green-600' : 'text-red-600'}`} title={saveMessage}>{saveMessage}</span>
+          )}
+          {validationIssues.some((i) => i.severity === 'warning') && !saveMessage && (
+            <span className="text-xs text-amber-600">
+              ⚠ {validationIssues.filter((i) => i.severity === 'warning').length} warning(s)
+            </span>
           )}
           <button
             onClick={handleSave}
@@ -595,6 +594,7 @@ export default function FormulaEditorPage() {
               onNodesChange={setNodes}
               onEdgesChange={setEdges}
               onNodeSelect={(node) => setSelectedNodeId(node?.id ?? null)}
+              validation={validationState}
             />
             <NodePropertiesPanel node={selectedNode} onChange={handleNodeDataChange} currentFormulaId={id ?? null} />
           </div>

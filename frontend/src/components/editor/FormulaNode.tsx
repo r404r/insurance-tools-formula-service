@@ -1,6 +1,7 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { NODE_COLORS, getInputPorts, type FormulaNodeData } from './nodePresentation'
 import { NodeVariantInner } from './nodeVariants'
+import { useValidation } from './ValidationContext'
 
 function PortLabel({ side, top, label }: { side: 'left' | 'right'; top: string; label: string }) {
   return (
@@ -13,13 +14,26 @@ function PortLabel({ side, top, label }: { side: 'left' | 'right'; top: string; 
   )
 }
 
-export default function FormulaNode({ data, selected }: NodeProps) {
+export default function FormulaNode({ id, data, selected }: NodeProps) {
   const nodeData = data as unknown as FormulaNodeData
   const nodeType = nodeData.nodeType
   const config = nodeData.config ?? {}
   const colors = NODE_COLORS[nodeType] ?? { bg: '#f3f4f6', border: '#9ca3af' }
   const inputPorts = getInputPorts(nodeType, config)
   const isOperator = nodeType === 'operator'
+
+  const { invalidNodeIds, warnNodeIds } = useValidation()
+  const hasError = invalidNodeIds.has(id)
+  const hasWarning = !hasError && warnNodeIds.has(id)
+
+  const borderColor = hasError ? '#dc2626'
+    : hasWarning ? '#d97706'
+    : selected ? '#2563eb'
+    : colors.border
+
+  const boxShadow = hasError ? '0 0 0 2px #fecaca'
+    : hasWarning ? '0 0 0 2px #fde68a'
+    : undefined
 
   const containerClass = isOperator
     ? 'relative flex items-center justify-center rounded-full shadow-sm'
@@ -30,11 +44,13 @@ export default function FormulaNode({ data, selected }: NodeProps) {
         width: 72,
         height: 72,
         background: colors.bg,
-        border: `2px solid ${selected ? '#2563eb' : colors.border}`,
+        border: `2px solid ${borderColor}`,
+        boxShadow,
       }
     : {
         background: colors.bg,
-        border: `2px solid ${selected ? '#2563eb' : colors.border}`,
+        border: `2px solid ${borderColor}`,
+        boxShadow,
       }
 
   return (

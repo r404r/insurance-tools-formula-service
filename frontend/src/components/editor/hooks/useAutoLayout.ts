@@ -10,7 +10,7 @@ interface SizedNode {
 }
 
 // Minimal edge shape used internally; Edge[] satisfies this constraint.
-export type MinimalEdge = { source: string; target: string; targetHandle?: string }
+export type MinimalEdge = { source: string; target: string; targetHandle?: string | null }
 
 const LAYER_GAP = 180
 const NODE_GAP = 44

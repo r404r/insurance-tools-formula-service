@@ -2,13 +2,14 @@
 
 ## 待规划
 
-- [ ] 公式编辑功能中，进行公式保存时，从公式结构校验公式的合理性
 - [ ] Lookup Tables改造成能管理多种表，且能自定义每个表的表结构（比如有a，b，c，d四个字段，实际使用的时候通过a，b，c字段来定位d字段），并能批量通过csv or Excel上传表内容的功能
 - [ ] E2E 测试
 - [ ] 负载测试
 - [ ] 更丰富的节点视觉效果
 
 ## 已排期
+
+- [019-formula-graph-validation.md](tasks/019-formula-graph-validation.md) — 公式图结构合理性校验增强
 
 ## 已完成
 
