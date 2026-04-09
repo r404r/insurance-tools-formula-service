@@ -1,6 +1,6 @@
 # Task #020: Loop 节点实现
 
-## Status: in-progress
+## Status: done
 
 ## 需求
 

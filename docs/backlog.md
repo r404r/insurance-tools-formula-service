@@ -1,7 +1,6 @@
 # Backlog
 
 ## 待规划
-
 - [ ] Lookup Tables改造成能管理多种表，且能自定义每个表的表结构（比如有a，b，c，d四个字段，实际使用的时候通过a，b，c字段来定位d字段），并能批量通过csv or Excel上传表内容的功能
 - [ ] E2E 测试
 - [ ] 负载测试
@@ -11,6 +10,7 @@
 
 ## 已完成
 
+- [020-loop-node.md](tasks/020-loop-node.md) — Loop 节点实现（2026-04-09）
 - [019-formula-graph-validation.md](tasks/019-formula-graph-validation.md) — 公式图结构合理性校验增强（2026-04-09）
 
 - [001-user-management.md](tasks/001-user-management.md) — 用户管理实现（2026-04-06）
