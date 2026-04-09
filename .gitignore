@@ -39,5 +39,8 @@ Thumbs.db
 backend/bin/
 .gstack/
 
+# Playwright
+test-results/
+
 # Workflow marker
 .codex-review-done
