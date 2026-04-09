@@ -20,6 +20,7 @@ export type NodeType =
   | 'tableLookup'
   | 'conditional'
   | 'aggregate'
+  | 'loop'
 
 export type OperatorKind = 'add' | 'subtract' | 'multiply' | 'divide' | 'modulo' | 'power'
 
@@ -75,6 +76,19 @@ export interface AggregateConfig {
   range: string
 }
 
+export type LoopAggregation = 'sum' | 'product' | 'count' | 'avg' | 'min' | 'max' | 'last'
+
+export interface LoopConfig {
+  mode: 'range'
+  formulaId: string
+  formulaName?: string
+  version?: number
+  iterator: string
+  aggregation: LoopAggregation
+  inclusiveEnd?: boolean
+  maxIterations?: number
+}
+
 export type NodeConfig =
   | VariableConfig
   | ConstantConfig
@@ -84,6 +98,7 @@ export type NodeConfig =
   | TableLookupConfig
   | ConditionalConfig
   | AggregateConfig
+  | LoopConfig
   | Record<string, unknown>
 
 export interface Position {

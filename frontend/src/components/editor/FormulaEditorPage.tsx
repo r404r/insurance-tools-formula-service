@@ -35,20 +35,28 @@ export default function FormulaEditorPage() {
   const effectiveMode: 'visual' | 'text' =
     modeParam === 'text' || modeParam === 'visual' ? modeParam : editorMode
 
+  const setCurrentFormula = useFormulaStore((state) => state.setCurrentFormula)
+  const setCurrentVersion = useFormulaStore((state) => state.setCurrentVersion)
+
+  const [nodes, setNodes] = useState<Node[]>([])
+
   const handleSetEditorMode = useCallback(
     (mode: 'visual' | 'text') => {
+      if (mode === 'text') {
+        const hasLoop = nodes.some((n) => (n.data.nodeType as string) === 'loop')
+        if (hasLoop) {
+          setSaveMessage(t('editor.loopNoTextMode'))
+          return
+        }
+      }
       setEditorMode(mode)
       if (modeParam) {
         // Remove the ?mode param so subsequent mode switches use the Zustand store
         navigate(`/formulas/${id}`, { replace: true })
       }
     },
-    [id, modeParam, navigate, setEditorMode]
+    [id, modeParam, navigate, nodes, setEditorMode, t]
   )
-  const setCurrentFormula = useFormulaStore((state) => state.setCurrentFormula)
-  const setCurrentVersion = useFormulaStore((state) => state.setCurrentVersion)
-
-  const [nodes, setNodes] = useState<Node[]>([])
   const [edges, setEdges] = useState<Edge[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [textValue, setTextValue] = useState('')
@@ -197,6 +205,12 @@ export default function FormulaEditorPage() {
   useEffect(() => {
     setValidationIssues((prev) => (prev.length === 0 ? prev : []))
   }, [nodes, edges])
+
+  useEffect(() => {
+    return () => {
+      if (saveMessageTimeoutRef.current !== null) clearTimeout(saveMessageTimeoutRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (effectiveMode !== 'text') {

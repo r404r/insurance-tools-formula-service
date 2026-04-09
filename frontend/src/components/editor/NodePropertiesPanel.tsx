@@ -309,6 +309,107 @@ export default function NodePropertiesPanel({ node, onChange, currentFormulaId }
             </select>
           </div>
         )}
+
+        {nodeType === 'loop' && (
+          <>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">{t('editor.bodyFormula')}</label>
+              <select
+                className={`w-full text-xs border rounded px-2 py-1 ${!selectedFormulaId ? 'border-red-400 bg-red-50' : 'border-gray-300'}`}
+                value={selectedFormulaId}
+                onChange={(e) => {
+                  const nextFormulaId = e.target.value
+                  const nextFormula = formulas.find((f) => f.id === nextFormulaId)
+                  onChange(node.id, {
+                    ...node.data,
+                    config: {
+                      ...config,
+                      formulaId: nextFormulaId,
+                      formulaName: nextFormula?.name ?? '',
+                      version: undefined,
+                    },
+                  })
+                }}
+              >
+                <option value="">— {t('editor.selectFormula')} —</option>
+                {formulas
+                  .filter((f) => f.id !== currentFormulaId)
+                  .map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name} ({f.id})
+                    </option>
+                  ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">{t('version.versions')}</label>
+              <select
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                value={config.version === undefined || config.version === null ? '' : String(config.version)}
+                onChange={(e) =>
+                  updateConfig('version', e.target.value ? Number(e.target.value) : undefined)
+                }
+                disabled={!selectedFormulaId}
+              >
+                <option value="">{t('version.published')}</option>
+                {formulaVersions.map((v) => (
+                  <option key={v.version} value={v.version}>
+                    v{v.version} ({v.state})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">{t('editor.iterator')}</label>
+              <input
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1 font-mono"
+                value={(config.iterator as string) ?? 't'}
+                placeholder="t"
+                onChange={(e) => updateConfig('iterator', e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">{t('editor.aggregation')}</label>
+              <select
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                value={(config.aggregation as string) ?? 'sum'}
+                onChange={(e) => updateConfig('aggregation', e.target.value)}
+              >
+                <option value="sum">Sum</option>
+                <option value="avg">Average</option>
+                <option value="count">Count</option>
+                <option value="product">Product</option>
+                <option value="min">Min</option>
+                <option value="max">Max</option>
+                <option value="last">Last</option>
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="inclusiveEnd"
+                checked={(config.inclusiveEnd as boolean) !== false}
+                onChange={(e) => updateConfig('inclusiveEnd', e.target.checked)}
+              />
+              <label htmlFor="inclusiveEnd" className="text-xs text-gray-600">
+                {t('editor.inclusiveEnd')}
+              </label>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">{t('editor.maxIterations')}</label>
+              <input
+                type="number"
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                value={(config.maxIterations as number | undefined) ?? ''}
+                placeholder="1000"
+                min={1}
+                onChange={(e) =>
+                  updateConfig('maxIterations', e.target.value ? Number(e.target.value) : undefined)
+                }
+              />
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

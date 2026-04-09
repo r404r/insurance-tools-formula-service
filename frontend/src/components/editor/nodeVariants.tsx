@@ -153,6 +153,29 @@ export function AggregateInner({ config }: { config: Record<string, unknown> }) 
 }
 
 // ---------------------------------------------------------------------------
+// Loop
+// ---------------------------------------------------------------------------
+
+export function LoopInner({ config }: { config: Record<string, unknown> }) {
+  const agg = String(config.aggregation ?? 'sum')
+  const iter = String(config.iterator ?? 't')
+  const name = String(config.formulaName ?? config.formulaId ?? '').trim()
+  return (
+    <div className="flex flex-col items-center gap-0.5 min-w-[100px]">
+      <span className="text-[9px] font-bold uppercase tracking-wide text-yellow-600">loop</span>
+      <span className="text-[13px] font-bold text-yellow-900">
+        {agg}({iter})
+      </span>
+      {name && (
+        <span className="max-w-[120px] truncate text-[10px] italic text-yellow-700">
+          {name}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Dispatcher
 // ---------------------------------------------------------------------------
 
@@ -180,6 +203,8 @@ export function NodeVariantInner({
       return <ConditionalInner config={config} />
     case 'aggregate':
       return <AggregateInner config={config} />
+    case 'loop':
+      return <LoopInner config={config} />
     default:
       return <span className="text-[13px] font-semibold text-slate-700">{nodeType}</span>
   }

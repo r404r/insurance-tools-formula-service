@@ -81,7 +81,14 @@
     "textApplied": "Text applied to graph",
     "autoLayout": "Auto Layout",
     "nodeTypes": "Node Types",
-    "properties": "Properties"
+    "properties": "Properties",
+    "bodyFormula": "Body Formula",
+    "selectFormula": "Select formula",
+    "iterator": "Iterator Variable",
+    "aggregation": "Aggregation",
+    "inclusiveEnd": "Inclusive End",
+    "maxIterations": "Max Iterations",
+    "loopNoTextMode": "This formula contains Loop nodes. Text mode is not supported — please use the visual editor."
   },
   "node": {
     "variable": "Variable",
@@ -91,7 +98,8 @@
     "subFormula": "Sub-formula",
     "tableLookup": "Table Lookup",
     "conditional": "Conditional",
-    "aggregate": "Aggregate"
+    "aggregate": "Aggregate",
+    "loop": "Loop"
   },
   "calc": {
     "calculate": "Calculate",

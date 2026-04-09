@@ -217,3 +217,132 @@ describe('validateGraph', () => {
     expect(issues.filter((i) => i.severity === 'error')).toHaveLength(0)
   })
 })
+
+// ---------------------------------------------------------------------------
+// validateGraph — loop node rules
+// ---------------------------------------------------------------------------
+
+function makeLoopNode(id: string, config: Record<string, unknown> = {}): Node {
+  return {
+    id,
+    type: 'formulaNode',
+    position: { x: 0, y: 0 },
+    data: {
+      nodeType: 'loop',
+      config: {
+        mode: 'range',
+        formulaId: 'body-formula',
+        iterator: 't',
+        aggregation: 'sum',
+        ...config,
+      },
+    },
+  } as unknown as Node
+}
+
+describe('validateGraph — loop node', () => {
+  it('passes for a valid loop with start and end connected', () => {
+    const loop = makeLoopNode('loop')
+    const start = makeNode('c_start', 'constant')
+    const end = makeNode('c_end', 'constant')
+    const edges = [
+      makeEdge('c_start', 'loop', 'out', 'start'),
+      makeEdge('c_end', 'loop', 'out', 'end'),
+    ]
+    const issues = validateGraph([loop, start, end], edges)
+    expect(issues.filter((i) => i.severity === 'error')).toHaveLength(0)
+  })
+
+  it('error when start port is not connected', () => {
+    const loop = makeLoopNode('loop')
+    const end = makeNode('c_end', 'constant')
+    const edges = [makeEdge('c_end', 'loop', 'out', 'end')]
+    const issues = validateGraph([loop, end], edges)
+    expect(issues.some((i) => i.message.includes('"start"') || i.message.toLowerCase().includes('start'))).toBe(true)
+  })
+
+  it('error when end port is not connected', () => {
+    const loop = makeLoopNode('loop')
+    const start = makeNode('c_start', 'constant')
+    const edges = [makeEdge('c_start', 'loop', 'out', 'start')]
+    const issues = validateGraph([loop, start], edges)
+    expect(issues.some((i) => i.message.includes('"end"') || i.message.toLowerCase().includes('end'))).toBe(true)
+  })
+
+  it('step port is optional — no error when step is not connected', () => {
+    const loop = makeLoopNode('loop')
+    const start = makeNode('c_start', 'constant')
+    const end = makeNode('c_end', 'constant')
+    const edges = [
+      makeEdge('c_start', 'loop', 'out', 'start'),
+      makeEdge('c_end', 'loop', 'out', 'end'),
+    ]
+    const issues = validateGraph([loop, start, end], edges)
+    // No error about step being missing
+    expect(issues.filter((i) => i.message.toLowerCase().includes('step'))).toHaveLength(0)
+  })
+
+  it('error when formulaId is empty', () => {
+    const loop = makeLoopNode('loop', { formulaId: '' })
+    const start = makeNode('c_start', 'constant')
+    const end = makeNode('c_end', 'constant')
+    const edges = [
+      makeEdge('c_start', 'loop', 'out', 'start'),
+      makeEdge('c_end', 'loop', 'out', 'end'),
+    ]
+    const issues = validateGraph([loop, start, end], edges)
+    expect(issues.some((i) => i.message.toLowerCase().includes('body formula') || i.message.toLowerCase().includes('formula'))).toBe(true)
+  })
+
+  it('error when iterator is empty', () => {
+    const loop = makeLoopNode('loop', { iterator: '' })
+    const start = makeNode('c_start', 'constant')
+    const end = makeNode('c_end', 'constant')
+    const edges = [
+      makeEdge('c_start', 'loop', 'out', 'start'),
+      makeEdge('c_end', 'loop', 'out', 'end'),
+    ]
+    const issues = validateGraph([loop, start, end], edges)
+    expect(issues.some((i) => i.message.toLowerCase().includes('iterator'))).toBe(true)
+  })
+
+  it('error for invalid aggregation value', () => {
+    const loop = makeLoopNode('loop', { aggregation: 'median' })
+    const start = makeNode('c_start', 'constant')
+    const end = makeNode('c_end', 'constant')
+    const edges = [
+      makeEdge('c_start', 'loop', 'out', 'start'),
+      makeEdge('c_end', 'loop', 'out', 'end'),
+    ]
+    const issues = validateGraph([loop, start, end], edges)
+    expect(issues.some((i) => i.message.includes('median') || i.message.toLowerCase().includes('aggregation'))).toBe(true)
+  })
+
+  it('error when aggregation is empty string (falsy bypass)', () => {
+    const loop = makeLoopNode('loop', { aggregation: '' })
+    const start = makeNode('c_start', 'constant')
+    const end = makeNode('c_end', 'constant')
+    const edges = [
+      makeEdge('c_start', 'loop', 'out', 'start'),
+      makeEdge('c_end', 'loop', 'out', 'end'),
+    ]
+    const issues = validateGraph([loop, start, end], edges)
+    expect(issues.some((i) => i.severity === 'error' && i.message.toLowerCase().includes('aggregation'))).toBe(true)
+  })
+
+  it('all valid aggregation values are accepted', () => {
+    const validAggs = ['sum', 'product', 'count', 'avg', 'min', 'max', 'last']
+    for (const agg of validAggs) {
+      const loop = makeLoopNode('loop', { aggregation: agg })
+      const start = makeNode('c_start', 'constant')
+      const end = makeNode('c_end', 'constant')
+      const edges = [
+        makeEdge('c_start', 'loop', 'out', 'start'),
+        makeEdge('c_end', 'loop', 'out', 'end'),
+      ]
+      const issues = validateGraph([loop, start, end], edges)
+      const aggErrors = issues.filter((i) => i.severity === 'error' && i.message.toLowerCase().includes('aggregation'))
+      expect(aggErrors).toHaveLength(0)
+    }
+  })
+})

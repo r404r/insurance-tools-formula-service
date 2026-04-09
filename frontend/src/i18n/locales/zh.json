@@ -81,7 +81,14 @@
     "textApplied": "文本已应用到图形",
     "autoLayout": "自动布局",
     "nodeTypes": "节点类型",
-    "properties": "属性"
+    "properties": "属性",
+    "bodyFormula": "循环体公式",
+    "selectFormula": "选择公式",
+    "iterator": "迭代变量",
+    "aggregation": "聚合方式",
+    "inclusiveEnd": "包含终点",
+    "maxIterations": "最大迭代次数",
+    "loopNoTextMode": "当前公式包含 Loop 节点，暂不支持切换到文本模式，请使用可视化编辑器。"
   },
   "node": {
     "variable": "变量",
@@ -91,7 +98,8 @@
     "subFormula": "子公式",
     "tableLookup": "查表",
     "conditional": "条件",
-    "aggregate": "聚合"
+    "aggregate": "聚合",
+    "loop": "循环"
   },
   "calc": {
     "calculate": "计算",

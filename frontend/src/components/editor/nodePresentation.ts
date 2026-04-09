@@ -9,6 +9,7 @@ export const NODE_COLORS: Record<string, { bg: string; border: string }> = {
   tableLookup: { bg: '#fae8ff', border: '#a855f7' },
   conditional: { bg: '#ffedd5', border: '#f97316' },
   aggregate: { bg: '#ccfbf1', border: '#14b8a6' },
+  loop: { bg: '#fef9c3', border: '#ca8a04' },
 }
 
 const OP_SYMBOLS: Record<string, string> = {
@@ -72,6 +73,8 @@ export function nodeLabel(type: string, config: Record<string, unknown>): string
       return `if ${config.comparator ?? '?'}`
     case 'aggregate':
       return `sum:${config.fn ?? '?'}`
+    case 'loop':
+      return `loop:${config.aggregation ?? 'sum'}(${config.iterator ?? 't'})`
     default:
       return type
   }
@@ -124,6 +127,12 @@ export function getInputPorts(nodeType: string, config: Record<string, unknown>)
       ]
     case 'aggregate':
       return [{ id: 'items', top: '50%', label: 'Items' }]
+    case 'loop':
+      return [
+        { id: 'start', top: '25%', label: 'Start' },
+        { id: 'end', top: '50%', label: 'End' },
+        { id: 'step', top: '75%', label: 'Step' },
+      ]
     default:
       return []
   }
@@ -147,6 +156,8 @@ export function defaultNodeConfig(type: NodeType): Record<string, unknown> {
       return { comparator: 'gt' }
     case 'aggregate':
       return { fn: 'sum', range: '' }
+    case 'loop':
+      return { mode: 'range', formulaId: '', iterator: 't', aggregation: 'sum', inclusiveEnd: true }
     default:
       return {}
   }

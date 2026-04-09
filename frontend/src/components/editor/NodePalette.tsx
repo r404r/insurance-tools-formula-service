@@ -10,6 +10,7 @@ const nodeTypes: { type: NodeType; icon: string }[] = [
   { type: 'tableLookup', icon: '[]' },
   { type: 'conditional', icon: '?' },
   { type: 'aggregate', icon: 'E' },
+  { type: 'loop', icon: '↺' },
 ]
 
 export default function NodePalette() {

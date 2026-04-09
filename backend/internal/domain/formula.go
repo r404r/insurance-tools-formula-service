@@ -59,6 +59,7 @@ const (
 	NodeTableLookup NodeType = "tableLookup"
 	NodeConditional NodeType = "conditional"
 	NodeAggregate   NodeType = "aggregate"
+	NodeLoop        NodeType = "loop"
 )
 
 // FormulaEdge connects two nodes in the DAG
@@ -126,6 +127,18 @@ type ConditionalConfig struct {
 type AggregateConfig struct {
 	Fn    string `json:"fn"`    // sum, product, count, avg
 	Range string `json:"range"` // expression defining iteration range
+}
+
+// LoopConfig configures a loop node that iterates over a bounded integer range,
+// calls a sub-formula for each iteration, and aggregates the results.
+type LoopConfig struct {
+	Mode          string `json:"mode"`                    // must be "range"
+	FormulaID     string `json:"formulaId"`               // required: body sub-formula ID
+	Version       *int   `json:"version,omitempty"`       // nil = use published version
+	Iterator      string `json:"iterator"`                // required: variable name injected each iteration, e.g. "t"
+	Aggregation   string `json:"aggregation"`             // sum/product/count/avg/min/max/last
+	InclusiveEnd  *bool  `json:"inclusiveEnd,omitempty"`  // default true
+	MaxIterations *int   `json:"maxIterations,omitempty"` // node-level cap; falls back to engine default
 }
 
 // LookupTable stores reference data (mortality tables, rating tables, etc.)

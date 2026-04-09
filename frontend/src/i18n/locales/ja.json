@@ -81,7 +81,14 @@
     "textApplied": "テキストをグラフに適用しました",
     "autoLayout": "自動レイアウト",
     "nodeTypes": "ノードタイプ",
-    "properties": "プロパティ"
+    "properties": "プロパティ",
+    "bodyFormula": "ループ本体計算式",
+    "selectFormula": "計算式を選択",
+    "iterator": "イテレータ変数",
+    "aggregation": "集約方式",
+    "inclusiveEnd": "終点を含む",
+    "maxIterations": "最大反復回数",
+    "loopNoTextMode": "この計算式にはLoopノードが含まれています。テキストモードはサポートされていません。ビジュアルエディタをご使用ください。"
   },
   "node": {
     "variable": "変数",
@@ -91,7 +98,8 @@
     "subFormula": "サブ計算式",
     "tableLookup": "テーブル参照",
     "conditional": "条件",
-    "aggregate": "集約"
+    "aggregate": "集約",
+    "loop": "ループ"
   },
   "calc": {
     "calculate": "計算",

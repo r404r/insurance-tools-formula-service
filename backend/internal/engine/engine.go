@@ -75,21 +75,27 @@ type TableResolver interface {
 	ResolveTable(ctx context.Context, tableID string, keyColumns []string, column string) (map[string]string, error)
 }
 
+// DefaultMaxLoopIterations is the engine-level cap on loop iterations when
+// the loop node does not specify its own maxIterations.
+const DefaultMaxLoopIterations = 1000
+
 // EngineConfig holds configuration for the default engine implementation.
 type EngineConfig struct {
-	Workers       int
-	Precision     PrecisionConfig
-	CacheSize     int
-	TableResolver TableResolver
-	FormulaResolver FormulaResolver
+	Workers             int
+	Precision           PrecisionConfig
+	CacheSize           int
+	TableResolver       TableResolver
+	FormulaResolver     FormulaResolver
+	MaxLoopIterations   int // 0 means use DefaultMaxLoopIterations
 }
 
 // DefaultEngineConfig returns a sensible default configuration.
 func DefaultEngineConfig() EngineConfig {
 	return EngineConfig{
-		Workers:   4,
-		Precision: DefaultPrecision(),
-		CacheSize: 1000,
+		Workers:           4,
+		Precision:         DefaultPrecision(),
+		CacheSize:         1000,
+		MaxLoopIterations: DefaultMaxLoopIterations,
 	}
 }
 
@@ -104,13 +110,16 @@ type defaultEngine struct {
 
 // NewEngine creates a new Engine with the given configuration.
 func NewEngine(cfg EngineConfig) Engine {
+	if cfg.MaxLoopIterations <= 0 {
+		cfg.MaxLoopIterations = DefaultMaxLoopIterations
+	}
 	engine := &defaultEngine{
 		cache:           NewResultCache(cfg.CacheSize),
 		config:          cfg,
 		tableResolver:   cfg.TableResolver,
 		formulaResolver: cfg.FormulaResolver,
 	}
-	engine.executor = NewExecutor(cfg.Workers, cfg.Precision, engine.executeSubFormula)
+	engine.executor = NewExecutor(cfg.Workers, cfg.Precision, engine.executeSubFormula, engine.executeLoop)
 	return engine
 }
 
@@ -278,6 +287,213 @@ func (e *defaultEngine) executeSubFormula(ctx context.Context, node *domain.Form
 	}
 
 	return Zero, fmt.Errorf("node %s: sub-formula %s output resolution failed", node.ID, cfg.FormulaID)
+}
+
+// executeLoop handles NodeLoop execution. It generates a bounded integer
+// iteration sequence, calls the body sub-formula for each step, and
+// aggregates the results.
+func (e *defaultEngine) executeLoop(ctx context.Context, node *domain.FormulaNode, nodeInputs map[string]Decimal, seedInputs map[string]Decimal) (Decimal, error) {
+	if e.formulaResolver == nil {
+		return Zero, fmt.Errorf("node %s: loop requires a formula resolver", node.ID)
+	}
+
+	var cfg domain.LoopConfig
+	if err := json.Unmarshal(node.Config, &cfg); err != nil {
+		return Zero, fmt.Errorf("node %s: invalid loop config: %w", node.ID, err)
+	}
+
+	// Validate config fields (belt-and-suspenders; static validation also covers these).
+	if cfg.FormulaID == "" {
+		return Zero, fmt.Errorf("node %s: loop node missing formulaId", node.ID)
+	}
+	if cfg.Iterator == "" {
+		return Zero, fmt.Errorf("node %s: loop node missing iterator", node.ID)
+	}
+
+	// Read start/end/step from node inputs.
+	startVal, ok := nodeInputs["start"]
+	if !ok {
+		return Zero, fmt.Errorf("node %s: loop node missing 'start' input", node.ID)
+	}
+	endVal, ok := nodeInputs["end"]
+	if !ok {
+		return Zero, fmt.Errorf("node %s: loop node missing 'end' input", node.ID)
+	}
+	stepVal, hasStep := nodeInputs["step"]
+	if !hasStep {
+		stepVal = One
+	}
+
+	// All three must be integer-valued decimals.
+	if !startVal.Equal(startVal.Truncate(0)) {
+		return Zero, fmt.Errorf("node %s: loop node 'start' must be an integer, got %s", node.ID, startVal.String())
+	}
+	if !endVal.Equal(endVal.Truncate(0)) {
+		return Zero, fmt.Errorf("node %s: loop node 'end' must be an integer, got %s", node.ID, endVal.String())
+	}
+	if !stepVal.Equal(stepVal.Truncate(0)) {
+		return Zero, fmt.Errorf("node %s: loop node 'step' must be an integer, got %s", node.ID, stepVal.String())
+	}
+	if stepVal.IsZero() {
+		return Zero, fmt.Errorf("node %s: loop node step cannot be zero", node.ID)
+	}
+
+	// Determine effective maxIterations.
+	maxIter := e.config.MaxLoopIterations
+	if cfg.MaxIterations != nil && *cfg.MaxIterations > 0 && *cfg.MaxIterations < maxIter {
+		maxIter = *cfg.MaxIterations
+	}
+
+	// Determine inclusiveEnd (default true).
+	inclusiveEnd := true
+	if cfg.InclusiveEnd != nil {
+		inclusiveEnd = *cfg.InclusiveEnd
+	}
+
+	// Resolve the body formula.
+	version, err := e.formulaResolver.ResolveFormula(ctx, cfg.FormulaID, cfg.Version)
+	if err != nil {
+		return Zero, fmt.Errorf("node %s: resolve loop body formula: %w", node.ID, err)
+	}
+
+	// Push the call-stack guard entry for the body formula.
+	loopCtx, err := withSubFormulaCall(ctx, cfg.FormulaID, version.Version)
+	if err != nil {
+		return Zero, fmt.Errorf("node %s: %w", node.ID, err)
+	}
+
+	// Guard: iterator variable must not shadow a parent input to avoid silent wrong results.
+	if _, conflict := seedInputs[cfg.Iterator]; conflict {
+		return Zero, fmt.Errorf("node %s: loop iterator %q conflicts with an existing input variable", node.ID, cfg.Iterator)
+	}
+
+	// Pre-build the execution plan for the body formula once; reuse across all iterations.
+	bodyPlan, err := BuildPlan(&version.Graph)
+	if err != nil {
+		return Zero, fmt.Errorf("node %s: loop body plan error: %w", node.ID, err)
+	}
+	if len(bodyPlan.DAG.OutputNodes()) == 0 {
+		return Zero, fmt.Errorf("node %s: loop body formula has no output nodes", node.ID)
+	}
+	if len(bodyPlan.DAG.OutputNodes()) > 1 {
+		return Zero, fmt.Errorf("node %s: loop body formula must have exactly one output", node.ID)
+	}
+	bodyOutputID := bodyPlan.DAG.OutputNodes()[0]
+
+	// Preload table data for the body graph once (table content is iteration-independent).
+	baseChildInputs := cloneDecimalMap(seedInputs)
+	if e.tableResolver != nil {
+		if err := e.preloadTableData(loopCtx, &version.Graph, baseChildInputs); err != nil {
+			return Zero, fmt.Errorf("node %s: loop body table preload: %w", node.ID, err)
+		}
+	}
+
+	// Iterate and collect results.
+	var iterResults []Decimal
+	current := startVal
+
+	for {
+		// Check termination condition.
+		var done bool
+		if stepVal.IsPositive() {
+			if inclusiveEnd {
+				done = current.GreaterThan(endVal)
+			} else {
+				done = current.GreaterThanOrEqual(endVal)
+			}
+		} else {
+			if inclusiveEnd {
+				done = current.LessThan(endVal)
+			} else {
+				done = current.LessThanOrEqual(endVal)
+			}
+		}
+		if done {
+			break
+		}
+
+		// Check maxIterations guard before executing (so the error message is clear).
+		if len(iterResults) >= maxIter {
+			return Zero, fmt.Errorf("node %s: loop exceeded maxIterations (%d)", node.ID, maxIter)
+		}
+
+		// Build child inputs: clone base (with table data) + inject iterator variable.
+		childInputs := cloneDecimalMap(baseChildInputs)
+		childInputs[cfg.Iterator] = current
+
+		allResults, err := e.executor.Execute(loopCtx, bodyPlan, childInputs)
+		if err != nil {
+			return Zero, fmt.Errorf("node %s: loop iteration %s=%s: %w", node.ID, cfg.Iterator, current.String(), err)
+		}
+
+		if v, ok := allResults[bodyOutputID]; ok {
+			iterResults = append(iterResults, v)
+		}
+
+		current = current.Add(stepVal)
+	}
+
+	if len(iterResults) == 0 {
+		return Zero, fmt.Errorf("node %s: loop produced zero iterations (start=%s end=%s step=%s)", node.ID, startVal.String(), endVal.String(), stepVal.String())
+	}
+
+	// Aggregate results.
+	return aggregateLoopResults(node.ID, cfg.Aggregation, iterResults, e.config.Precision)
+}
+
+// aggregateLoopResults applies the specified aggregation function to a non-empty
+// slice of loop iteration results.
+func aggregateLoopResults(nodeID string, aggregation string, results []Decimal, prec PrecisionConfig) (Decimal, error) {
+	switch aggregation {
+	case "sum":
+		acc := Zero
+		for _, v := range results {
+			acc = acc.Add(v)
+		}
+		return acc, nil
+
+	case "product":
+		acc := One
+		for _, v := range results {
+			acc = acc.Mul(v)
+		}
+		return acc, nil
+
+	case "count":
+		return NewDecimalFromInt(int64(len(results))), nil
+
+	case "avg":
+		acc := Zero
+		for _, v := range results {
+			acc = acc.Add(v)
+		}
+		count := NewDecimalFromInt(int64(len(results)))
+		return acc.DivRound(count, prec.IntermediatePrecision), nil
+
+	case "min":
+		m := results[0]
+		for _, v := range results[1:] {
+			if v.LessThan(m) {
+				m = v
+			}
+		}
+		return m, nil
+
+	case "max":
+		m := results[0]
+		for _, v := range results[1:] {
+			if v.GreaterThan(m) {
+				m = v
+			}
+		}
+		return m, nil
+
+	case "last":
+		return results[len(results)-1], nil
+
+	default:
+		return Zero, fmt.Errorf("node %s: unknown loop aggregation %q", nodeID, aggregation)
+	}
 }
 
 func collectOutputValues(plan *ExecutionPlan, allResults map[string]Decimal) map[string]Decimal {
@@ -503,6 +719,28 @@ func validateNodeConfig(node domain.FormulaNode) error {
 		if cfg.FormulaID == "" {
 			return fmt.Errorf("subFormula config missing formulaId")
 		}
+
+	case domain.NodeLoop:
+		var cfg domain.LoopConfig
+		if err := json.Unmarshal(node.Config, &cfg); err != nil {
+			return fmt.Errorf("invalid loop config: %w", err)
+		}
+		if cfg.Mode != "range" {
+			return fmt.Errorf("loop config mode must be \"range\", got %q", cfg.Mode)
+		}
+		if cfg.FormulaID == "" {
+			return fmt.Errorf("loop config missing formulaId")
+		}
+		if cfg.Iterator == "" {
+			return fmt.Errorf("loop config missing iterator")
+		}
+		validAggs := map[string]bool{
+			"sum": true, "product": true, "count": true, "avg": true,
+			"min": true, "max": true, "last": true,
+		}
+		if !validAggs[cfg.Aggregation] {
+			return fmt.Errorf("loop config has invalid aggregation %q", cfg.Aggregation)
+		}
 	}
 
 	return nil
@@ -592,6 +830,21 @@ func validateRequiredPorts(graph *domain.FormulaGraph, dag *DAG) []ValidationErr
 					})
 				}
 			}
+
+		case domain.NodeLoop:
+			if !hasPort("start") {
+				errs = append(errs, ValidationError{
+					NodeID:  n.ID,
+					Message: "loop node missing 'start' input connection",
+				})
+			}
+			if !hasPort("end") {
+				errs = append(errs, ValidationError{
+					NodeID:  n.ID,
+					Message: "loop node missing 'end' input connection",
+				})
+			}
+			// 'step' is optional; no error if absent.
 		}
 	}
 

@@ -26,17 +26,22 @@ type ExecutionPlan struct {
 
 type SubFormulaRunner func(ctx context.Context, node *domain.FormulaNode, nodeInputs map[string]Decimal, seedInputs map[string]Decimal) (Decimal, error)
 
+// LoopRunner executes a loop node by iterating over a bounded integer range,
+// calling a sub-formula for each iteration, and aggregating the results.
+type LoopRunner func(ctx context.Context, node *domain.FormulaNode, nodeInputs map[string]Decimal, seedInputs map[string]Decimal) (Decimal, error)
+
 // Executor evaluates a formula graph using level-based parallelism.
 type Executor struct {
-	workers   int
-	precision PrecisionConfig
-	evaluator *Evaluator
+	workers          int
+	precision        PrecisionConfig
+	evaluator        *Evaluator
 	subFormulaRunner SubFormulaRunner
+	loopRunner       LoopRunner
 }
 
 // NewExecutor creates an Executor with the given worker count and precision
 // configuration. If workers <= 0 it defaults to 1.
-func NewExecutor(workers int, precision PrecisionConfig, subFormulaRunner SubFormulaRunner) *Executor {
+func NewExecutor(workers int, precision PrecisionConfig, subFormulaRunner SubFormulaRunner, loopRunner LoopRunner) *Executor {
 	if workers <= 0 {
 		workers = 1
 	}
@@ -45,6 +50,7 @@ func NewExecutor(workers int, precision PrecisionConfig, subFormulaRunner SubFor
 		precision:        precision,
 		evaluator:        NewEvaluator(precision),
 		subFormulaRunner: subFormulaRunner,
+		loopRunner:       loopRunner,
 	}
 }
 
@@ -158,6 +164,11 @@ func (ex *Executor) evaluateAndStore(ctx context.Context, plan *ExecutionPlan, n
 	var val Decimal
 	if node.Type == domain.NodeSubFormula && ex.subFormulaRunner != nil {
 		val, err = ex.subFormulaRunner(ctx, node, nodeInputs, seedInputs)
+		if err != nil {
+			return fmt.Errorf("evaluate node %s: %w", nodeID, err)
+		}
+	} else if node.Type == domain.NodeLoop && ex.loopRunner != nil {
+		val, err = ex.loopRunner(ctx, node, nodeInputs, seedInputs)
 		if err != nil {
 			return fmt.Errorf("evaluate node %s: %w", nodeID, err)
 		}

@@ -1,6 +1,8 @@
 import type { Node, Edge } from '@xyflow/react'
 import { getInputPorts } from '../components/editor/nodePresentation'
 
+const VALID_LOOP_AGGREGATIONS = new Set(['sum', 'product', 'count', 'avg', 'min', 'max', 'last'])
+
 export interface ValidationIssue {
   message: string
   nodeIds: string[]
@@ -183,6 +185,23 @@ export function validateGraph(nodes: Node[], edges: Edge[]): ValidationIssue[] {
         if (!ports.has('items'))
           issues.push({ message: 'Aggregate must have an items input', nodeIds: [node.id], severity: 'error' })
         break
+      case 'loop': {
+        const loopCfg = config as { formulaId?: string; iterator?: string; aggregation?: string; mode?: string }
+        if (!String(loopCfg.formulaId ?? '').trim())
+          issues.push({ message: 'Loop must reference a body formula', nodeIds: [node.id], severity: 'error' })
+        if (!String(loopCfg.iterator ?? '').trim())
+          issues.push({ message: 'Loop must have an iterator variable name', nodeIds: [node.id], severity: 'error' })
+        if (!loopCfg.aggregation || !VALID_LOOP_AGGREGATIONS.has(loopCfg.aggregation))
+          issues.push({ message: `Loop has invalid aggregation "${loopCfg.aggregation ?? ''}"`, nodeIds: [node.id], severity: 'error' })
+        if (loopCfg.mode && loopCfg.mode !== 'range')
+          issues.push({ message: `Loop mode must be "range", got "${loopCfg.mode}"`, nodeIds: [node.id], severity: 'error' })
+        if (!ports.has('start'))
+          issues.push({ message: 'Loop must have "start" input connected', nodeIds: [node.id], severity: 'error' })
+        if (!ports.has('end'))
+          issues.push({ message: 'Loop must have "end" input connected', nodeIds: [node.id], severity: 'error' })
+        // 'step' is optional — no error if absent.
+        break
+      }
     }
   }
 
