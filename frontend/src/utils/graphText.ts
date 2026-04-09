@@ -175,6 +175,28 @@ export function reactFlowToText(nodes: Node[], edges: Edge[]): string {
           : `subFormula(${quoteIfNeeded(formulaId)})`
         break
       }
+      case 'loop': {
+        const agg = String(config.aggregation ?? 'sum')
+        const formulaId = String(config.formulaId ?? '')
+        const iterator = String(config.iterator ?? 't')
+        const startId = incomingSource(edges, nodeId, 'start')
+        const endId = incomingSource(edges, nodeId, 'end')
+        const stepId = incomingSource(edges, nodeId, 'step')
+        if (!startId || !endId) {
+          throw new Error(`Loop node ${nodeId} is missing start or end input`)
+        }
+        const parts = [
+          quoteIfNeeded(formulaId),
+          iterator,
+          renderNode(startId, nextStack),
+          renderNode(endId, nextStack),
+        ]
+        if (stepId) {
+          parts.push(renderNode(stepId, nextStack))
+        }
+        result = `${agg}_loop(${parts.join(', ')})`
+        break
+      }
       default:
         throw new Error(`Unsupported node type ${nodeType}`)
     }

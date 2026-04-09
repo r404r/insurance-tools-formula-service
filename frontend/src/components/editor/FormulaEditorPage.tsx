@@ -42,20 +42,13 @@ export default function FormulaEditorPage() {
 
   const handleSetEditorMode = useCallback(
     (mode: 'visual' | 'text') => {
-      if (mode === 'text') {
-        const hasLoop = nodes.some((n) => (n.data.nodeType as string) === 'loop')
-        if (hasLoop) {
-          setSaveMessage(t('editor.loopNoTextMode'))
-          return
-        }
-      }
       setEditorMode(mode)
       if (modeParam) {
         // Remove the ?mode param so subsequent mode switches use the Zustand store
         navigate(`/formulas/${id}`, { replace: true })
       }
     },
-    [id, modeParam, navigate, nodes, setEditorMode, t]
+    [id, modeParam, navigate, setEditorMode]
   )
   const [edges, setEdges] = useState<Edge[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)

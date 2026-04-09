@@ -143,6 +143,8 @@ func ValidateGraph(graph *domain.FormulaGraph) []ValidationError {
 			errs = append(errs, validateSubFormula(n)...)
 		case domain.NodeAggregate:
 			// Aggregates are accepted as-is for now.
+		case domain.NodeLoop:
+			// Loop nodes are validated by the engine layer.
 		default:
 			errs = append(errs, ValidationError{
 				NodeID:  n.ID,

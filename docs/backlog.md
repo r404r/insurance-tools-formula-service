@@ -1,6 +1,8 @@
 # Backlog
 
 ## 待规划
+
+- [ ] 公式的图形编辑界面中，研究是否可以给公式的每个节点追加description的功能，若有可行方案，请review方案后，实现之。
 - [ ] Lookup Tables改造成能管理多种表，且能自定义每个表的表结构（比如有a，b，c，d四个字段，实际使用的时候通过a，b，c字段来定位d字段），并能批量通过csv or Excel上传表内容的功能
 - [ ] E2E 测试
 - [ ] 负载测试
@@ -10,6 +12,7 @@
 
 ## 已完成
 
+- [021-loop-text-mode.md](tasks/021-loop-text-mode.md) — Loop 节点文本模式支持（2026-04-10）
 - [020-loop-node.md](tasks/020-loop-node.md) — Loop 节点实现（2026-04-09）
 - [019-formula-graph-validation.md](tasks/019-formula-graph-validation.md) — 公式图结构合理性校验增强（2026-04-09）
 

@@ -24,6 +24,24 @@ func ASTToDAG(node *ASTNode) (*domain.FormulaGraph, error) {
 	return g, nil
 }
 
+func isIdentifier(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for i, c := range s {
+		if i == 0 {
+			if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || c == '_') {
+				return false
+			}
+		} else {
+			if !((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_') {
+				return false
+			}
+		}
+	}
+	return true
+}
+
 func nextID(counter *int) string {
 	id := fmt.Sprintf("n%d", *counter)
 	*counter++
@@ -174,6 +192,9 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 		if fnLower == "subformula" {
 			return astToDAGSubFormula(id, node, g, counter)
 		}
+		if agg, ok := parseLoopFuncName(fnLower); ok {
+			return astToDAGLoop(id, node, g, counter, agg)
+		}
 		args := make(map[string]string)
 		// For round/floor/ceil with a precision argument, store it.
 		if (fnLower == "round" || fnLower == "floor" || fnLower == "ceil") && len(node.Children) >= 2 {
@@ -267,6 +288,76 @@ func astToDAGSubFormula(id string, node *ASTNode, g *domain.FormulaGraph, counte
 			domain.FormulaEdge{Source: inputID, Target: id, SourcePort: "out", TargetPort: "in"},
 		)
 	}
+	return id, nil
+}
+
+// parseLoopFuncName checks if a function name like "sum_loop" or "product_loop"
+// is a loop function and returns the aggregation name.
+func parseLoopFuncName(fnLower string) (string, bool) {
+	validAggs := []string{"sum", "product", "count", "avg", "min", "max", "last"}
+	for _, agg := range validAggs {
+		if fnLower == agg+"_loop" {
+			return agg, true
+		}
+	}
+	return "", false
+}
+
+// astToDAGLoop converts a loop function call AST node to a NodeLoop DAG node.
+// Syntax: AGG_loop("formulaId", iterator, start, end[, step])
+func astToDAGLoop(id string, node *ASTNode, g *domain.FormulaGraph, counter *int, aggregation string) (string, error) {
+	// Need at least 4 args: formulaId, iterator, start, end
+	if len(node.Children) < 4 {
+		return "", fmt.Errorf("node %s: %s requires at least 4 arguments: formulaId, iterator, start, end", id, node.FuncName)
+	}
+
+	formulaID := ""
+	if node.Children[0].Kind == KindVariable {
+		formulaID = node.Children[0].Value
+	} else if node.Children[0].Kind == KindLiteral {
+		formulaID = node.Children[0].Value
+	}
+
+	iterator := ""
+	if node.Children[1].Kind == KindVariable {
+		iterator = node.Children[1].Value
+	}
+
+	cfg := domain.LoopConfig{
+		Mode:        "range",
+		FormulaID:   formulaID,
+		Iterator:    iterator,
+		Aggregation: aggregation,
+	}
+	g.Nodes = append(g.Nodes, domain.FormulaNode{
+		ID:     id,
+		Type:   domain.NodeLoop,
+		Config: mustMarshal(cfg),
+	})
+
+	// Wire start (3rd arg) → "start" port
+	startID, err := astToDAGWalk(node.Children[2], g, counter)
+	if err != nil {
+		return "", err
+	}
+	g.Edges = append(g.Edges, domain.FormulaEdge{Source: startID, Target: id, SourcePort: "out", TargetPort: "start"})
+
+	// Wire end (4th arg) → "end" port
+	endID, err := astToDAGWalk(node.Children[3], g, counter)
+	if err != nil {
+		return "", err
+	}
+	g.Edges = append(g.Edges, domain.FormulaEdge{Source: endID, Target: id, SourcePort: "out", TargetPort: "end"})
+
+	// Optional step (5th arg) → "step" port
+	if len(node.Children) >= 5 {
+		stepID, err := astToDAGWalk(node.Children[4], g, counter)
+		if err != nil {
+			return "", err
+		}
+		g.Edges = append(g.Edges, domain.FormulaEdge{Source: stepID, Target: id, SourcePort: "out", TargetPort: "step"})
+	}
+
 	return id, nil
 }
 
@@ -489,6 +580,44 @@ func dagToASTWalk(
 		}
 		return node, nil
 
+	case domain.NodeLoop:
+		var cfg domain.LoopConfig
+		if err := json.Unmarshal(fn.Config, &cfg); err != nil {
+			return nil, fmt.Errorf("node %s: bad loop config: %w", nodeID, err)
+		}
+		edges := inEdges[nodeID]
+		funcName := cfg.Aggregation + "_loop"
+		node := &ASTNode{Kind: KindFunctionCall, FuncName: funcName}
+		// Arg 1: formulaId
+		node.Children = append(node.Children, &ASTNode{Kind: KindVariable, Value: cfg.FormulaID})
+		// Arg 2: iterator variable name
+		node.Children = append(node.Children, &ASTNode{Kind: KindVariable, Value: cfg.Iterator})
+		// Arg 3: start expression
+		if startID := findEdgeSource(edges, "start"); startID != "" {
+			child, err := dagToASTWalk(startID, nodeMap, inEdges)
+			if err != nil {
+				return nil, err
+			}
+			node.Children = append(node.Children, child)
+		}
+		// Arg 4: end expression
+		if endID := findEdgeSource(edges, "end"); endID != "" {
+			child, err := dagToASTWalk(endID, nodeMap, inEdges)
+			if err != nil {
+				return nil, err
+			}
+			node.Children = append(node.Children, child)
+		}
+		// Arg 5 (optional): step expression
+		if stepID := findEdgeSource(edges, "step"); stepID != "" {
+			child, err := dagToASTWalk(stepID, nodeMap, inEdges)
+			if err != nil {
+				return nil, err
+			}
+			node.Children = append(node.Children, child)
+		}
+		return node, nil
+
 	case domain.NodeConditional:
 		var cfg domain.ConditionalConfig
 		if err := json.Unmarshal(fn.Config, &cfg); err != nil {
@@ -609,7 +738,13 @@ func writeNode(sb *strings.Builder, node *ASTNode, parentPrec int) {
 		sb.WriteString(node.Value)
 
 	case KindVariable:
-		sb.WriteString(node.Value)
+		if isIdentifier(node.Value) {
+			sb.WriteString(node.Value)
+		} else {
+			sb.WriteByte('"')
+			sb.WriteString(node.Value)
+			sb.WriteByte('"')
+		}
 
 	case KindBinaryOp:
 		prec := opPrecedence(node.Op)
