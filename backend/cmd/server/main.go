@@ -264,12 +264,13 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 	}
 
 	// Helper: create formula + version if formula doesn't exist.
-	seedFormula := func(name string, dom domain.InsuranceDomain, desc string, graph domain.FormulaGraph) error {
+	// Returns the formula ID (empty string if already existed) and any error.
+	seedFormula := func(name string, dom domain.InsuranceDomain, desc string, graph domain.FormulaGraph) (string, error) {
 		// Check by listing and looking for the name.
 		formulas, _, _ := s.Formulas().List(ctx, domain.FormulaFilter{Limit: 1000})
 		for _, f := range formulas {
 			if f.Name == name {
-				return nil // already exists
+				return f.ID, nil // already exists
 			}
 		}
 
@@ -284,7 +285,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			UpdatedAt:   now,
 		}
 		if err := s.Formulas().Create(ctx, formula); err != nil {
-			return fmt.Errorf("create formula %s: %w", name, err)
+			return "", fmt.Errorf("create formula %s: %w", name, err)
 		}
 
 		version := &domain.FormulaVersion{
@@ -298,10 +299,34 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			CreatedAt:  now,
 		}
 		if err := s.Versions().CreateVersion(ctx, version); err != nil {
-			return fmt.Errorf("create version for %s: %w", name, err)
+			return "", fmt.Errorf("create version for %s: %w", name, err)
 		}
 		logger.Info().Str("name", name).Str("domain", string(dom)).Msg("seed formula created")
-		return nil
+		return formulaID, nil
+	}
+
+	// Helper: create a lookup table if it doesn't exist. Returns the table ID.
+	seedTable := func(name string, dom domain.InsuranceDomain, tableType string, data json.RawMessage) (string, error) {
+		tables, _ := s.Tables().List(ctx, nil)
+		for _, t := range tables {
+			if t.Name == name {
+				return t.ID, nil // already exists
+			}
+		}
+		tableID := uuid.New().String()
+		table := &domain.LookupTable{
+			ID:        tableID,
+			Name:      name,
+			Domain:    dom,
+			TableType: tableType,
+			Data:      data,
+			CreatedAt: now,
+		}
+		if err := s.Tables().Create(ctx, table); err != nil {
+			return "", fmt.Errorf("create table %s: %w", name, err)
+		}
+		logger.Info().Str("name", name).Msg("seed table created")
+		return tableID, nil
 	}
 
 	// --- Life Insurance: Net Premium Calculation ---
@@ -342,7 +367,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("寿险净保费计算", "life",
+	if _, err := seedFormula("寿险净保费计算", "life",
 		"Net premium = sumAssured × qx × v, where v = 1/(1+i). 输入: sumAssured(保额), qx(死亡率), interestRate(预定利率)",
 		lifeGraph); err != nil {
 		return err
@@ -378,7 +403,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("日本生命保険 収支相等純保険料", "life",
+	if _, err := seedFormula("日本生命保険 収支相等純保険料", "life",
 		"Pure premium approximation under the equivalence principle. 输入: deathBenefit(保険金額), expectedDeaths(想定死亡件数), policyCount(契約件数)",
 		japanEquivalenceGraph); err != nil {
 		return err
@@ -420,7 +445,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("日本生命保険 粗保険料分解", "life",
+	if _, err := seedFormula("日本生命保険 粗保険料分解", "life",
 		"Gross premium decomposition based on net premium plus expense loadings. 输入: netPremium(純保険料), acquisitionExpense(新契約費), collectionExpense(集金費), maintenanceExpense(維持費)",
 		japanGrossPremiumGraph); err != nil {
 		return err
@@ -474,7 +499,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("日本生命保険 責任準備金ロールフォワード", "life",
+	if _, err := seedFormula("日本生命保険 責任準備金ロールフォワード", "life",
 		"Reserve roll-forward approximation using level premium accumulation. 输入: reserveBegin(期初責任準備金), assumedInterestRate(予定利率), levelPremium(平準保険料), expectedBenefit(想定保険金), maintenanceExpense(維持費)",
 		japanReserveGraph); err != nil {
 		return err
@@ -516,7 +541,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("日本生命保険 解約返戻金近似", "life",
+	if _, err := seedFormula("日本生命保険 解約返戻金近似", "life",
 		"Surrender value approximation using reserve less a surrender charge amount, floored at zero. 输入: netPremiumReserve(純保険料式保険料積立金), deathBenefit(保険金額), surrenderChargeRate(控除率)",
 		japanSurrenderGraph); err != nil {
 		return err
@@ -559,7 +584,7 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("财产险保费计算", "property",
+	if _, err := seedFormula("财产险保费计算", "property",
 		"Premium = baseRate × riskScore × sumInsured × (1 - discount). 输入: baseRate(基础费率), riskScore(风险评分), sumInsured(保额), discount(折扣率)",
 		propGraph); err != nil {
 		return err
@@ -597,9 +622,293 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 			},
 		},
 	}
-	if err := seedFormula("车险商业保费计算", "auto",
+	if _, err := seedFormula("车险商业保费计算", "auto",
 		"Premium = basePremium × vehicleFactor × driverFactor × ncdDiscount. 输入: basePremium(基础保费), vehicleFactor(车辆系数), driverFactor(驾驶员系数), ncdDiscount(无赔优惠系数)",
 		autoGraph); err != nil {
+		return err
+	}
+
+	// =====================================================================
+	// Actuarial loop formulas with life table
+	// =====================================================================
+
+	// --- Life Table ---
+	lifeTableData := mustJSON([]map[string]string{
+		{"key": "0", "qx": "0.00290"}, {"key": "1", "qx": "0.00040"},
+		{"key": "2", "qx": "0.00030"}, {"key": "3", "qx": "0.00020"},
+		{"key": "4", "qx": "0.00020"}, {"key": "5", "qx": "0.00015"},
+		{"key": "6", "qx": "0.00014"}, {"key": "7", "qx": "0.00013"},
+		{"key": "8", "qx": "0.00012"}, {"key": "9", "qx": "0.00011"},
+		{"key": "10", "qx": "0.00010"}, {"key": "11", "qx": "0.00012"},
+		{"key": "12", "qx": "0.00016"}, {"key": "13", "qx": "0.00019"},
+		{"key": "14", "qx": "0.00024"}, {"key": "15", "qx": "0.00030"},
+		{"key": "16", "qx": "0.00033"}, {"key": "17", "qx": "0.00037"},
+		{"key": "18", "qx": "0.00041"}, {"key": "19", "qx": "0.00045"},
+		{"key": "20", "qx": "0.00050"}, {"key": "21", "qx": "0.00050"},
+		{"key": "22", "qx": "0.00050"}, {"key": "23", "qx": "0.00050"},
+		{"key": "24", "qx": "0.00050"}, {"key": "25", "qx": "0.00050"},
+		{"key": "26", "qx": "0.00052"}, {"key": "27", "qx": "0.00054"},
+		{"key": "28", "qx": "0.00056"}, {"key": "29", "qx": "0.00058"},
+		{"key": "30", "qx": "0.00060"}, {"key": "31", "qx": "0.00064"},
+		{"key": "32", "qx": "0.00067"}, {"key": "33", "qx": "0.00071"},
+		{"key": "34", "qx": "0.00076"}, {"key": "35", "qx": "0.00080"},
+		{"key": "36", "qx": "0.00087"}, {"key": "37", "qx": "0.00094"},
+		{"key": "38", "qx": "0.00102"}, {"key": "39", "qx": "0.00111"},
+		{"key": "40", "qx": "0.00120"}, {"key": "41", "qx": "0.00133"},
+		{"key": "42", "qx": "0.00147"}, {"key": "43", "qx": "0.00163"},
+		{"key": "44", "qx": "0.00181"}, {"key": "45", "qx": "0.00200"},
+		{"key": "46", "qx": "0.00224"}, {"key": "47", "qx": "0.00250"},
+		{"key": "48", "qx": "0.00280"}, {"key": "49", "qx": "0.00313"},
+		{"key": "50", "qx": "0.00350"}, {"key": "51", "qx": "0.00383"},
+		{"key": "52", "qx": "0.00419"}, {"key": "53", "qx": "0.00459"},
+		{"key": "54", "qx": "0.00502"}, {"key": "55", "qx": "0.00550"},
+		{"key": "56", "qx": "0.00607"}, {"key": "57", "qx": "0.00670"},
+		{"key": "58", "qx": "0.00739"}, {"key": "59", "qx": "0.00816"},
+		{"key": "60", "qx": "0.00900"}, {"key": "61", "qx": "0.00997"},
+		{"key": "62", "qx": "0.01104"}, {"key": "63", "qx": "0.01223"},
+		{"key": "64", "qx": "0.01354"}, {"key": "65", "qx": "0.01500"},
+		{"key": "66", "qx": "0.01661"}, {"key": "67", "qx": "0.01840"},
+		{"key": "68", "qx": "0.02038"}, {"key": "69", "qx": "0.02257"},
+		{"key": "70", "qx": "0.02500"}, {"key": "71", "qx": "0.02773"},
+		{"key": "72", "qx": "0.03077"}, {"key": "73", "qx": "0.03413"},
+		{"key": "74", "qx": "0.03786"}, {"key": "75", "qx": "0.04200"},
+		{"key": "76", "qx": "0.04652"}, {"key": "77", "qx": "0.05152"},
+		{"key": "78", "qx": "0.05706"}, {"key": "79", "qx": "0.06320"},
+		{"key": "80", "qx": "0.07000"}, {"key": "81", "qx": "0.07797"},
+		{"key": "82", "qx": "0.08684"}, {"key": "83", "qx": "0.09673"},
+		{"key": "84", "qx": "0.10774"}, {"key": "85", "qx": "0.12000"},
+		{"key": "86", "qx": "0.13291"}, {"key": "87", "qx": "0.14720"},
+		{"key": "88", "qx": "0.16304"}, {"key": "89", "qx": "0.18058"},
+		{"key": "90", "qx": "0.20000"}, {"key": "91", "qx": "0.22107"},
+		{"key": "92", "qx": "0.24436"}, {"key": "93", "qx": "0.27010"},
+		{"key": "94", "qx": "0.29855"}, {"key": "95", "qx": "0.33000"},
+		{"key": "96", "qx": "0.35860"}, {"key": "97", "qx": "0.38967"},
+		{"key": "98", "qx": "0.42344"}, {"key": "99", "qx": "0.46013"},
+		{"key": "100", "qx": "0.50000"},
+	})
+	tableID, err := seedTable("日本標準生命表2007（簡易版）", "life", "mortality", lifeTableData)
+	if err != nil {
+		return err
+	}
+
+	// --- Body formula 1: Survival factor 1-q_{x+k} ---
+	body1Graph := domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "var_k", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "k", "dataType": "integer"})},
+			{ID: "var_x", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "x", "dataType": "integer"})},
+			{ID: "c_1", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "1"})},
+			{ID: "op_xk", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "add"})},
+			{ID: "tbl_qx", Type: domain.NodeTableLookup, Config: mustJSON(map[string]any{"tableId": tableID, "keyColumns": []string{"key"}, "column": "qx"})},
+			{ID: "op_sub", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "subtract"})},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "var_x", Target: "op_xk", SourcePort: "out", TargetPort: "left"},
+			{Source: "var_k", Target: "op_xk", SourcePort: "out", TargetPort: "right"},
+			{Source: "op_xk", Target: "tbl_qx", SourcePort: "out", TargetPort: "key"},
+			{Source: "c_1", Target: "op_sub", SourcePort: "out", TargetPort: "left"},
+			{Source: "tbl_qx", Target: "op_sub", SourcePort: "out", TargetPort: "right"},
+		},
+		Outputs: []string{"op_sub"},
+	}
+	body1ID, err := seedFormula("生存率因子 1-qx", "life",
+		"Survival factor: 1 - q_{x+k}. Loop body for computing survival probabilities. 入力: x(年齢), k(イテレータ)",
+		body1Graph)
+	if err != nil {
+		return err
+	}
+
+	// --- Body formula 2: Death benefit PV term  v^t * _{t-1}p_x * q_{x+t-1} ---
+	body2Graph := domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "var_t", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "t", "dataType": "integer"})},
+			{ID: "var_x", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "x", "dataType": "integer"})},
+			{ID: "var_v", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "v", "dataType": "decimal"})},
+			{ID: "c_1", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "1"})},
+			{ID: "c_0", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "0"})},
+			{ID: "c_2", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "2"})},
+			{ID: "op_pow", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "power"})},
+			{ID: "op_tminus1", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "subtract"})},
+			{ID: "op_x_tm1", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "add"})},
+			{ID: "tbl_qx", Type: domain.NodeTableLookup, Config: mustJSON(map[string]any{"tableId": tableID, "keyColumns": []string{"key"}, "column": "qx"})},
+			{ID: "op_tminus2", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "subtract"})},
+			{ID: "loop_px", Type: domain.NodeLoop, Config: mustJSON(map[string]any{"mode": "range", "formulaId": body1ID, "iterator": "k", "aggregation": "product"})},
+			{ID: "op_mul1", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},
+			{ID: "op_mul2", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "var_v", Target: "op_pow", SourcePort: "out", TargetPort: "left"},
+			{Source: "var_t", Target: "op_pow", SourcePort: "out", TargetPort: "right"},
+			{Source: "var_t", Target: "op_tminus1", SourcePort: "out", TargetPort: "left"},
+			{Source: "c_1", Target: "op_tminus1", SourcePort: "out", TargetPort: "right"},
+			{Source: "var_x", Target: "op_x_tm1", SourcePort: "out", TargetPort: "left"},
+			{Source: "op_tminus1", Target: "op_x_tm1", SourcePort: "out", TargetPort: "right"},
+			{Source: "op_x_tm1", Target: "tbl_qx", SourcePort: "out", TargetPort: "key"},
+			{Source: "var_t", Target: "op_tminus2", SourcePort: "out", TargetPort: "left"},
+			{Source: "c_2", Target: "op_tminus2", SourcePort: "out", TargetPort: "right"},
+			{Source: "c_0", Target: "loop_px", SourcePort: "out", TargetPort: "start"},
+			{Source: "op_tminus2", Target: "loop_px", SourcePort: "out", TargetPort: "end"},
+			{Source: "op_pow", Target: "op_mul1", SourcePort: "out", TargetPort: "left"},
+			{Source: "loop_px", Target: "op_mul1", SourcePort: "out", TargetPort: "right"},
+			{Source: "op_mul1", Target: "op_mul2", SourcePort: "out", TargetPort: "left"},
+			{Source: "tbl_qx", Target: "op_mul2", SourcePort: "out", TargetPort: "right"},
+		},
+		Outputs: []string{"op_mul2"},
+	}
+	body2ID, err := seedFormula("死亡給付PV項", "life",
+		"Death benefit PV term: v^t * _{t-1}p_x * q_{x+t-1}. 入力: t(イテレータ), x(年齢), v(割引因子)",
+		body2Graph)
+	if err != nil {
+		return err
+	}
+
+	// --- Body formula 3: Annuity PV term  v^t * _tp_x ---
+	body3Graph := domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "var_t", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "t", "dataType": "integer"})},
+			{ID: "var_x", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "x", "dataType": "integer"})},
+			{ID: "var_v", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "v", "dataType": "decimal"})},
+			{ID: "c_0", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "0"})},
+			{ID: "c_1", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "1"})},
+			{ID: "op_pow", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "power"})},
+			{ID: "op_tminus1", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "subtract"})},
+			{ID: "loop_px", Type: domain.NodeLoop, Config: mustJSON(map[string]any{"mode": "range", "formulaId": body1ID, "iterator": "k", "aggregation": "product"})},
+			{ID: "op_mul", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "var_v", Target: "op_pow", SourcePort: "out", TargetPort: "left"},
+			{Source: "var_t", Target: "op_pow", SourcePort: "out", TargetPort: "right"},
+			{Source: "var_t", Target: "op_tminus1", SourcePort: "out", TargetPort: "left"},
+			{Source: "c_1", Target: "op_tminus1", SourcePort: "out", TargetPort: "right"},
+			{Source: "c_0", Target: "loop_px", SourcePort: "out", TargetPort: "start"},
+			{Source: "op_tminus1", Target: "loop_px", SourcePort: "out", TargetPort: "end"},
+			{Source: "op_pow", Target: "op_mul", SourcePort: "out", TargetPort: "left"},
+			{Source: "loop_px", Target: "op_mul", SourcePort: "out", TargetPort: "right"},
+		},
+		Outputs: []string{"op_mul"},
+	}
+	body3ID, err := seedFormula("年金現価項", "life",
+		"Annuity PV term: v^t * _tp_x. 入力: t(イテレータ), x(年齢), v(割引因子)",
+		body3Graph)
+	if err != nil {
+		return err
+	}
+
+	// --- Body formula 4: Reserve step  (V+P)*(1+i) - S*q_{x+t} ---
+	body4Graph := domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "var_V", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "V", "dataType": "decimal"})},
+			{ID: "var_t", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "t", "dataType": "integer"})},
+			{ID: "var_P", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "P", "dataType": "decimal"})},
+			{ID: "var_i", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "i", "dataType": "decimal"})},
+			{ID: "var_S", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "S", "dataType": "decimal"})},
+			{ID: "var_x", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "x", "dataType": "integer"})},
+			{ID: "c_1", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "1"})},
+			{ID: "op_vp", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "add"})},
+			{ID: "op_1i", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "add"})},
+			{ID: "op_grow", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},
+			{ID: "op_xt", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "add"})},
+			{ID: "tbl_qx", Type: domain.NodeTableLookup, Config: mustJSON(map[string]any{"tableId": tableID, "keyColumns": []string{"key"}, "column": "qx"})},
+			{ID: "op_sq", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},
+			{ID: "op_result", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "subtract"})},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "var_V", Target: "op_vp", SourcePort: "out", TargetPort: "left"},
+			{Source: "var_P", Target: "op_vp", SourcePort: "out", TargetPort: "right"},
+			{Source: "c_1", Target: "op_1i", SourcePort: "out", TargetPort: "left"},
+			{Source: "var_i", Target: "op_1i", SourcePort: "out", TargetPort: "right"},
+			{Source: "op_vp", Target: "op_grow", SourcePort: "out", TargetPort: "left"},
+			{Source: "op_1i", Target: "op_grow", SourcePort: "out", TargetPort: "right"},
+			{Source: "var_x", Target: "op_xt", SourcePort: "out", TargetPort: "left"},
+			{Source: "var_t", Target: "op_xt", SourcePort: "out", TargetPort: "right"},
+			{Source: "op_xt", Target: "tbl_qx", SourcePort: "out", TargetPort: "key"},
+			{Source: "var_S", Target: "op_sq", SourcePort: "out", TargetPort: "left"},
+			{Source: "tbl_qx", Target: "op_sq", SourcePort: "out", TargetPort: "right"},
+			{Source: "op_grow", Target: "op_result", SourcePort: "out", TargetPort: "left"},
+			{Source: "op_sq", Target: "op_result", SourcePort: "out", TargetPort: "right"},
+		},
+		Outputs: []string{"op_result"},
+	}
+	body4ID, err := seedFormula("責任準備金ステップ", "life",
+		"Reserve recursion step: (V+P)*(1+i) - S*q_{x+t}. 入力: V(前期準備金), t(イテレータ), P(保険料), i(予定利率), S(保険金額), x(年齢)",
+		body4Graph)
+	if err != nil {
+		return err
+	}
+
+	// --- Main formula 1: Pure premium  S * Σ v^t * _{t-1}p_x * q_{x+t-1} ---
+	main1Graph := domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "var_S", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "S", "dataType": "decimal"})},
+			{ID: "var_x", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "x", "dataType": "integer"})},
+			{ID: "var_n", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "n", "dataType": "integer"})},
+			{ID: "var_v", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "v", "dataType": "decimal"})},
+			{ID: "c_1", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "1"})},
+			{ID: "loop_sum", Type: domain.NodeLoop, Config: mustJSON(map[string]any{"mode": "range", "formulaId": body2ID, "iterator": "t", "aggregation": "sum"})},
+			{ID: "op_result", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "multiply"})},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "c_1", Target: "loop_sum", SourcePort: "out", TargetPort: "start"},
+			{Source: "var_n", Target: "loop_sum", SourcePort: "out", TargetPort: "end"},
+			{Source: "var_S", Target: "op_result", SourcePort: "out", TargetPort: "left"},
+			{Source: "loop_sum", Target: "op_result", SourcePort: "out", TargetPort: "right"},
+		},
+		Outputs: []string{"op_result"},
+	}
+	if _, err := seedFormula("定期保険一時払純保険料", "life",
+		"Term life single pure premium: S * Σ_{t=1}^{n} v^t * _{t-1}p_x * q_{x+t-1}. 入力: S(保険金額), x(年齢), n(保険期間), v(割引因子)",
+		main1Graph); err != nil {
+		return err
+	}
+
+	// --- Main formula 2: Annuity due  ä_{x:n} = Σ_{t=0}^{n-1} v^t * _tp_x ---
+	main2Graph := domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "var_x", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "x", "dataType": "integer"})},
+			{ID: "var_n", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "n", "dataType": "integer"})},
+			{ID: "var_v", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "v", "dataType": "decimal"})},
+			{ID: "c_0", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "0"})},
+			{ID: "c_1", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "1"})},
+			{ID: "op_nm1", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "subtract"})},
+			{ID: "loop_sum", Type: domain.NodeLoop, Config: mustJSON(map[string]any{"mode": "range", "formulaId": body3ID, "iterator": "t", "aggregation": "sum"})},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "var_n", Target: "op_nm1", SourcePort: "out", TargetPort: "left"},
+			{Source: "c_1", Target: "op_nm1", SourcePort: "out", TargetPort: "right"},
+			{Source: "c_0", Target: "loop_sum", SourcePort: "out", TargetPort: "start"},
+			{Source: "op_nm1", Target: "loop_sum", SourcePort: "out", TargetPort: "end"},
+		},
+		Outputs: []string{"loop_sum"},
+	}
+	if _, err := seedFormula("期始払年金現価", "life",
+		"Annuity-due present value: ä_{x:n} = Σ_{t=0}^{n-1} v^t * _tp_x. 入力: x(年齢), n(保険期間), v(割引因子)",
+		main2Graph); err != nil {
+		return err
+	}
+
+	// --- Main formula 3: Reserve via fold  _tV = fold (V+P)*(1+i) - S*q_{x+t} ---
+	main3Graph := domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "var_x", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "x", "dataType": "integer"})},
+			{ID: "var_n", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "n", "dataType": "integer"})},
+			{ID: "var_P", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "P", "dataType": "decimal"})},
+			{ID: "var_i", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "i", "dataType": "decimal"})},
+			{ID: "var_S", Type: domain.NodeVariable, Config: mustJSON(map[string]any{"name": "S", "dataType": "decimal"})},
+			{ID: "c_0", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "0"})},
+			{ID: "c_1", Type: domain.NodeConstant, Config: mustJSON(map[string]any{"value": "1"})},
+			{ID: "op_nm1", Type: domain.NodeOperator, Config: mustJSON(map[string]any{"op": "subtract"})},
+			{ID: "loop_fold", Type: domain.NodeLoop, Config: mustJSON(map[string]any{"mode": "range", "formulaId": body4ID, "iterator": "t", "aggregation": "fold", "accumulatorVar": "V", "initValue": "0"})},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "var_n", Target: "op_nm1", SourcePort: "out", TargetPort: "left"},
+			{Source: "c_1", Target: "op_nm1", SourcePort: "out", TargetPort: "right"},
+			{Source: "c_0", Target: "loop_fold", SourcePort: "out", TargetPort: "start"},
+			{Source: "op_nm1", Target: "loop_fold", SourcePort: "out", TargetPort: "end"},
+		},
+		Outputs: []string{"loop_fold"},
+	}
+	if _, err := seedFormula("漸化式責任準備金", "life",
+		"Recursive reserve: fold_{t=0}^{n-1} (V+P)*(1+i) - S*q_{x+t}. 入力: x(年齢), n(保険期間), P(保険料), i(予定利率), S(保険金額)",
+		main3Graph); err != nil {
 		return err
 	}
 
@@ -632,6 +941,23 @@ var seedFormulaNames = []string{
 	"日本生命保険 解約返戻金近似",
 	"财产险保费计算",
 	"车险商业保费计算",
+	// Actuarial loop formulas (seed names)
+	"生存率因子 1-qx",
+	"死亡給付PV項",
+	"年金現価項",
+	"責任準備金ステップ",
+	"定期保険一時払純保険料",
+	"期始払年金現価",
+	"漸化式責任準備金",
+	// Legacy names (API-created before seed integration)
+	"純保険料（一時払）",
+	"年金現価",
+	"責任準備金",
+	// Demo formulas
+	"平方和 ∑t² (t=1..n)",
+	"阶乘 n! = ∏t (t=1..n)",
+	"Square (t²)",
+	"Identity (t)",
 }
 
 // seedTableNames is the list of table names created by API-based seed scripts.
@@ -655,11 +981,11 @@ func makeSeedResetHandler(s store.Store, logger zerolog.Logger) http.HandlerFunc
 	const seedAdminID = "00000000-0000-0000-0000-000000000001"
 
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Delete seed formulas: must match name AND be created by the seed admin.
+		// Delete seed formulas by name match.
 		formulas, _, _ := s.Formulas().List(r.Context(), domain.FormulaFilter{Limit: 10000})
 		deleted := 0
 		for _, f := range formulas {
-			if seedNames[f.Name] && f.CreatedBy == seedAdminID {
+			if seedNames[f.Name] {
 				if err := s.Formulas().Delete(r.Context(), f.ID); err != nil {
 					logger.Warn().Err(err).Str("name", f.Name).Msg("failed to delete seed formula")
 				} else {
