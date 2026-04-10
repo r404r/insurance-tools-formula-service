@@ -98,7 +98,8 @@ export default function FormulaEditorPage() {
     enabled: !!id,
   })
 
-  const { data: allFormulas = [] } = useQuery({
+  const emptyFormulas: Formula[] = useMemo(() => [], [])
+  const { data: allFormulas = emptyFormulas } = useQuery({
     queryKey: ['formulas', 'editor-options'],
     queryFn: () =>
       api
