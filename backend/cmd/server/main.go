@@ -115,6 +115,7 @@ func run(logger zerolog.Logger) error {
 		Versions: store.Versions(),
 		Formulas: store.Formulas(),
 		Tables:   store.Tables(),
+		// Limiter wired below, after it is constructed.
 	}
 
 	tableHandler := &api.TableHandler{
@@ -138,6 +139,7 @@ func run(logger zerolog.Logger) error {
 		}
 	}
 	calcLimiter := api.NewDynamicConcurrencyLimiter(maxCalcs)
+	calcHandler.Limiter = calcLimiter
 	settingsHandler := &api.SettingsHandler{
 		Settings: store.Settings(),
 		Limiter:  calcLimiter,

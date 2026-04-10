@@ -124,6 +124,10 @@ type BatchTestSummary struct {
 	Passed   int     `json:"passed"`
 	Failed   int     `json:"failed"`
 	PassRate float64 `json:"passRate"`
+	// TotalExecutionTimeMs is the wall-clock duration of the whole batch run,
+	// measured in milliseconds. With parallel execution this is generally less
+	// than the sum of per-case ExecutionTimeMs.
+	TotalExecutionTimeMs float64 `json:"totalExecutionTimeMs"`
 }
 
 // BatchTestResponse is the full response for a batch-test run.

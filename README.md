@@ -55,7 +55,10 @@ A visual formula calculation engine for the insurance industry, supporting life 
 ### Calculation Engine
 - **High-Precision Decimal** — 18-28 decimal places via shopspring/decimal
 - **Parallel Execution** — DAG-based parallelization of independent branches
-- **Concurrency Control** — Configurable max concurrent calculations (admin settings)
+- **Concurrency Control** — Configurable max concurrent calculations (admin settings).
+  Batch Test runs cases in parallel with a worker cap of `floor(maxConcurrentCalcs / 5)`,
+  clamped to `[1, 8]`, so a large batch run cannot starve interactive calculations.
+  When `maxConcurrentCalcs` is `0` (unlimited), Batch Test defaults to 8 workers.
 - **Result Cache** — LRU cache with admin clear function
 - **Sub-formula References** — Compose formulas from other formulas (with recursion guard)
 

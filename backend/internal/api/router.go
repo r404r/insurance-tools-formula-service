@@ -106,11 +106,21 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 			// Calculation endpoints.
 			r.Route("/calculate", func(r chi.Router) {
 				r.Use(auth.RequirePermission(auth.PermCalculate))
-				r.Use(cfg.CalcLimiter.Middleware())
-				r.Post("/", cfg.CalcHandler.Calculate)
-				r.Post("/batch", cfg.CalcHandler.BatchCalculate)
+				// Single-calculation endpoints go through the HTTP middleware
+				// limiter: one request == one slot.
+				r.Group(func(r chi.Router) {
+					r.Use(cfg.CalcLimiter.Middleware())
+					r.Post("/", cfg.CalcHandler.Calculate)
+					r.Post("/batch", cfg.CalcHandler.BatchCalculate)
+					r.Post("/validate", cfg.CalcHandler.Validate)
+				})
+				// BatchTest runs many calculations per request. It acquires
+				// the shared limiter directly for each inner case, so it must
+				// NOT also be gated by the HTTP middleware — otherwise the
+				// outer request would hold a phantom slot that the inner loop
+				// could never observe, and the global budget would be
+				// over-counted.
 				r.Post("/batch-test", cfg.CalcHandler.BatchTest)
-				r.Post("/validate", cfg.CalcHandler.Validate)
 			})
 
 			// Lookup table endpoints.

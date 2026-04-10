@@ -223,12 +223,13 @@ export default function BatchTestPage() {
       {result && (
         <>
           {/* Summary cards */}
-          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
             {[
-              { label: t('batchTest.total'),    value: summary!.total,  color: 'text-gray-900' },
-              { label: t('batchTest.passed'),   value: summary!.passed, color: 'text-green-600' },
-              { label: t('batchTest.failed'),   value: summary!.failed, color: 'text-red-600' },
-              { label: t('batchTest.passRate'), value: `${summary!.passRate.toFixed(1)}%`, color: passRateColor },
+              { label: t('batchTest.total'),     value: summary!.total,  color: 'text-gray-900' },
+              { label: t('batchTest.passed'),    value: summary!.passed, color: 'text-green-600' },
+              { label: t('batchTest.failed'),    value: summary!.failed, color: 'text-red-600' },
+              { label: t('batchTest.passRate'),  value: `${summary!.passRate.toFixed(1)}%`, color: passRateColor },
+              { label: t('batchTest.totalTime'), value: `${summary!.totalExecutionTimeMs.toFixed(0)} ms`, color: 'text-gray-700' },
             ].map(({ label, value, color }) => (
               <div key={label} className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
                 <p className="text-xs text-gray-500">{label}</p>

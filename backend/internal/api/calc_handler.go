@@ -26,6 +26,10 @@ type CalcHandler struct {
 	Versions store.VersionRepository
 	Formulas store.FormulaRepository
 	Tables   store.TableRepository
+	// Limiter exposes the current global concurrency limit so handlers
+	// that run multiple calculations per request (BatchTest) can derive
+	// a proportional worker cap at request time.
+	Limiter *DynamicConcurrencyLimiter
 }
 
 // Calculate executes a single formula calculation.

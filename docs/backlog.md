@@ -10,6 +10,7 @@
 
 ## 已完成
 
+- [036-batch-test-parallel.md](tasks/036-batch-test-parallel.md) — Batch Test 服务端并行化 + 总执行时间（2026-04-11）
 - [035-editable-node-id.md](tasks/035-editable-node-id.md) — 可视化编辑器支持修改节点 ID + 合法/冲突校验（2026-04-11）
 - [034-formula-canvas-stale-closure-fix.md](tasks/034-formula-canvas-stale-closure-fix.md) — 新拖入节点无法连线（stale closure）修复（2026-04-11）
 - [033-term-life-batch-n1-100.md](tasks/033-term-life-batch-n1-100.md) — 定期保険纯保険料 批量测试数据 n=1..100（2026-04-11）

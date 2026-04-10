@@ -257,6 +257,7 @@ export interface BatchTestSummary {
   passed: number
   failed: number
   passRate: number
+  totalExecutionTimeMs: number
 }
 
 export interface BatchTestResponse {
