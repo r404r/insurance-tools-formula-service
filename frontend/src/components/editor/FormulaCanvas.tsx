@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useRef, type Dispatch, type SetStateAction } from 'react'
 import { ValidationContext, type ValidationState } from './ValidationContext'
 import {
   ReactFlow,
@@ -27,8 +27,8 @@ import { createNodeData, defaultNodeConfig, getInputPorts } from './nodePresenta
 interface Props {
   nodes: Node[]
   edges: Edge[]
-  onNodesChange: (nodes: Node[]) => void
-  onEdgesChange: (edges: Edge[]) => void
+  onNodesChange: Dispatch<SetStateAction<Node[]>>
+  onEdgesChange: Dispatch<SetStateAction<Edge[]>>
   onNodeSelect: (node: Node | null) => void
   validation?: ValidationState
 }
@@ -96,18 +96,16 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
 
   const handleNodesChange: OnNodesChange = useCallback(
     (changes) => {
-      const updated = applyNodeChanges(changes, nodes)
-      onNodesChange(updated)
+      onNodesChange((prev) => applyNodeChanges(changes, prev))
     },
-    [nodes, onNodesChange]
+    [onNodesChange]
   )
 
   const handleEdgesChange: OnEdgesChange = useCallback(
     (changes) => {
-      const updated = applyEdgeChanges(changes, edges)
-      onEdgesChange(updated)
+      onEdgesChange((prev) => applyEdgeChanges(changes, prev))
     },
-    [edges, onEdgesChange]
+    [onEdgesChange]
   )
 
   const handleConnect: OnConnect = useCallback(
@@ -115,15 +113,19 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
       if (!isValidConnection(params)) {
         return
       }
-      const updated = addEdge({
-        ...params,
-        id: `edge_${Date.now()}`,
-        style: { stroke: '#64748b', strokeWidth: 2 },
-        markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
-      }, edges)
-      onEdgesChange(updated)
+      onEdgesChange((prev) =>
+        addEdge(
+          {
+            ...params,
+            id: `edge_${Date.now()}`,
+            style: { stroke: '#64748b', strokeWidth: 2 },
+            markerEnd: { type: MarkerType.ArrowClosed, color: '#64748b' },
+          },
+          prev
+        )
+      )
     },
-    [edges, onEdgesChange]
+    [isValidConnection, onEdgesChange]
   )
 
   const handleNodeClick = useCallback(
@@ -157,9 +159,14 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
         data: createNodeData(type, defaultNodeConfig(type)),
       }
 
-      onNodesChange([...nodes, newNode])
+      // Route through applyNodeChanges with an 'add' change so React Flow's
+      // internal state stays in sync with user state. Using a functional
+      // updater ensures we always operate on the latest nodes snapshot,
+      // avoiding stale-closure races with other NodeChange events that fire
+      // right after the drop (e.g. dimension changes from ResizeObserver).
+      onNodesChange((prev) => applyNodeChanges([{ type: 'add', item: newNode }], prev))
     },
-    [nodes, onNodesChange]
+    [onNodesChange]
   )
 
   const handleDragOver = useCallback((event: React.DragEvent) => {
