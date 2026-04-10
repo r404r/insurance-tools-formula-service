@@ -10,6 +10,7 @@
 
 ## 已完成
 
+- [034-formula-canvas-stale-closure-fix.md](tasks/034-formula-canvas-stale-closure-fix.md) — 新拖入节点无法连线（stale closure）修复（2026-04-11）
 - [033-term-life-batch-n1-100.md](tasks/033-term-life-batch-n1-100.md) — 定期保険纯保険料 批量测试数据 n=1..100（2026-04-11）
 - [032-formula-list-density.md](tasks/032-formula-list-density.md) — 公式一览行信息密度优化（2026-04-11）
 - [031-selection-bar-fix.md](tasks/031-selection-bar-fix.md) — 选择状态下顶栏布局修复（2026-04-11）
