@@ -1,17 +1,26 @@
 # Insurance Formula Service
 
-A visual formula calculation engine for the insurance industry, supporting life insurance, property insurance, and auto insurance domains.
+A visual formula calculation engine for the insurance industry, supporting life insurance (including actuarial loop calculations), property insurance, and auto insurance domains.
 
 ## Screenshots
 
 ### Formula List
 ![Formula List](docs/screenshots/01-formula-list.png)
 
-### Visual Formula Editor
+### Visual Formula Editor (with Loop node)
 ![Visual Editor](docs/screenshots/02-formula-visual-editor.png)
 
-### Text Formula Editor
+### Text Formula Editor + LaTeX Preview
 ![Text Editor](docs/screenshots/03-formula-text-editor.png)
+
+### Loop Fold Mode (Reserve Recursion)
+![Fold Loop](docs/screenshots/07-loop-fold-reserve.png)
+
+### Lookup Tables
+![Lookup Tables](docs/screenshots/09-lookup-tables.png)
+
+### Admin Settings (with Preset Data Reset)
+![Admin Settings](docs/screenshots/08-admin-settings.png)
 
 ### Batch Test — Input
 ![Batch Test Input](docs/screenshots/04-batch-test-input.png)
@@ -24,20 +33,55 @@ A visual formula calculation engine for the insurance industry, supporting life 
 
 ## Features
 
-- **Visual Formula Editor** — Drag-and-drop DAG editor powered by React Flow, with 8 node types (variable, constant, operator, function, subFormula, tableLookup, conditional, aggregate)
-- **Dual-Mode Editing** — Switch between visual canvas and text expression mode with bidirectional conversion via Pratt parser
-- **High-Precision Computation** — Financial-grade decimal arithmetic (18-28 decimal places) using shopspring/decimal
-- **Parallel Execution** — Automatic DAG-based parallelization of independent computation branches
-- **Version Management** — Draft → Published → Archived state machine with full snapshot versioning
-- **Multi-Database** — Repository pattern supporting SQLite (embedded), PostgreSQL, and MySQL
-- **RBAC** — JWT-based authentication with Admin, Editor, Reviewer, and Viewer roles
-- **i18n** — Chinese, Japanese, and English localization
+### Formula Editor
+- **Visual Editor** — Drag-and-drop DAG editor powered by React Flow with auto layout
+- **9 Node Types** — variable, constant, operator, function, subFormula, tableLookup, conditional, aggregate, **loop**
+- **Dual-Mode Editing** — Switch between visual canvas and text expression mode with bidirectional conversion
+- **LaTeX Preview** — Real-time mathematical notation rendering (KaTeX)
+- **LaTeX Input** — Type LaTeX directly, auto-converts to formula text
+- **Node Description** — Optional documentation field per node, displayed as hover tooltip
+- **Graph Validation** — Cycle detection, port completeness, identifier rules
+
+### Loop Node (Actuarial)
+- **8 Aggregation Modes** — sum, product, count, avg, min, max, last, **fold**
+- **Sum/Product/etc.** — Map-reduce style: each iteration is independent
+- **Fold Mode** — Stateful accumulation: each step receives the previous result
+  - Required for recursive formulas like reserve recursion `V[t+1] = (V[t]+P)(1+i) - S·q_{x+t}`
+- **Empty Iteration Identity** — `sum→0`, `product→1`, `count→0` (mathematical identity elements)
+- **Nested Loops** — Inner loop receives outer iterator via seedInputs
+- **Text Format** — `sum_loop("body-id", t, 1, n)`, `fold_loop("body-id", t, 0, n, V, 0)`
+- **LaTeX Rendering** — `\sum_{t=1}^{n}`, `\prod_{t=1}^{n}`, `\operatorname{fold}_{t=0}^{n}`
+
+### Calculation Engine
+- **High-Precision Decimal** — 18-28 decimal places via shopspring/decimal
+- **Parallel Execution** — DAG-based parallelization of independent branches
+- **Concurrency Control** — Configurable max concurrent calculations (admin settings)
+- **Result Cache** — LRU cache with admin clear function
+- **Sub-formula References** — Compose formulas from other formulas (with recursion guard)
+
+### Data Management
+- **Lookup Tables** — Mortality tables, rate tables (multi-key composite lookup supported)
+- **Formula Versions** — Draft → Published → Archived state machine
+- **Version Diff** — Visual comparison between formula versions
+- **Formula Templates** — Pre-built insurance formula gallery
+- **Preset Data Reset** — One-click reset of seed formulas/tables (admin only, preserves user data)
+- **Formula Deletion** — Admin-only delete with confirmation dialog
+
+### Testing
+- **Single Calculation** — Inline test panel in the editor
+- **Batch Test** — Upload JSON/CSV test cases, compare against expected values with tolerance
+- **Multi-Database** — SQLite (embedded), PostgreSQL, MySQL
+
+### Auth & i18n
+- **JWT-based Auth** — Login, register, role-based access control
+- **RBAC** — Admin, Editor, Reviewer, Viewer roles
+- **i18n** — Chinese, Japanese, English
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend | React 19, TypeScript, Tailwind CSS 4, @xyflow/react 12 |
+| Frontend | React 19, TypeScript, Tailwind CSS 4, @xyflow/react 12, KaTeX |
 | State | Zustand, TanStack Query |
 | Backend | Go 1.26, chi router |
 | Precision | shopspring/decimal |
@@ -86,41 +130,29 @@ On first startup, the system automatically creates:
 
 ### Seed Formulas
 
-The system includes three pre-built insurance formulas, each with a published v1:
+The system includes pre-built formulas across three domains:
 
-#### 1. Life Insurance: Net Premium (寿险净保费计算)
+#### Basic Formulas (no loop)
+1. **Life Insurance — Net Premium** (`寿险净保费计算`): `premium = sumAssured × qx × v`
+2. **Life Insurance — Equivalence Premium** (`日本生命保険 収支相等純保険料`)
+3. **Life Insurance — Gross Premium Decomposition** (`日本生命保険 粗保険料分解`)
+4. **Life Insurance — Reserve Roll-Forward** (`日本生命保険 責任準備金ロールフォワード`)
+5. **Life Insurance — Surrender Value Approximation** (`日本生命保険 解約返戻金近似`)
+6. **Property Insurance — Premium Rating** (`财产险保费计算`)
+7. **Auto Insurance — Commercial Premium** (`车险商业保费计算`)
 
-Formula: `premium = sumAssured × qx × v`, where `v = 1 / (1 + interestRate)`
+#### Actuarial Loop Formulas
+Built on the Loop node with the Japanese Standard Life Table 2007 (simplified):
 
-| Input | Description | Example |
-|-------|-------------|---------|
-| `sumAssured` | Sum assured (保额) | 1000000 |
-| `qx` | Mortality rate (死亡率) | 0.001 |
-| `interestRate` | Interest rate (预定利率) | 0.035 |
+- **Body sub-formulas**: `生存率因子 1-qx`, `死亡給付PV項`, `年金現価項`, `責任準備金ステップ`
+- **Main formulas**:
+  - **Pure Premium (lump sum)** `定期保険一時払純保険料` — `S × Σ_{t=1}^{n} v^t · _{t-1}p_x · q_{x+t-1}` (nested sum + product loops)
+  - **Annuity Present Value** `期始払年金現価` — `Σ_{t=0}^{n-1} v^t · _tp_x` (nested sum + product loops)
+  - **Reserve Recursion** `漸化式責任準備金` — `V[t+1] = (V[t]+P)(1+i) - S·q_{x+t}` (fold mode)
 
-Example result: `966.183574879227053140` (18-digit precision)
+### Seed Tables
 
-#### 2. Property Insurance: Premium Rating (财产险保费计算)
-
-Formula: `premium = baseRate × riskScore × sumInsured × (1 - discount)`
-
-| Input | Description | Example |
-|-------|-------------|---------|
-| `baseRate` | Base rate (基础费率) | 0.003 |
-| `riskScore` | Risk score (风险评分) | 1.2 |
-| `sumInsured` | Sum insured (保额) | 5000000 |
-| `discount` | Discount rate (折扣率) | 0.1 |
-
-#### 3. Auto Insurance: Commercial Premium (车险商业保费计算)
-
-Formula: `premium = basePremium × vehicleFactor × driverFactor × ncdDiscount`
-
-| Input | Description | Example |
-|-------|-------------|---------|
-| `basePremium` | Base premium (基础保费) | 3000 |
-| `vehicleFactor` | Vehicle factor (车辆系数) | 1.1 |
-| `driverFactor` | Driver risk factor (驾驶员系数) | 0.95 |
-| `ncdDiscount` | No-claim discount (无赔优惠系数) | 0.7 |
+- **Japanese Standard Life Table 2007 (Simplified)** — Mortality rates `qx` for ages 0-100
 
 ### Calculation API Example
 
@@ -130,16 +162,17 @@ TOKEN=$(curl -s http://localhost:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"admin99999"}' | jq -r .token)
 
-# Calculate life insurance net premium
+# Calculate pure premium with the actuarial loop formula
 curl -s -X POST http://localhost:8080/api/v1/calculate \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{
-    "formulaId": "<formula-id>",
+    "formulaId": "<pure-premium-formula-id>",
     "inputs": {
-      "sumAssured": "1000000",
-      "qx": "0.001",
-      "interestRate": "0.035"
+      "S": "1000000",
+      "x": "30",
+      "n": "10",
+      "v": "0.97087378640776"
     }
   }'
 ```
@@ -148,21 +181,39 @@ curl -s -X POST http://localhost:8080/api/v1/calculate \
 
 All endpoints under `/api/v1/`:
 
-| Method | Path | Description |
-|--------|------|-------------|
-| POST | `/auth/login` | Login |
-| POST | `/auth/register` | Register (first user becomes admin) |
-| GET | `/formulas` | List formulas (filter by domain, search) |
-| POST | `/formulas` | Create formula |
-| GET | `/formulas/:id` | Get formula |
-| PUT | `/formulas/:id` | Update formula |
-| DELETE | `/formulas/:id` | Delete formula |
-| GET | `/formulas/:id/versions` | List versions |
-| POST | `/formulas/:id/versions` | Create version |
-| PATCH | `/formulas/:id/versions/:ver` | Update version state |
-| POST | `/calculate` | Execute calculation |
-| POST | `/calculate/batch` | Batch calculation |
-| POST | `/calculate/validate` | Validate formula |
+| Method | Path | Description | Permission |
+|--------|------|-------------|-----------|
+| POST | `/auth/login` | Login | Public |
+| POST | `/auth/register` | Register | Public |
+| POST | `/parse` | Parse formula text → graph | Public |
+| GET | `/templates` | List formula templates | Public |
+| GET | `/auth/me` | Current user info | Auth |
+| GET | `/formulas` | List formulas (filter, search, paginate) | Auth |
+| POST | `/formulas` | Create formula | Editor+ |
+| GET | `/formulas/:id` | Get formula | Auth |
+| PUT | `/formulas/:id` | Update formula | Editor+ |
+| DELETE | `/formulas/:id` | Delete formula | **Admin only** |
+| GET | `/formulas/:id/versions` | List versions | Auth |
+| POST | `/formulas/:id/versions` | Create version | Editor+ |
+| PATCH | `/formulas/:id/versions/:ver` | Update version state | Reviewer+ |
+| GET | `/formulas/:id/diff` | Version diff | Auth |
+| POST | `/calculate` | Execute calculation | Auth |
+| POST | `/calculate/batch` | Batch calculation | Auth |
+| POST | `/calculate/batch-test` | Batch test with expected values | Auth |
+| POST | `/calculate/validate` | Validate formula graph | Auth |
+| GET | `/tables` | List lookup tables | Auth |
+| POST | `/tables` | Create lookup table | Editor+ |
+| GET | `/tables/:id` | Get lookup table | Auth |
+| PUT | `/tables/:id` | Update lookup table | Editor+ |
+| DELETE | `/tables/:id` | Delete lookup table | Editor+ |
+| GET | `/categories` | List categories | Auth |
+| POST | `/categories` | Create category | Admin |
+| GET | `/users` | List users | Admin |
+| GET | `/cache` | Cache stats | Admin |
+| DELETE | `/cache` | Clear cache | Admin |
+| GET | `/settings` | Get system settings | Admin |
+| PUT | `/settings` | Update system settings | Admin |
+| POST | `/admin/reset-seed` | Reset preset formulas/tables | Admin |
 
 ## RBAC Roles
 
@@ -171,10 +222,12 @@ All endpoints under `/api/v1/`:
 | View Formulas | Y | Y | Y | Y |
 | Calculate | Y | Y | Y | Y |
 | Create/Edit Formula | Y | Y | - | - |
-| Delete Formula | Y | Y | - | - |
+| **Delete Formula** | **Y** | **-** | - | - |
 | Publish/Archive Version | Y | - | Y | - |
 | Manage Tables | Y | Y | - | - |
 | Manage Users | Y | - | - | - |
+| Manage Categories | Y | - | - | - |
+| Reset Preset Data | Y | - | - | - |
 
 ## Formula Model
 
@@ -183,7 +236,7 @@ Formulas are stored as JSON DAGs:
 ```json
 {
   "nodes": [
-    {"id": "n1", "type": "variable", "config": {"name": "age", "dataType": "integer"}},
+    {"id": "n1", "type": "variable", "config": {"name": "age", "dataType": "integer"}, "description": "Age in years"},
     {"id": "n2", "type": "operator", "config": {"op": "multiply"}},
     {"id": "n3", "type": "function", "config": {"fn": "round", "args": {"places": "18"}}}
   ],
@@ -207,89 +260,110 @@ Formulas are stored as JSON DAGs:
 | `operator` | Arithmetic op | `op` (add/subtract/multiply/divide/power/modulo) |
 | `function` | Math function | `fn` (round/floor/ceil/abs/min/max/sqrt/ln/exp), `args` |
 | `subFormula` | Sub-formula ref | `formulaId`, `version` |
-| `tableLookup` | Table lookup | `tableId`, `lookupKey`, `column` |
+| `tableLookup` | Table lookup | `tableId`, `keyColumns`, `column` |
 | `conditional` | If/else branch | `comparator` (eq/ne/gt/ge/lt/le) |
 | `aggregate` | Aggregation | `fn` (sum/product/count/avg), `range` |
+| `loop` | Iteration | `mode`, `formulaId`, `iterator`, `aggregation`, `accumulatorVar` (fold), `initValue` (fold), `inclusiveEnd`, `maxIterations` |
+
+### Loop Node Text Syntax
+
+```
+sum_loop("body-formula-id", t, 1, n)              # Σ
+product_loop("body-formula-id", t, 1, n)          # Π
+avg_loop("body-formula-id", t, 1, n)              # average
+fold_loop("body-formula-id", t, 0, n, V, 0)       # recursive fold with accumulator V, init 0
+```
+
+## User Guide
+
+A step-by-step user guide for non-technical users is available in three languages:
+
+- [Chinese (中文)](docs/guide/formula-editor-guide-zh.md)
+- [English](docs/guide/formula-editor-guide-en.md)
+- [Japanese (日本語)](docs/guide/formula-editor-guide-ja.md)
 
 ## Project Structure
 
 ```
 formula-service/
 ├── backend/
-│   ├── cmd/server/         # Entry point + seed data
+│   ├── cmd/server/         # Entry point + seed data + reset handler
 │   └── internal/
-│       ├── api/            # HTTP handlers
+│       ├── api/            # HTTP handlers + router
 │       ├── auth/           # JWT + RBAC
 │       ├── config/         # Configuration
 │       ├── domain/         # Domain models
-│       ├── engine/         # Calculation engine (DAG, parallel, evaluator)
-│       ├── parser/         # Pratt parser (AST, lexer, serializer)
-│       └── store/sqlite/   # Database layer
+│       ├── engine/         # Calculation engine (DAG, parallel, evaluator, loop, fold)
+│       ├── parser/         # Pratt parser (text ↔ AST ↔ DAG)
+│       └── store/          # Repository layer (sqlite, postgres, mysql)
 ├── frontend/
 │   └── src/
 │       ├── api/            # API client
-│       ├── components/     # React components
-│       ├── i18n/           # Translations (zh/ja/en)
+│       ├── components/
+│       │   ├── editor/     # Visual + text formula editor
+│       │   ├── shared/     # Lists, settings, batch test
+│       │   ├── version/    # Version management + diff
+│       │   └── auth/       # Login / register
+│       ├── i18n/locales/   # zh / ja / en
 │       ├── store/          # Zustand stores
 │       ├── types/          # TypeScript types
-│       └── utils/          # Serializers, formatters
-├── docs/                   # Requirements, design, implementation log
-│   ├── backlog.md          # Need pool (all planned & ad-hoc requirements)
-│   └── tasks/              # Per-feature task files with progress tracking
+│       └── utils/          # graphSerializer, graphText, formulaLatex, latexToFormula
+├── docs/
+│   ├── backlog.md          # Requirement pool
+│   ├── tasks/              # Per-feature task files
+│   ├── guide/              # User guide (zh/en/ja) + screenshots
+│   └── screenshots/        # README screenshots
+├── tests/
+│   ├── batch/              # Reusable batch test data
+│   ├── reports/            # Test reports (Markdown)
+│   └── screenshots/        # Visual verification screenshots
+├── prompt_history/         # Archived user prompts (per day)
 ├── Makefile
 └── docker-compose.yml
 ```
 
 ## Development Workflow
 
-本项目采用三层持久化的任务管理体系，确保长周期开发中即使中断也能快速恢复。
+This project uses a three-layer task management system to keep long-running development resilient to interruptions.
 
-### 三层结构
+### Three Layers
 
-| 层 | 文件 | 用途 |
-|----|------|------|
-| 需求池 | `docs/backlog.md` | 收集所有需求，随时可加，统一排期 |
-| Task 文件 | `docs/tasks/NNN-slug.md` | 单个功能的完整生命周期（需求、设计、TODO、中断记录） |
-| 工作流指令 | `CLAUDE.md` | 每次新会话自动遵循的开发规范 |
+| Layer | File | Purpose |
+|-------|------|---------|
+| Requirement pool | `docs/backlog.md` | Collect all requirements, prioritize |
+| Task files | `docs/tasks/NNN-slug.md` | Full lifecycle of one feature (need, design, TODO, interruption notes) |
+| Workflow rules | `CLAUDE.md` | Auto-followed dev rules every session |
 
-### 工作流程
+### Workflow
 
 ```
-想到需求 → 加到 backlog.md（待规划）
+New requirement → Add to backlog.md
     ↓
-决定开始 → 创建 task 文件（从 TEMPLATE.md），填写需求 + 设计 + TODO
+Start work     → Create task file from TEMPLATE.md
     ↓
-逐步实现 → 每完成一步标记 TODO ✓，commit + review
+Implement     → Mark TODO ✓ each step, codex review, commit
     ↓
-中断？   → 更新 task 文件的 TODO 进度 + 写「中断记录」
+Interrupted?  → Update task TODO progress + write 中断记录
     ↓
-恢复     → 读 backlog → 找 in-progress task → 读中断记录 → 继续
+Resume        → Read backlog → find in-progress task → continue
     ↓
-完成     → Status → done，更新 implementation-log，backlog 移到「已完成」
+Done          → Status: done, move to backlog 已完成
 ```
 
-### Task 文件模板
+### Testing Convention
 
-每个 task 文件位于 `docs/tasks/`，模板见 `docs/tasks/TEMPLATE.md`，包含：
+```
+tests/
+├── batch/{task-number}/      # Batch test JSON data (reusable)
+├── reports/                  # Markdown test reports
+└── screenshots/{task-number}/ # Visual verification screenshots
+```
 
-- **Status** — `planning` | `in-progress` | `blocked` | `done`
-- **需求** — 要解决什么问题
-- **设计** — 技术方案、涉及文件
-- **TODO** — 可逐项勾选的步骤清单
-- **中断记录** — 中断时的状态快照，供下次恢复
-- **完成标准** — 功能、测试、review 通过
+Test data files double as regression tests.
 
-### 与其他文档的关系
+### Prompt History
 
-| 文件 | 角色 |
-|------|------|
-| `docs/requirements.md` | 产品需求（稳定） |
-| `docs/design.md` | 架构设计（稳定） |
-| `docs/next-steps.md` | 战略路线图（阶段性更新） |
-| `docs/implementation-log.md` | 历史完成记录（task 完成后追加） |
-| `docs/collaboration-plan.md` | Claude Code + Codex 协作规范 |
-| `docs/backlog.md` | 战术层可执行需求列表 |
-| `docs/tasks/*.md` | 单个功能的开发追踪 |
+All user prompts are archived under `prompt_history/YYYY-MM-DD.md` for traceability.
 
 ## License
 
