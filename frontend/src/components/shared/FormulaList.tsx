@@ -64,8 +64,14 @@ export default function FormulaList() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.delete(`/formulas/${id}`),
-    onSuccess: () => {
+    onSuccess: (_data, deletedId) => {
       queryClient.invalidateQueries({ queryKey: ['formulas'] })
+      setSelectedIds((prev) => {
+        if (!prev.has(deletedId)) return prev
+        const next = new Set(prev)
+        next.delete(deletedId)
+        return next
+      })
     },
   })
 
@@ -124,6 +130,30 @@ export default function FormulaList() {
 
   // ── Export / Import ──
   const [importResult, setImportResult] = useState<{ imported: { id: string; name: string }[]; errors: { name: string; error: string }[] } | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  const toggleSelect = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const togglePageSelection = () => {
+    const pageIds = formulas.map((f) => f.id)
+    const allSelected = pageIds.length > 0 && pageIds.every((id) => selectedIds.has(id))
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (allSelected) pageIds.forEach((id) => next.delete(id))
+      else pageIds.forEach((id) => next.add(id))
+      return next
+    })
+  }
+
+  const clearSelection = () => setSelectedIds(new Set())
 
   async function handleExport(ids: string[], filename: string) {
     if (ids.length === 0) return
@@ -172,6 +202,16 @@ export default function FormulaList() {
       const r = await api.get<{ formulas: Formula[] }>(`/formulas?${params.toString()}`)
       const ids = (r.formulas ?? []).map((f) => f.id)
       await handleExport(ids, `formulas-export-${new Date().toISOString().slice(0, 10)}.json`)
+    },
+  })
+
+  const exportSelectedMutation = useMutation({
+    mutationFn: async () => {
+      const ids = Array.from(selectedIds)
+      await handleExport(ids, `formulas-selected-${new Date().toISOString().slice(0, 10)}.json`)
+    },
+    onSuccess: () => {
+      // Keep the selection so users can do multiple exports; users can clear explicitly.
     },
   })
 
@@ -279,6 +319,25 @@ export default function FormulaList() {
               {t('formula.manageCategories')}
             </button>
           )}
+          {selectedIds.size > 0 && (
+            <>
+              <button
+                onClick={clearSelection}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
+              >
+                {t('formula.clearSelection')}
+              </button>
+              <button
+                onClick={() => exportSelectedMutation.mutate()}
+                disabled={exportSelectedMutation.isPending}
+                className="rounded-lg border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-50"
+              >
+                {exportSelectedMutation.isPending
+                  ? t('common.loading')
+                  : t('formula.exportSelected', { count: selectedIds.size })}
+              </button>
+            </>
+          )}
           <button
             onClick={() => exportAllMutation.mutate()}
             disabled={exportAllMutation.isPending || formulas.length === 0}
@@ -357,6 +416,16 @@ export default function FormulaList() {
             <table className="w-full text-left text-sm">
               <thead className="border-b border-gray-200 bg-gray-50">
                 <tr>
+                  <th className="w-10 px-4 py-3">
+                    <input
+                      type="checkbox"
+                      aria-label={t('formula.selectAllOnPage')}
+                      checked={formulas.length > 0 && formulas.every((f) => selectedIds.has(f.id))}
+                      onChange={togglePageSelection}
+                      onClick={(e) => e.stopPropagation()}
+                      className="h-4 w-4 cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                  </th>
                   <th className="px-6 py-3 font-medium text-gray-600">{t('formula.name')}</th>
                   <th className="px-6 py-3 font-medium text-gray-600">{t('formula.id')}</th>
                   {domainFilter === 'all' && (
@@ -372,8 +441,22 @@ export default function FormulaList() {
                   <tr
                     key={f.id}
                     onClick={() => navigate(`/formulas/${f.id}`)}
-                    className="cursor-pointer transition hover:bg-gray-50"
+                    className={`cursor-pointer transition hover:bg-gray-50 ${
+                      selectedIds.has(f.id) ? 'bg-indigo-50/50' : ''
+                    }`}
                   >
+                    <td className="px-4 py-4">
+                      <input
+                        type="checkbox"
+                        aria-label={t('formula.selectRow')}
+                        checked={selectedIds.has(f.id)}
+                        onChange={() => {
+                          /* handled in onClick of the cell */
+                        }}
+                        onClick={(e) => toggleSelect(f.id, e)}
+                        className="h-4 w-4 cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                      />
+                    </td>
                     <td className="px-6 py-4 font-medium text-gray-900">{f.name}</td>
                     <td className="px-6 py-4 font-mono text-xs text-gray-500">{f.id}</td>
                     {domainFilter === 'all' && (
