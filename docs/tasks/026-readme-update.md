@@ -1,6 +1,6 @@
 # Task #026: README 更新
 
-## Status: in-progress
+## Status: done
 
 ## 需求
 
