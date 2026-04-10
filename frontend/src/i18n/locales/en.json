@@ -248,7 +248,7 @@
     "subtitle": "Adjust server parameters here. Changes take effect immediately without a restart.",
     "engineSection": "Calculation Engine",
     "maxConcurrentCalcs": "Max Concurrent Calculations",
-    "maxConcurrentCalcsHint": "Maximum number of calculation requests processed simultaneously. Requests beyond this limit receive a 503 and should be retried. Batch Test's parallel worker cap is derived from this value as floor(limit / 5), clamped to at least 1 and at most 8; when this limit is 0 (unlimited) Batch Test uses 8 workers.",
+    "maxConcurrentCalcsHint": "Maximum number of calculation requests processed simultaneously. Requests beyond this limit receive a 503 and should be retried. Batch Test's parallel worker count is floor(limit / 5) with a minimum of 1, so at least 4/5 of the global budget stays available for interactive calculations. When this limit is 0 (unlimited) Batch Test uses 8 workers. Each batch case still acquires a slot from this limiter, so total concurrent calculations never exceed the configured value.",
     "zeroMeansUnlimited": "(0 = unlimited)",
     "save": "Save Settings",
     "saveSuccess": "Settings saved",

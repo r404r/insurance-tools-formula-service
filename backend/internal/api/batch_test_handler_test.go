@@ -8,16 +8,18 @@ func TestComputeBatchWorkers(t *testing.T) {
 		globalLimit int
 		want        int
 	}{
-		{"unlimited falls back to default", 0, batchWorkerDefaultMax},
-		{"negative treated as unlimited", -1, batchWorkerDefaultMax},
-		{"tiny global clamps to 1", 1, 1},
-		{"4 clamps to 1", 4, 1},
+		{"unlimited falls back to default", 0, batchWorkerUnlimitedDefault},
+		{"negative treated as unlimited", -1, batchWorkerUnlimitedDefault},
+		{"tiny global floors to 1", 1, 1},
+		{"4 floors to 1", 4, 1},
 		{"exactly 5 yields 1", 5, 1},
 		{"9 yields 1", 9, 1},
 		{"10 yields 2", 10, 2},
 		{"25 yields 5", 25, 5},
-		{"40 yields exactly default", 40, batchWorkerDefaultMax},
-		{"large global clamps to default", 1000, batchWorkerDefaultMax},
+		// The upper cap of 8 was removed — workers now scale with globalLimit.
+		{"40 yields 8", 40, 8},
+		{"100 yields 20", 100, 20},
+		{"1000 yields 200", 1000, 200},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

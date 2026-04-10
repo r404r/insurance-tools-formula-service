@@ -12,32 +12,48 @@ import (
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
 )
 
-// batchWorkerDefaultMax is the fallback worker cap when the global
-// concurrency limit is unlimited (0). It also clamps the computed
-// cap so an absurdly large global limit cannot spawn unbounded
-// goroutines per batch request.
-const batchWorkerDefaultMax = 8
+// batchWorkerUnlimitedDefault is the worker count used when the global
+// concurrency limit is unlimited (globalLimit <= 0). It is an arbitrary
+// but reasonable default for the "no configured cap" case.
+const batchWorkerUnlimitedDefault = 8
 
 // computeBatchWorkers returns the number of parallel workers used by
 // BatchTest, given the current global concurrency limit.
 //
-// Rule: Batch workers = floor(globalLimit / 5), clamped to
-// [1, batchWorkerDefaultMax]. When globalLimit <= 0 (unlimited),
-// fall back to batchWorkerDefaultMax.
+// Rule: when globalLimit > 0, workers = floor(globalLimit / 5), with a
+// floor of 1 so very small limits still get one worker. There is no
+// fixed upper cap — larger global limits produce proportionally more
+// batch workers. This is safe and intentional:
 //
-// The 1/5 ratio reserves at least 4/5 of the global calculation
-// budget for concurrent non-batch requests, so a large batch run
-// cannot starve interactive calculations.
+//  1. The shared DynamicConcurrencyLimiter gates every per-case
+//     Calculate via Acquire/Release, so actual concurrent calculations
+//     never exceed globalLimit regardless of how many workers exist.
+//  2. The handler uses a fixed-size worker pool reading from a jobs
+//     channel, so goroutine count is bounded by `workers`, not by
+//     the number of cases in the upload (a 10k-case upload still
+//     creates at most `workers` goroutines).
+//  3. `workers` is proportional to the admin's configured global cap:
+//     if the admin sets maxConcurrentCalcs=1000 they are signalling
+//     "this server can handle 1000 concurrent calculations", so
+//     letting one batch request spawn 200 (= 1000/5) worker
+//     goroutines is consistent with that capacity. Each goroutine
+//     stack is ~2KB, so even 200 idle workers is ~400KB — small
+//     relative to the resources the admin has already budgeted for.
+//
+// The 1/5 ratio reserves at least 4/5 of the global budget for
+// concurrent non-batch (interactive) requests, so a large batch run
+// cannot starve single /calculate calls.
+//
+// When globalLimit <= 0 (unlimited), fall back to
+// batchWorkerUnlimitedDefault — there's no admin-configured ceiling
+// to scale against, so pick a conservative default.
 func computeBatchWorkers(globalLimit int) int {
 	if globalLimit <= 0 {
-		return batchWorkerDefaultMax
+		return batchWorkerUnlimitedDefault
 	}
 	w := globalLimit / 5
 	if w < 1 {
 		w = 1
-	}
-	if w > batchWorkerDefaultMax {
-		w = batchWorkerDefaultMax
 	}
 	return w
 }
@@ -60,14 +76,18 @@ func (h *CalcHandler) BatchTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse tolerance (relative). Default 0 → exact match.
-	tolerance := new(big.Float).SetPrec(64)
+	// Validate tolerance at handler entry (shared across all cases for
+	// parsing check), but DO NOT keep the parsed *big.Float around — it
+	// would be unsafe to share across the per-case worker goroutines since
+	// math/big documents Int/Rat/Float as unsafe for concurrent use.
+	// Each case re-parses the validated string into its own *big.Float.
 	if req.Tolerance != "" {
-		if _, ok := tolerance.SetString(req.Tolerance); !ok {
+		probe := new(big.Float).SetPrec(64)
+		if _, ok := probe.SetString(req.Tolerance); !ok {
 			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid tolerance value", Code: http.StatusBadRequest})
 			return
 		}
-		if tolerance.Sign() < 0 {
+		if probe.Sign() < 0 {
 			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "tolerance must be >= 0", Code: http.StatusBadRequest})
 			return
 		}
@@ -139,13 +159,16 @@ func (h *CalcHandler) BatchTest(w http.ResponseWriter, r *http.Request) {
 	//      captures the specific semaphore generation that was written to.
 	//      If SetLimit swaps the semaphore mid-batch, the drain still lands
 	//      on the old channel — the new semaphore's capacity stays accurate.
+	//   3. Each case parses its own *big.Float from the pre-validated
+	//      tolerance string, so no math/big value is shared across goroutines.
+	toleranceStr := req.Tolerance
 	var wg sync.WaitGroup
 	for wIdx := 0; wIdx < workers; wIdx++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			for job := range jobs {
-				runOneBatchCase(ctx, h.Limiter, h.Engine, &version.Graph, job.i, job.tc, tolerance, results)
+				runOneBatchCase(ctx, h.Limiter, h.Engine, &version.Graph, job.i, job.tc, toleranceStr, results)
 			}
 		}()
 	}
@@ -190,6 +213,9 @@ func (h *CalcHandler) BatchTest(w http.ResponseWriter, r *http.Request) {
 // runOneBatchCase is the per-case worker body. It owns:
 //   - acquiring a shared-limiter slot (blocks on ctx)
 //   - recovering panics from the engine or comparison code
+//   - parsing a fresh *big.Float tolerance for this case
+//     (math/big is not safe for concurrent use, so every case gets
+//     its own instance rather than sharing a single parsed pointer)
 //   - writing the result into the caller-provided slice at the correct index
 //
 // Isolated into its own function so `defer` unwinds in a predictable order
@@ -201,7 +227,7 @@ func runOneBatchCase(
 	graph *domain.FormulaGraph,
 	index int,
 	tc BatchTestCase,
-	tolerance *big.Float,
+	toleranceStr string,
 	results []BatchTestCaseResult,
 ) {
 	// Local error recorder used for both acquire-failure and panic paths.
@@ -236,6 +262,14 @@ func runOneBatchCase(
 		}
 	}()
 
+	// Parse a fresh per-case tolerance. The handler already validated the
+	// string so SetString is guaranteed to succeed. Unconditionally allocate
+	// so compareValues always receives a non-nil *big.Float (zero value =
+	// exact match) and need not special-case nil.
+	tolerance := new(big.Float).SetPrec(64)
+	if toleranceStr != "" {
+		tolerance.SetString(toleranceStr)
+	}
 	results[index] = runBatchTestCase(ctx, engine, graph, index, tc, tolerance)
 }
 

@@ -248,7 +248,7 @@
     "subtitle": "管理员可在此调整服务器运行参数，修改即时生效，无需重启。",
     "engineSection": "计算引擎",
     "maxConcurrentCalcs": "最大并发计算数",
-    "maxConcurrentCalcsHint": "同时处理的计算请求上限。超过此值的请求将收到 503 并可重试。批量测试（Batch Test）的并行 worker 上限由此值派生：floor(上限 / 5)，夹在 [1, 8] 之间；当此值为 0（无限）时，批量测试固定使用 8 个 worker。",
+    "maxConcurrentCalcsHint": "同时处理的计算请求上限。超过此值的请求将收到 503 并可重试。批量测试（Batch Test）的并行 worker 数由此值派生：floor(上限 / 5)，下限为 1，无固定上限；4/5 的全局预算留给交互式单次计算。当此值为 0（无限）时，批量测试固定使用 8 个 worker。批量测试的每个 case 仍然会从此 limiter 中 acquire 一个 slot，因此全局并发计算总数永不超过此值。",
     "zeroMeansUnlimited": "（0 表示不限制）",
     "save": "保存设置",
     "saveSuccess": "设置已保存",
