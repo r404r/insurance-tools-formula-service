@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getSettings, updateSettings } from '../../api/settings'
 import { getCacheStats, clearCache } from '../../api/cache'
+import { api } from '../../api/client'
 import { useAuthStore } from '../../store/authStore'
 
 export default function AdminSettingsPage() {
@@ -204,7 +205,47 @@ export default function AdminSettingsPage() {
         <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
           {t('cache.hint')}
         </div>
+
+        {/* ── Seed Data Reset ── */}
+        <SeedResetSection />
       </div>
+    </div>
+  )
+}
+
+function SeedResetSection() {
+  const { t } = useTranslation()
+  const queryClient = useQueryClient()
+
+  const resetMutation = useMutation({
+    mutationFn: () => api.post<{ message: string }>('/admin/reset-seed', {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['formulas'] })
+      queryClient.invalidateQueries({ queryKey: ['tables'] })
+    },
+  })
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+      <h2 className="mb-4 text-lg font-semibold text-gray-900">{t('adminSettings.seedSection')}</h2>
+      <p className="mb-4 text-sm text-gray-500">{t('adminSettings.seedHint')}</p>
+      <button
+        onClick={() => {
+          if (window.confirm(t('adminSettings.seedResetConfirm'))) {
+            resetMutation.mutate()
+          }
+        }}
+        disabled={resetMutation.isPending}
+        className="rounded-lg border border-orange-200 px-4 py-2 text-sm font-medium text-orange-600 transition hover:bg-orange-50 disabled:opacity-50"
+      >
+        {resetMutation.isPending ? t('common.loading') : t('adminSettings.seedReset')}
+      </button>
+      {resetMutation.isSuccess && (
+        <p className="mt-2 text-sm text-green-600">{t('adminSettings.seedResetSuccess')}</p>
+      )}
+      {resetMutation.isError && (
+        <p className="mt-2 text-sm text-red-500">{t('common.error')}</p>
+      )}
     </div>
   )
 }

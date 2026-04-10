@@ -1,6 +1,8 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/go-chi/chi/v5"
 	chiMiddleware "github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog"
@@ -21,6 +23,7 @@ type RouterConfig struct {
 	CacheHandler       *CacheHandler
 	SettingsHandler    *SettingsHandler
 	TemplateHandler    *TemplateHandler
+	SeedResetHandler   http.HandlerFunc // optional: POST /admin/reset-seed
 	JWTManager         *auth.JWTManager
 	Logger             zerolog.Logger
 	CORSOrigins        []string
@@ -145,6 +148,12 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 					r.Get("/", cfg.SettingsHandler.Get)
 					r.Put("/", cfg.SettingsHandler.Update)
 				})
+
+			// Seed data reset (admin only).
+			if cfg.SeedResetHandler != nil {
+				r.With(auth.RequirePermission(auth.PermUserManage)).
+					Post("/admin/reset-seed", cfg.SeedResetHandler)
+			}
 		})
 	})
 

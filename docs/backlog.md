@@ -10,6 +10,7 @@
 
 ## 已完成
 
+- [025-formula-delete-seed-reset.md](tasks/025-formula-delete-seed-reset.md) — 公式删除 + 预置数据重置（2026-04-10）
 - [024-user-guide.md](tasks/024-user-guide.md) — 公式编辑器操作指南 中/英/日三语（2026-04-10）
 - [023-life-insurance-loop-formulas.md](tasks/023-life-insurance-loop-formulas.md) — 生命保険数理 Loop 公式支持（2026-04-10）
 - [022-node-description.md](tasks/022-node-description.md) — 节点 Description 功能（2026-04-10）

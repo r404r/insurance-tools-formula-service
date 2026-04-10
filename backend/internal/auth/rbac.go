@@ -33,7 +33,6 @@ var RolePermissions = map[domain.Role][]Permission{
 	domain.RoleEditor: {
 		PermFormulaCreate,
 		PermFormulaEdit,
-		PermFormulaDelete,
 		PermFormulaView,
 		PermCalculate,
 		PermTableManage,

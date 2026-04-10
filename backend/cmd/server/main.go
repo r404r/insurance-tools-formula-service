@@ -143,22 +143,25 @@ func run(logger zerolog.Logger) error {
 	}
 
 	// Build the router.
+	resetSeedHandler := makeSeedResetHandler(st, logger)
+
 	router := api.NewRouter(api.RouterConfig{
-		AuthHandler:     authHandler,
-		FormulaHandler:  formulaHandler,
-		VersionHandler:  versionHandler,
-		CalcHandler:     calcHandler,
-		TableHandler:    tableHandler,
-		UserHandler:     userHandler,
-		CategoryHandler: categoryHandler,
-		ParseHandler:    parseHandler,
-		CacheHandler:    cacheHandler,
-		SettingsHandler: settingsHandler,
-		TemplateHandler: templateHandler,
-		JWTManager:      jwtMgr,
-		Logger:          logger,
-		CORSOrigins:     cfg.Server.CORSOrigins,
-		CalcLimiter:     calcLimiter,
+		AuthHandler:      authHandler,
+		FormulaHandler:   formulaHandler,
+		VersionHandler:   versionHandler,
+		CalcHandler:      calcHandler,
+		TableHandler:     tableHandler,
+		UserHandler:      userHandler,
+		CategoryHandler:  categoryHandler,
+		ParseHandler:     parseHandler,
+		CacheHandler:     cacheHandler,
+		SettingsHandler:  settingsHandler,
+		TemplateHandler:  templateHandler,
+		SeedResetHandler: resetSeedHandler,
+		JWTManager:       jwtMgr,
+		Logger:           logger,
+		CORSOrigins:      cfg.Server.CORSOrigins,
+		CalcLimiter:      calcLimiter,
 	})
 
 	// Start HTTP server.
@@ -617,4 +620,79 @@ func mustJSON(v any) json.RawMessage {
 		panic(err)
 	}
 	return b
+}
+
+// seedFormulaNames is the list of formula names created by the seed function.
+// Used to identify seed data for reset operations.
+var seedFormulaNames = []string{
+	"寿险净保费计算",
+	"日本生命保険 収支相等純保険料",
+	"日本生命保険 粗保険料分解",
+	"日本生命保険 責任準備金ロールフォワード",
+	"日本生命保険 解約返戻金近似",
+	"财产险保费计算",
+	"车险商业保费计算",
+}
+
+// seedTableNames is the list of table names created by API-based seed scripts.
+var seedTableNames = []string{
+	"日本標準生命表2007（簡易版）",
+}
+
+// makeSeedResetHandler returns an http.HandlerFunc that deletes seed formulas
+// and tables, then re-runs the seed function. User-created data is not affected.
+func makeSeedResetHandler(s store.Store, logger zerolog.Logger) http.HandlerFunc {
+	seedNames := make(map[string]bool, len(seedFormulaNames))
+	for _, n := range seedFormulaNames {
+		seedNames[n] = true
+	}
+	tableNames := make(map[string]bool, len(seedTableNames))
+	for _, n := range seedTableNames {
+		tableNames[n] = true
+	}
+
+	// The seed admin account ID is used as provenance check.
+	const seedAdminID = "00000000-0000-0000-0000-000000000001"
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Delete seed formulas: must match name AND be created by the seed admin.
+		formulas, _, _ := s.Formulas().List(r.Context(), domain.FormulaFilter{Limit: 10000})
+		deleted := 0
+		for _, f := range formulas {
+			if seedNames[f.Name] && f.CreatedBy == seedAdminID {
+				if err := s.Formulas().Delete(r.Context(), f.ID); err != nil {
+					logger.Warn().Err(err).Str("name", f.Name).Msg("failed to delete seed formula")
+				} else {
+					deleted++
+				}
+			}
+		}
+
+		// Delete seed tables (by name match only — tables don't have CreatedBy).
+		tables, _ := s.Tables().List(r.Context(), nil)
+		tablesDeleted := 0
+		for _, t := range tables {
+			if tableNames[t.Name] {
+				if err := s.Tables().Delete(r.Context(), t.ID); err != nil {
+					logger.Warn().Err(err).Str("name", t.Name).Msg("failed to delete seed table")
+				} else {
+					tablesDeleted++
+				}
+			}
+		}
+
+		logger.Info().Int("formulas", deleted).Int("tables", tablesDeleted).Msg("seed data deleted")
+
+		// Re-run seed.
+		if err := seed(r.Context(), s, logger); err != nil {
+			logger.Error().Err(err).Msg("seed reset failed during re-seed")
+			http.Error(w, `{"error":"seed reset failed","code":500}`, http.StatusInternalServerError)
+			return
+		}
+
+		logger.Info().Msg("seed data reset complete")
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprintf(w, `{"message":"seed data reset","formulasDeleted":%d,"tablesDeleted":%d}`, deleted, tablesDeleted)
+	}
 }

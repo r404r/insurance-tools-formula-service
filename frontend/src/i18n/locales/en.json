@@ -33,7 +33,8 @@
     "createTitle": "Create Formula",
     "cancel": "Cancel",
     "createdAt": "Created At",
-    "totalCount": "{{count}} total"
+    "totalCount": "{{count}} total",
+    "deleteConfirm": "Delete formula \"{{name}}\"? This cannot be undone."
   },
   "category": {
     "title": "Category Management",
@@ -229,6 +230,11 @@
     "maxConcurrentCalcsHint": "Maximum number of calculation requests processed simultaneously. Requests beyond this limit receive a 503 and should be retried.",
     "zeroMeansUnlimited": "(0 = unlimited)",
     "save": "Save Settings",
-    "saveSuccess": "Settings saved"
+    "saveSuccess": "Settings saved",
+    "seedSection": "Preset Data",
+    "seedHint": "Reset built-in formulas and lookup tables to their initial state. User-created formulas and tables will not be affected.",
+    "seedReset": "Reset Preset Data",
+    "seedResetConfirm": "Reset all preset formulas and lookup tables? User-created data will not be affected.",
+    "seedResetSuccess": "Preset data has been reset"
   }
 }

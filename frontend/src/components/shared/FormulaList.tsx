@@ -62,6 +62,20 @@ export default function FormulaList() {
     if (page > totalPages) setPage(totalPages)
   }, [totalPages, page])
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/formulas/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['formulas'] })
+    },
+  })
+
+  const handleDelete = (f: Formula, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (window.confirm(t('formula.deleteConfirm', { name: f.name }))) {
+      deleteMutation.mutate(f.id)
+    }
+  }
+
   const createMutation = useMutation({
     mutationFn: (d: { name: string; domain: InsuranceDomain; description: string }) =>
       api.post<Formula>('/formulas', d),
@@ -200,6 +214,7 @@ export default function FormulaList() {
                   )}
                   <th className="px-6 py-3 font-medium text-gray-600">{t('formula.description')}</th>
                   <th className="px-6 py-3 font-medium text-gray-600">{t('formula.createdAt')}</th>
+                  {isAdmin && <th className="px-6 py-3 font-medium text-gray-600">{t('user.actions')}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -218,6 +233,16 @@ export default function FormulaList() {
                     <td className="px-6 py-4 text-gray-400">
                       {new Date(f.createdAt).toLocaleDateString()}
                     </td>
+                    {isAdmin && (
+                      <td className="px-6 py-4">
+                        <button
+                          onClick={(e) => handleDelete(f, e)}
+                          className="text-xs text-red-500 hover:text-red-700 transition"
+                        >
+                          {t('formula.delete')}
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

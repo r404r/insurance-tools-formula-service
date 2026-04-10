@@ -33,7 +33,8 @@
     "createTitle": "新建公式",
     "cancel": "取消",
     "createdAt": "创建时间",
-    "totalCount": "共 {{count}} 条"
+    "totalCount": "共 {{count}} 条",
+    "deleteConfirm": "确认删除公式「{{name}}」？此操作不可撤销。"
   },
   "category": {
     "title": "分类管理",
@@ -229,6 +230,11 @@
     "maxConcurrentCalcsHint": "同时处理的计算请求上限。超过此值的请求将收到 503 并可重试。",
     "zeroMeansUnlimited": "（0 表示不限制）",
     "save": "保存设置",
-    "saveSuccess": "设置已保存"
+    "saveSuccess": "设置已保存",
+    "seedSection": "预置数据",
+    "seedHint": "重置内置公式和料率表到初始状态。用户自行创建的公式和料率表不受影响。",
+    "seedReset": "重置预置数据",
+    "seedResetConfirm": "确认重置所有预置公式和料率表？用户自建数据不受影响。",
+    "seedResetSuccess": "预置数据已重置"
   }
 }
