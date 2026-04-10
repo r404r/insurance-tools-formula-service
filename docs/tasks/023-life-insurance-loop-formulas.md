@@ -1,6 +1,6 @@
 # Task #023: 生命保険数理 Loop 公式支持
 
-## Status: in-progress
+## Status: done
 
 ## 需求
 
@@ -79,13 +79,14 @@ return acc
 
 ## TODO
 
-- [ ] 方案确认
-- [ ] 改动 1：空迭代默认值
-- [ ] 改动 2：fold 聚合模式
-- [ ] 改动 3：生命表 dummy 数据
-- [ ] 改动 4：三个内置公式
-- [ ] codex review
-- [ ] 改动 5：截图验证
-- [ ] 改动 6：批量测试（30组×3）
-- [ ] 测试报告
-- [ ] CLAUDE.md 更新测试规则
+- [x] 方案确认
+- [x] 改动 1：空迭代默认值（sum→0, product→1, count→0）
+- [x] 改动 2：fold 聚合模式（executeFoldLoop, 30 engine tests）
+- [x] 改动 3：生命表 dummy 数据（日本標準生命表2007 簡易版, 101行）
+- [x] 改动 4：三个内置公式 + 4个 body 子公式（全部 published）
+- [x] codex review（3 issues fixed: table forwarding, fold validation, accumulatorVar guard）
+- [x] 改动 5：截图验证（6张 visual + text, 含 LaTeX 预览）
+- [x] 改动 6：批量测试（90 cases, 100% pass rate）
+- [x] 测试报告（tests/reports/023-life-insurance-report.md）
+- [x] CLAUDE.md 更新测试规则
+- [x] 修复 FormulaEditorPage 无限循环 bug（allFormulas 默认值引用稳定化）
