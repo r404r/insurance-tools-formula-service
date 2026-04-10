@@ -38,7 +38,15 @@
     "copy": "复制",
     "copyTitle": "复制公式",
     "copyHint": "基于「{{name}}」创建新公式，可修改名称和描述，确认后直接进入编辑。",
-    "copySuffix": "（副本）"
+    "copySuffix": "（副本）",
+    "export": "导出",
+    "exportAll": "全部导出（{{count}}）",
+    "exportPartial": "已导出 {{exported}}/{{requested}} 条公式，部分被跳过（不存在或无版本）。",
+    "import": "导入",
+    "importResult": "导入结果",
+    "importSuccess": "成功",
+    "importFailure": "失败",
+    "importParseError": "导入文件解析或上传失败"
   },
   "category": {
     "title": "分类管理",

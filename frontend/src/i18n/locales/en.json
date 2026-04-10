@@ -38,7 +38,15 @@
     "copy": "Copy",
     "copyTitle": "Copy Formula",
     "copyHint": "Create a new formula from \"{{name}}\". Edit name and description, then open it in the editor.",
-    "copySuffix": "(Copy)"
+    "copySuffix": "(Copy)",
+    "export": "Export",
+    "exportAll": "Export All ({{count}})",
+    "exportPartial": "Exported {{exported}} of {{requested}} formulas. Some were skipped (missing or no versions).",
+    "import": "Import",
+    "importResult": "Import Result",
+    "importSuccess": "Imported",
+    "importFailure": "Failed",
+    "importParseError": "Failed to parse or upload the import file"
   },
   "category": {
     "title": "Category Management",

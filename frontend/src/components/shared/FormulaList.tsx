@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { api } from '../../api/client'
+import { api, getToken } from '../../api/client'
 import { useAuthStore } from '../../store/authStore'
 import { listCategories } from '../../api/categories'
 import TemplateGallery from './TemplateGallery'
@@ -122,6 +122,102 @@ export default function FormulaList() {
     },
   })
 
+  // ── Export / Import ──
+  const [importResult, setImportResult] = useState<{ imported: { id: string; name: string }[]; errors: { name: string; error: string }[] } | null>(null)
+
+  async function handleExport(ids: string[], filename: string) {
+    if (ids.length === 0) return
+    try {
+      const token = getToken()
+      const res = await fetch('/api/v1/formulas/export', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ ids }),
+      })
+      if (!res.ok) {
+        window.alert(t('common.error'))
+        return
+      }
+      // Detect partial exports (backend silently skips missing/broken formulas).
+      const requested = parseInt(res.headers.get('X-Export-Requested') ?? '0', 10)
+      const exported = parseInt(res.headers.get('X-Export-Exported') ?? '0', 10)
+      if (requested > 0 && exported < requested) {
+        window.alert(t('formula.exportPartial', { requested, exported }))
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      window.alert(t('common.error'))
+    }
+  }
+
+  const exportAllMutation = useMutation({
+    mutationFn: async () => {
+      // Fetch all matching formulas up to 500 to get their IDs.
+      const params = new URLSearchParams()
+      if (search) params.set('search', search)
+      if (domainFilter !== 'all') params.set('domain', domainFilter)
+      params.set('limit', '500')
+      params.set('offset', '0')
+      const r = await api.get<{ formulas: Formula[] }>(`/formulas?${params.toString()}`)
+      const ids = (r.formulas ?? []).map((f) => f.id)
+      await handleExport(ids, `formulas-export-${new Date().toISOString().slice(0, 10)}.json`)
+    },
+  })
+
+  const sanitizeFilename = (s: string): string => {
+    // Strip reserved characters, control chars (U+0000-U+001F, U+007F), and leading dots.
+    // eslint-disable-next-line no-control-regex
+    const cleaned = s.replace(/[\\/:*?"<>|\x00-\x1f\x7f]/g, '_').replace(/^\.+/, '_')
+    const trimmed = cleaned.slice(0, 120).trim()
+    return trimmed || 'formula'
+  }
+
+  const handleSingleExport = (f: Formula, e: React.MouseEvent) => {
+    e.stopPropagation()
+    handleExport([f.id], `${sanitizeFilename(f.name)}.json`)
+  }
+
+  const importFileRef = useRef<HTMLInputElement | null>(null)
+
+  const importMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const text = await file.text()
+      const body = JSON.parse(text)
+      return api.post<{ imported: { id: string; name: string }[]; errors: { name: string; error: string }[] }>(
+        '/formulas/import',
+        body,
+      )
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['formulas'] })
+      setImportResult(result)
+    },
+    onError: () => {
+      setImportResult({ imported: [], errors: [{ name: '', error: t('formula.importParseError') }] })
+    },
+  })
+
+  const handleImportClick = () => {
+    importFileRef.current?.click()
+  }
+
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) importMutation.mutate(file)
+    e.target.value = '' // reset so same file can be re-selected
+  }
+
   useEffect(() => {
     if (categories.length === 0) {
       setNewDomain('')
@@ -183,8 +279,29 @@ export default function FormulaList() {
               {t('formula.manageCategories')}
             </button>
           )}
+          <button
+            onClick={() => exportAllMutation.mutate()}
+            disabled={exportAllMutation.isPending || formulas.length === 0}
+            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+          >
+            {exportAllMutation.isPending ? t('common.loading') : t('formula.exportAll', { count: total })}
+          </button>
           {isEditor && (
             <>
+              <button
+                onClick={handleImportClick}
+                disabled={importMutation.isPending}
+                className="rounded-lg border border-emerald-300 px-4 py-2 text-sm font-medium text-emerald-600 transition hover:bg-emerald-50 disabled:opacity-50"
+              >
+                {importMutation.isPending ? t('common.loading') : t('formula.import')}
+              </button>
+              <input
+                ref={importFileRef}
+                type="file"
+                accept=".json,application/json"
+                onChange={handleImportFileChange}
+                className="hidden"
+              />
               <button
                 onClick={() => setShowTemplateGallery(true)}
                 className="rounded-lg border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50"
@@ -247,7 +364,7 @@ export default function FormulaList() {
                   )}
                   <th className="px-6 py-3 font-medium text-gray-600">{t('formula.description')}</th>
                   <th className="px-6 py-3 font-medium text-gray-600">{t('formula.createdAt')}</th>
-                  {isEditor && <th className="px-6 py-3 font-medium text-gray-600">{t('user.actions')}</th>}
+                  <th className="px-6 py-3 font-medium text-gray-600">{t('user.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -266,26 +383,32 @@ export default function FormulaList() {
                     <td className="px-6 py-4 text-gray-400">
                       {new Date(f.createdAt).toLocaleDateString()}
                     </td>
-                    {isEditor && (
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-3">
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={(e) => handleSingleExport(f, e)}
+                          className="text-xs text-gray-500 hover:text-gray-800 transition"
+                        >
+                          {t('formula.export')}
+                        </button>
+                        {isEditor && (
                           <button
                             onClick={(e) => handleCopyClick(f, e)}
                             className="text-xs text-indigo-500 hover:text-indigo-700 transition"
                           >
                             {t('formula.copy')}
                           </button>
-                          {isAdmin && (
-                            <button
-                              onClick={(e) => handleDelete(f, e)}
-                              className="text-xs text-red-500 hover:text-red-700 transition"
-                            >
-                              {t('formula.delete')}
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    )}
+                        )}
+                        {isAdmin && (
+                          <button
+                            onClick={(e) => handleDelete(f, e)}
+                            className="text-xs text-red-500 hover:text-red-700 transition"
+                          >
+                            {t('formula.delete')}
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -468,6 +591,52 @@ export default function FormulaList() {
             {copyMutation.isError && (
               <p className="mt-3 text-sm text-red-600">{t('common.error')}</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {importResult && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="mb-4 text-lg font-bold text-gray-900">{t('formula.importResult')}</h2>
+
+            <div className="mb-4 grid grid-cols-2 gap-4">
+              <div className="rounded-lg bg-emerald-50 p-3">
+                <p className="text-xs text-emerald-600">{t('formula.importSuccess')}</p>
+                <p className="mt-1 text-2xl font-bold text-emerald-700">{importResult.imported.length}</p>
+              </div>
+              <div className="rounded-lg bg-red-50 p-3">
+                <p className="text-xs text-red-600">{t('formula.importFailure')}</p>
+                <p className="mt-1 text-2xl font-bold text-red-700">{importResult.errors.length}</p>
+              </div>
+            </div>
+
+            {importResult.imported.length > 0 && (
+              <div className="mb-3 max-h-40 overflow-y-auto rounded border border-emerald-100 bg-emerald-50/30 p-2 text-xs">
+                {importResult.imported.map((item) => (
+                  <div key={item.id} className="py-0.5 text-emerald-800">✓ {item.name}</div>
+                ))}
+              </div>
+            )}
+
+            {importResult.errors.length > 0 && (
+              <div className="mb-3 max-h-40 overflow-y-auto rounded border border-red-100 bg-red-50/30 p-2 text-xs">
+                {importResult.errors.map((err, i) => (
+                  <div key={i} className="py-0.5 text-red-800">
+                    ✗ {err.name || `#${i}`}: {err.error}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end">
+              <button
+                onClick={() => setImportResult(null)}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
+              >
+                {t('common.confirm')}
+              </button>
+            </div>
           </div>
         </div>
       )}

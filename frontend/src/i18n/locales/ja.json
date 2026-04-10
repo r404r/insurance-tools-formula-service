@@ -38,7 +38,15 @@
     "copy": "複製",
     "copyTitle": "計算式を複製",
     "copyHint": "「{{name}}」を基に新しい計算式を作成します。名前と説明を編集後、エディタで開きます。",
-    "copySuffix": "（コピー）"
+    "copySuffix": "（コピー）",
+    "export": "エクスポート",
+    "exportAll": "全てエクスポート（{{count}}）",
+    "exportPartial": "{{exported}}/{{requested}} 件をエクスポートしました。一部はスキップされました（存在しないか、バージョンなし）。",
+    "import": "インポート",
+    "importResult": "インポート結果",
+    "importSuccess": "成功",
+    "importFailure": "失敗",
+    "importParseError": "インポートファイルの解析またはアップロードに失敗しました"
   },
   "category": {
     "title": "分類管理",

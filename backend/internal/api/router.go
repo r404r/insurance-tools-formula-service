@@ -66,6 +66,15 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 				r.With(auth.RequirePermission(auth.PermFormulaCreate)).
 					Post("/", cfg.FormulaHandler.Create)
 
+				// Export: requires view permission (all roles have it today,
+				// but the boundary must be explicit for future role changes).
+				r.With(auth.RequirePermission(auth.PermFormulaView)).
+					Post("/export", cfg.FormulaHandler.Export)
+
+				// Import: requires formula create permission.
+				r.With(auth.RequirePermission(auth.PermFormulaCreate)).
+					Post("/import", cfg.FormulaHandler.Import)
+
 				r.Route("/{id}", func(r chi.Router) {
 					r.Get("/", cfg.FormulaHandler.Get)
 

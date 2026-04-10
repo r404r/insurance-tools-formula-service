@@ -10,6 +10,7 @@
 
 ## 已完成
 
+- [029-formula-import-export.md](tasks/029-formula-import-export.md) — 公式导入导出（2026-04-11）
 - [028-formula-copy.md](tasks/028-formula-copy.md) — 公式复制功能（2026-04-10）
 - [027-palette-color-sync.md](tasks/027-palette-color-sync.md) — 调色板颜色与节点颜色同步（2026-04-10）
 - [026-readme-update.md](tasks/026-readme-update.md) — README 全量更新 + 新截图（2026-04-10）
