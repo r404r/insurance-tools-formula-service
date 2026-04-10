@@ -34,7 +34,11 @@
     "cancel": "取消",
     "createdAt": "创建时间",
     "totalCount": "共 {{count}} 条",
-    "deleteConfirm": "确认删除公式「{{name}}」？此操作不可撤销。"
+    "deleteConfirm": "确认删除公式「{{name}}」？此操作不可撤销。",
+    "copy": "复制",
+    "copyTitle": "复制公式",
+    "copyHint": "基于「{{name}}」创建新公式，可修改名称和描述，确认后直接进入编辑。",
+    "copySuffix": "（副本）"
   },
   "category": {
     "title": "分类管理",

@@ -17,6 +17,7 @@ import (
 // FormulaHandler implements formula CRUD HTTP endpoints.
 type FormulaHandler struct {
 	Formulas   store.FormulaRepository
+	Versions   store.VersionRepository
 	Categories store.CategoryRepository
 }
 
@@ -160,6 +161,145 @@ func (h *FormulaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, formula)
+}
+
+// CopyFormulaRequest is the optional payload for POST /formulas/:id/copy.
+// Both fields are optional pointers so callers can distinguish between
+// "omit" (nil → use source default) and "set to empty string".
+type CopyFormulaRequest struct {
+	Name        *string `json:"name"`
+	Description *string `json:"description"`
+}
+
+// Copy duplicates a formula's latest version into a new formula.
+// POST /api/v1/formulas/{id}/copy
+func (h *FormulaHandler) Copy(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetClaims(r.Context())
+	if claims == nil {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "authentication required", Code: http.StatusUnauthorized})
+		return
+	}
+
+	sourceID := chi.URLParam(r, "id")
+	source, err := h.Formulas.GetByID(r.Context(), sourceID)
+	if err != nil {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "formula not found", Code: http.StatusNotFound})
+		return
+	}
+
+	versions, err := h.Versions.ListVersions(r.Context(), sourceID)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to list versions", Code: http.StatusInternalServerError})
+		return
+	}
+	if len(versions) == 0 {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "cannot copy a formula without any version", Code: http.StatusBadRequest})
+		return
+	}
+
+	// Pick the highest version number (matches the editor's "latest = versions[0]" behavior).
+	var latest *domain.FormulaVersion
+	for _, v := range versions {
+		if latest == nil || v.Version > latest.Version {
+			latest = v
+		}
+	}
+
+	// Decode optional overrides.
+	var req CopyFormulaRequest
+	if r.ContentLength > 0 {
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+			return
+		}
+	}
+
+	name := source.Name + " (Copy)"
+	if req.Name != nil && *req.Name != "" {
+		name = *req.Name
+	}
+	// Description: nil means use source; a pointer to "" means intentionally cleared.
+	description := source.Description
+	if req.Description != nil {
+		description = *req.Description
+	}
+
+	now := time.Now().UTC()
+	newFormulaID := uuid.New().String()
+	newFormula := &domain.Formula{
+		ID:          newFormulaID,
+		Name:        name,
+		Domain:      source.Domain,
+		Description: description,
+		CreatedBy:   claims.UserID,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+	}
+
+	if err := h.Formulas.Create(r.Context(), newFormula); err != nil {
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create formula", Code: http.StatusInternalServerError})
+		return
+	}
+
+	// Deep-copy the graph so the source and new formula don't share slices/maps.
+	copiedGraph := deepCopyGraph(latest.Graph)
+
+	newVersion := &domain.FormulaVersion{
+		ID:         uuid.New().String(),
+		FormulaID:  newFormulaID,
+		Version:    1,
+		State:      domain.StateDraft,
+		Graph:      copiedGraph,
+		// Change note is written by the backend and shown in the versions UI.
+		// Keep it simple and neutral; the source name is the only dynamic part.
+		ChangeNote: "copy:" + source.ID,
+		CreatedBy:  claims.UserID,
+		CreatedAt:  now,
+	}
+	if err := h.Versions.CreateVersion(r.Context(), newVersion); err != nil {
+		// Best-effort rollback: delete the formula shell we just created so the
+		// database is not left with an orphaned formula that has zero versions.
+		// If the delete also fails we cannot recover here; caller will see 500
+		// and the orphan row must be cleaned up out-of-band.
+		if delErr := h.Formulas.Delete(r.Context(), newFormulaID); delErr != nil {
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
+				Error: "failed to create version and rollback also failed",
+				Code:  http.StatusInternalServerError,
+			})
+			return
+		}
+		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create version", Code: http.StatusInternalServerError})
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, newFormula)
+}
+
+// deepCopyGraph returns an independent copy of the given FormulaGraph so that
+// mutations on the copy do not affect the source.
+func deepCopyGraph(src domain.FormulaGraph) domain.FormulaGraph {
+	dst := domain.FormulaGraph{
+		Nodes:   make([]domain.FormulaNode, len(src.Nodes)),
+		Edges:   make([]domain.FormulaEdge, len(src.Edges)),
+		Outputs: append([]string(nil), src.Outputs...),
+	}
+	for i, n := range src.Nodes {
+		dst.Nodes[i] = domain.FormulaNode{
+			ID:          n.ID,
+			Type:        n.Type,
+			Description: n.Description,
+			Config:      append(json.RawMessage(nil), n.Config...),
+		}
+	}
+	copy(dst.Edges, src.Edges)
+	if src.Layout != nil {
+		positions := make(map[string]domain.Position, len(src.Layout.Positions))
+		for k, v := range src.Layout.Positions {
+			positions[k] = v
+		}
+		dst.Layout = &domain.GraphLayout{Positions: positions}
+	}
+	return dst
 }
 
 // Delete removes a formula by ID.

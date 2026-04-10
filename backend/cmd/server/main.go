@@ -102,6 +102,7 @@ func run(logger zerolog.Logger) error {
 	}
 	formulaHandler := &api.FormulaHandler{
 		Formulas:   store.Formulas(),
+		Versions:   store.Versions(),
 		Categories: store.Categories(),
 	}
 	versionHandler := &api.VersionHandler{

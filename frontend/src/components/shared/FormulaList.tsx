@@ -76,6 +76,39 @@ export default function FormulaList() {
     }
   }
 
+  // ── Copy ──
+  const [copySource, setCopySource] = useState<Formula | null>(null)
+  const [copyName, setCopyName] = useState('')
+  const [copyDescription, setCopyDescription] = useState('')
+
+  const copyMutation = useMutation({
+    mutationFn: (d: { id: string; name: string; description: string }) =>
+      api.post<Formula>(`/formulas/${d.id}/copy`, { name: d.name, description: d.description }),
+    onSuccess: (formula) => {
+      queryClient.invalidateQueries({ queryKey: ['formulas'] })
+      setCopySource(null)
+      setCopyName('')
+      setCopyDescription('')
+      navigate(`/formulas/${formula.id}`)
+    },
+  })
+
+  const handleCopyClick = (f: Formula, e: React.MouseEvent) => {
+    e.stopPropagation()
+    setCopySource(f)
+    setCopyName(`${f.name} ${t('formula.copySuffix')}`)
+    setCopyDescription(f.description ?? '')
+  }
+
+  const handleCopyConfirm = () => {
+    if (!copySource || !copyName.trim()) return
+    copyMutation.mutate({
+      id: copySource.id,
+      name: copyName.trim(),
+      description: copyDescription,
+    })
+  }
+
   const createMutation = useMutation({
     mutationFn: (d: { name: string; domain: InsuranceDomain; description: string }) =>
       api.post<Formula>('/formulas', d),
@@ -214,7 +247,7 @@ export default function FormulaList() {
                   )}
                   <th className="px-6 py-3 font-medium text-gray-600">{t('formula.description')}</th>
                   <th className="px-6 py-3 font-medium text-gray-600">{t('formula.createdAt')}</th>
-                  {isAdmin && <th className="px-6 py-3 font-medium text-gray-600">{t('user.actions')}</th>}
+                  {isEditor && <th className="px-6 py-3 font-medium text-gray-600">{t('user.actions')}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -233,14 +266,24 @@ export default function FormulaList() {
                     <td className="px-6 py-4 text-gray-400">
                       {new Date(f.createdAt).toLocaleDateString()}
                     </td>
-                    {isAdmin && (
+                    {isEditor && (
                       <td className="px-6 py-4">
-                        <button
-                          onClick={(e) => handleDelete(f, e)}
-                          className="text-xs text-red-500 hover:text-red-700 transition"
-                        >
-                          {t('formula.delete')}
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={(e) => handleCopyClick(f, e)}
+                            className="text-xs text-indigo-500 hover:text-indigo-700 transition"
+                          >
+                            {t('formula.copy')}
+                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={(e) => handleDelete(f, e)}
+                              className="text-xs text-red-500 hover:text-red-700 transition"
+                            >
+                              {t('formula.delete')}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     )}
                   </tr>
@@ -367,6 +410,64 @@ export default function FormulaList() {
                 {createMutation.isPending ? t('common.loading') : t('formula.create')}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {copySource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="mb-1 text-lg font-bold text-gray-900">{t('formula.copyTitle')}</h2>
+            <p className="mb-4 text-xs text-gray-500">
+              {t('formula.copyHint', { name: copySource.name })}
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('formula.name')}
+                </label>
+                <input
+                  type="text"
+                  value={copyName}
+                  onChange={(e) => setCopyName(e.target.value)}
+                  autoFocus
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">
+                  {t('formula.description')}
+                </label>
+                <textarea
+                  value={copyDescription}
+                  onChange={(e) => setCopyDescription(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setCopySource(null)}
+                disabled={copyMutation.isPending}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              >
+                {t('formula.cancel')}
+              </button>
+              <button
+                onClick={handleCopyConfirm}
+                disabled={copyMutation.isPending || !copyName.trim()}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {copyMutation.isPending ? t('common.loading') : t('formula.copy')}
+              </button>
+            </div>
+            {copyMutation.isError && (
+              <p className="mt-3 text-sm text-red-600">{t('common.error')}</p>
+            )}
           </div>
         </div>
       )}

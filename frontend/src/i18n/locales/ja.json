@@ -34,7 +34,11 @@
     "cancel": "キャンセル",
     "createdAt": "作成日時",
     "totalCount": "全 {{count}} 件",
-    "deleteConfirm": "計算式「{{name}}」を削除しますか？この操作は元に戻せません。"
+    "deleteConfirm": "計算式「{{name}}」を削除しますか？この操作は元に戻せません。",
+    "copy": "複製",
+    "copyTitle": "計算式を複製",
+    "copyHint": "「{{name}}」を基に新しい計算式を作成します。名前と説明を編集後、エディタで開きます。",
+    "copySuffix": "（コピー）"
   },
   "category": {
     "title": "分類管理",

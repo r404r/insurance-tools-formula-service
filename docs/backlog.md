@@ -10,6 +10,8 @@
 
 ## 已完成
 
+- [028-formula-copy.md](tasks/028-formula-copy.md) — 公式复制功能（2026-04-10）
+- [027-palette-color-sync.md](tasks/027-palette-color-sync.md) — 调色板颜色与节点颜色同步（2026-04-10）
 - [026-readme-update.md](tasks/026-readme-update.md) — README 全量更新 + 新截图（2026-04-10）
 - [025-formula-delete-seed-reset.md](tasks/025-formula-delete-seed-reset.md) — 公式删除 + 预置数据重置（2026-04-10）
 - [024-user-guide.md](tasks/024-user-guide.md) — 公式编辑器操作指南 中/英/日三语（2026-04-10）

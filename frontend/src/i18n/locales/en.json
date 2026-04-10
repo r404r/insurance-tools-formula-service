@@ -34,7 +34,11 @@
     "cancel": "Cancel",
     "createdAt": "Created At",
     "totalCount": "{{count}} total",
-    "deleteConfirm": "Delete formula \"{{name}}\"? This cannot be undone."
+    "deleteConfirm": "Delete formula \"{{name}}\"? This cannot be undone.",
+    "copy": "Copy",
+    "copyTitle": "Copy Formula",
+    "copyHint": "Create a new formula from \"{{name}}\". Edit name and description, then open it in the editor.",
+    "copySuffix": "(Copy)"
   },
   "category": {
     "title": "Category Management",

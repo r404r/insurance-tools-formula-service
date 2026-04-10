@@ -75,6 +75,9 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 					r.With(auth.RequirePermission(auth.PermFormulaDelete)).
 						Delete("/", cfg.FormulaHandler.Delete)
 
+					r.With(auth.RequirePermission(auth.PermFormulaCreate)).
+						Post("/copy", cfg.FormulaHandler.Copy)
+
 					// Versions.
 					r.Get("/versions", cfg.VersionHandler.List)
 
