@@ -462,6 +462,9 @@ func (e *defaultEngine) executeFoldLoop(
 	if cfg.AccumulatorVar == cfg.Iterator {
 		return Zero, fmt.Errorf("node %s: fold accumulatorVar %q must differ from iterator %q", node.ID, cfg.AccumulatorVar, cfg.Iterator)
 	}
+	if _, conflict := baseChildInputs[cfg.AccumulatorVar]; conflict {
+		return Zero, fmt.Errorf("node %s: fold accumulatorVar %q conflicts with an existing input variable", node.ID, cfg.AccumulatorVar)
+	}
 
 	// Parse initial accumulator value (default 0).
 	acc := Zero
@@ -856,8 +859,21 @@ func validateNodeConfig(node domain.FormulaNode) error {
 		if !validAggs[cfg.Aggregation] {
 			return fmt.Errorf("loop config has invalid aggregation %q", cfg.Aggregation)
 		}
-		if cfg.Aggregation == "fold" && cfg.AccumulatorVar == "" {
-			return fmt.Errorf("loop config with fold aggregation requires accumulatorVar")
+		if cfg.Aggregation == "fold" {
+			if cfg.AccumulatorVar == "" {
+				return fmt.Errorf("loop config with fold aggregation requires accumulatorVar")
+			}
+			if !isValidIdentifier(cfg.AccumulatorVar) {
+				return fmt.Errorf("loop config accumulatorVar %q must be a valid identifier", cfg.AccumulatorVar)
+			}
+			if cfg.AccumulatorVar == cfg.Iterator {
+				return fmt.Errorf("loop config accumulatorVar must differ from iterator")
+			}
+			if cfg.InitValue != "" {
+				if _, err := decimal.NewFromString(cfg.InitValue); err != nil {
+					return fmt.Errorf("loop config initValue %q is not a valid decimal", cfg.InitValue)
+				}
+			}
 		}
 	}
 

@@ -207,6 +207,8 @@ func (ex *Executor) resolveInputs(plan *ExecutionPlan, nodeID string, results *s
 
 	// For variable nodes, also include all seeded inputs so the evaluator
 	// can look up by variable name.
+	// For tableLookup nodes, include pre-loaded "table:*" entries so the
+	// evaluator can resolve table data by composite key.
 	node := plan.DAG.Node(nodeID)
 	if node != nil && node.Type == domain.NodeVariable {
 		results.Range(func(key, value any) bool {
@@ -216,6 +218,16 @@ func (ex *Executor) resolveInputs(plan *ExecutionPlan, nodeID string, results *s
 				if _, exists := nodeInputs[k]; !exists {
 					nodeInputs[k] = v
 				}
+			}
+			return true
+		})
+	}
+	if node != nil && node.Type == domain.NodeTableLookup {
+		results.Range(func(key, value any) bool {
+			k, ok1 := key.(string)
+			v, ok2 := value.(Decimal)
+			if ok1 && ok2 && len(k) > 6 && k[:6] == "table:" {
+				nodeInputs[k] = v
 			}
 			return true
 		})

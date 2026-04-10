@@ -32,6 +32,7 @@ docker compose up -d
 - **Lint**: `cd backend && go vet ./...`
 
 Key packages:
+
 - `internal/engine/` — DAG-based calculation engine with parallel execution
 - `internal/parser/` — Pratt parser for text expressions (AST <-> DAG <-> text)
 - `internal/store/sqlite/` — SQLite repository (primary)
@@ -46,6 +47,7 @@ Key packages:
 - API proxy configured in `vite.config.ts` → localhost:8080
 
 Key paths:
+
 - `src/components/editor/` — Visual + text formula editor
 - `src/components/version/` — Version management
 - `src/components/auth/` — Login/register
@@ -55,6 +57,7 @@ Key paths:
 ## Config
 
 Backend reads env vars:
+
 - `SERVER_PORT` (default 8080)
 - `DB_DRIVER` (sqlite/postgres/mysql)
 - `DB_DSN` (connection string)
@@ -72,11 +75,13 @@ Backend reads env vars:
 ## Development Workflow
 
 ### Before Starting Any Task
-1. Check `docs/backlog.md` for current priorities
+
+1. Reload and Check `docs/backlog.md` for current priorities
 2. Check `docs/tasks/` for any in-progress task (Status: in-progress)
 3. If resuming interrupted work, read the task file's "中断记录" section first
 
 ### For Each New Feature/Fix
+
 1. Create task file: `docs/tasks/NNN-slug.md` using template in `docs/tasks/TEMPLATE.md`
 2. Fill in 需求 and 设计 sections, get user confirmation
 3. Break down into TODO checklist
@@ -85,6 +90,7 @@ Backend reads env vars:
 6. Update `docs/backlog.md`: move task to 已完成
 
 > **强制执行提醒（曾违反过）：**
+>
 > - 步骤 1（task 文件）和步骤 5（codex review）是**硬性前提条件**，不得跳过。
 >   无论需求多小、多紧急，没有 task 文件 = 不能开始实现；没有 codex review = 不能 commit。
 > - 同一个会话内连续实现多个功能时，**每个功能**都要独立走完上述步骤，不能批量合并处理。
@@ -92,17 +98,21 @@ Backend reads env vars:
 >   直接开始实现而未先创建 task 文件、也未在 commit 前执行 codex review，导致事后补救。
 
 ### On Interruption
+
 Before ending a session or when token is running low:
+
 - Update the task file's TODO checkmarks to reflect actual progress
 - Write "中断记录" section: what was just done, what's next, any context needed
 
 ### On Resume
+
 1. Read `docs/backlog.md` to see overall status
 2. Find task with Status: in-progress
 3. Read its 中断记录 and TODO list
 4. Continue from where it left off
 
 ### Task Numbering
+
 - Sequential: 001, 002, 003...
 - Check existing files in `docs/tasks/` to determine next number
 
@@ -117,5 +127,39 @@ Before ending a session or when token is running low:
 - [ ] **中断记录已写**：如中途停止，task 文件已更新 TODO 勾选和中断记录
 
 > **Hook 强制执行**：`git commit` 会被 PreToolUse hook 拦截，当：
+>
 > 1. `docs/tasks/` 中无 Status 为 in-progress 的 task 文件
 > 2. 上次 commit 后未运行 `codex review`
+
+## Testing
+
+### Test Directory Structure
+
+```
+tests/
+├── screenshots/         # Visual verification screenshots (by task number)
+│   ├── 020/            # Task #020 screenshots
+│   └── 021/            # Task #021 screenshots
+├── batch/              # Batch test data (JSON, reusable for regression)
+│   └── 023/            # Task #023 batch tests
+│       ├── pure-premium-30cases.json
+│       ├── annuity-30cases.json
+│       └── reserve-30cases.json
+└── reports/            # Test reports (Markdown)
+    └── 023-life-insurance-report.md
+```
+
+### Batch Test Data Format
+
+```json
+[
+  {"label": "case-01", "inputs": {"x": "30", "n": "20"}, "expected": {"result": "1.234"}}
+]
+```
+
+### Rules
+
+- 每个 task 的截图保存到 `tests/screenshots/{task-number}/`
+- 批量测试数据保存到 `tests/batch/{task-number}/`，JSON 格式，可重复执行
+- 测试报告保存到 `tests/reports/`，Markdown 格式
+- 批量测试数据同时作为回归测试 case 保留
