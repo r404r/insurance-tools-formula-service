@@ -46,6 +46,7 @@
     "selectAllOnPage": "Select all on this page",
     "selectRow": "Select row",
     "clearSelection": "Clear selection",
+    "selectionCount": "{{count}} selected",
     "import": "Import",
     "importResult": "Import Result",
     "importSuccess": "Imported",

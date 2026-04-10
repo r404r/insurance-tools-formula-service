@@ -10,6 +10,7 @@
 
 ## 已完成
 
+- [031-selection-bar-fix.md](tasks/031-selection-bar-fix.md) — 选择状态下顶栏布局修复（2026-04-11）
 - [030-formula-export-selection.md](tasks/030-formula-export-selection.md) — 导出支持选择对象（2026-04-11）
 - [029-formula-import-export.md](tasks/029-formula-import-export.md) — 公式导入导出（2026-04-11）
 - [028-formula-copy.md](tasks/028-formula-copy.md) — 公式复制功能（2026-04-10）

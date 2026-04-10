@@ -46,6 +46,7 @@
     "selectAllOnPage": "全选本页",
     "selectRow": "选择此行",
     "clearSelection": "清空选择",
+    "selectionCount": "已选择 {{count}} 条",
     "import": "导入",
     "importResult": "导入结果",
     "importSuccess": "成功",

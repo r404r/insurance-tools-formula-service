@@ -46,6 +46,7 @@
     "selectAllOnPage": "このページを全選択",
     "selectRow": "行を選択",
     "clearSelection": "選択をクリア",
+    "selectionCount": "{{count}} 件を選択中",
     "import": "インポート",
     "importResult": "インポート結果",
     "importSuccess": "成功",

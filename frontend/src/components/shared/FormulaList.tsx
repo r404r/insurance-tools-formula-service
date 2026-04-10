@@ -319,25 +319,6 @@ export default function FormulaList() {
               {t('formula.manageCategories')}
             </button>
           )}
-          {selectedIds.size > 0 && (
-            <>
-              <button
-                onClick={clearSelection}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
-              >
-                {t('formula.clearSelection')}
-              </button>
-              <button
-                onClick={() => exportSelectedMutation.mutate()}
-                disabled={exportSelectedMutation.isPending}
-                className="rounded-lg border border-indigo-300 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100 disabled:opacity-50"
-              >
-                {exportSelectedMutation.isPending
-                  ? t('common.loading')
-                  : t('formula.exportSelected', { count: selectedIds.size })}
-              </button>
-            </>
-          )}
           <button
             onClick={() => exportAllMutation.mutate()}
             disabled={exportAllMutation.isPending || formulas.length === 0}
@@ -403,6 +384,31 @@ export default function FormulaList() {
           </button>
         ))}
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="mb-3 flex items-center justify-between rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm">
+          <span className="text-indigo-700">
+            {t('formula.selectionCount', { count: selectedIds.size })}
+          </span>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={clearSelection}
+              className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
+            >
+              {t('formula.clearSelection')}
+            </button>
+            <button
+              onClick={() => exportSelectedMutation.mutate()}
+              disabled={exportSelectedMutation.isPending}
+              className="rounded-md bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {exportSelectedMutation.isPending
+                ? t('common.loading')
+                : t('formula.exportSelected', { count: selectedIds.size })}
+            </button>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="py-12 text-center text-gray-500">{t('common.loading')}</div>
