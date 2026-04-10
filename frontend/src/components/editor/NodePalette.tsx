@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { NodeType } from '../../types/formula'
+import { NODE_COLORS } from './nodePresentation'
 
 const nodeTypes: { type: NodeType; icon: string }[] = [
   { type: 'variable', icon: 'x' },
@@ -25,19 +26,30 @@ export default function NodePalette() {
     <div className="w-48 border-r border-gray-200 bg-gray-50 p-3 overflow-y-auto">
       <h3 className="text-sm font-semibold text-gray-600 mb-3">{t('editor.nodeTypes')}</h3>
       <div className="space-y-2">
-        {nodeTypes.map(({ type, icon }) => (
-          <div
-            key={type}
-            draggable
-            onDragStart={(e) => onDragStart(e, type)}
-            className="flex items-center gap-2 px-3 py-2 bg-white rounded-md border border-gray-200 cursor-grab hover:border-blue-400 hover:shadow-sm transition-all text-sm"
-          >
-            <span className="w-8 h-8 flex items-center justify-center bg-blue-50 text-blue-600 rounded text-xs font-mono font-bold">
-              {icon}
-            </span>
-            <span className="text-gray-700">{t(`node.${type}`)}</span>
-          </div>
-        ))}
+        {nodeTypes.map(({ type, icon }) => {
+          const colors = NODE_COLORS[type] ?? { bg: '#f3f4f6', border: '#9ca3af' }
+          return (
+            <div
+              key={type}
+              draggable
+              onDragStart={(e) => onDragStart(e, type)}
+              className="flex items-center gap-2 px-3 py-2 bg-white rounded-md border border-gray-200 cursor-grab hover:shadow-sm transition-all text-sm"
+              style={{ borderLeft: `4px solid ${colors.border}` }}
+            >
+              <span
+                className="w-8 h-8 flex items-center justify-center rounded text-xs font-mono font-bold"
+                style={{
+                  backgroundColor: colors.bg,
+                  color: colors.border,
+                  border: `1px solid ${colors.border}`,
+                }}
+              >
+                {icon}
+              </span>
+              <span className="text-gray-700">{t(`node.${type}`)}</span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
