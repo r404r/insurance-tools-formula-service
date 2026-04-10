@@ -10,6 +10,7 @@
 
 ## 已完成
 
+- [024-user-guide.md](tasks/024-user-guide.md) — 公式编辑器操作指南 中/英/日三语（2026-04-10）
 - [023-life-insurance-loop-formulas.md](tasks/023-life-insurance-loop-formulas.md) — 生命保険数理 Loop 公式支持（2026-04-10）
 - [022-node-description.md](tasks/022-node-description.md) — 节点 Description 功能（2026-04-10）
 - [021-loop-text-mode.md](tasks/021-loop-text-mode.md) — Loop 节点文本模式支持（2026-04-10）
