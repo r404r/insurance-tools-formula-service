@@ -307,7 +307,7 @@ export default function FormulaList() {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
+    <div className="mx-auto max-w-7xl px-6 py-8">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">{t('formula.list')}</h1>
         <div className="flex items-center gap-3">
@@ -432,14 +432,12 @@ export default function FormulaList() {
                       className="h-4 w-4 cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     />
                   </th>
-                  <th className="px-6 py-3 font-medium text-gray-600">{t('formula.name')}</th>
-                  <th className="px-6 py-3 font-medium text-gray-600">{t('formula.id')}</th>
+                  <th className="whitespace-nowrap px-6 py-3 font-medium text-gray-600">{t('formula.name')}</th>
                   {domainFilter === 'all' && (
-                    <th className="px-6 py-3 font-medium text-gray-600">{t('formula.domain')}</th>
+                    <th className="whitespace-nowrap px-6 py-3 font-medium text-gray-600">{t('formula.domain')}</th>
                   )}
-                  <th className="px-6 py-3 font-medium text-gray-600">{t('formula.description')}</th>
-                  <th className="px-6 py-3 font-medium text-gray-600">{t('formula.createdAt')}</th>
-                  <th className="px-6 py-3 font-medium text-gray-600">{t('user.actions')}</th>
+                  <th className="whitespace-nowrap px-6 py-3 font-medium text-gray-600">{t('formula.createdAt')}</th>
+                  <th className="whitespace-nowrap px-6 py-3 font-medium text-gray-600">{t('user.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -451,7 +449,7 @@ export default function FormulaList() {
                       selectedIds.has(f.id) ? 'bg-indigo-50/50' : ''
                     }`}
                   >
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-3">
                       <input
                         type="checkbox"
                         aria-label={t('formula.selectRow')}
@@ -463,37 +461,65 @@ export default function FormulaList() {
                         className="h-4 w-4 cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                       />
                     </td>
-                    <td className="px-6 py-4 font-medium text-gray-900">{f.name}</td>
-                    <td className="px-6 py-4 font-mono text-xs text-gray-500">{f.id}</td>
+                    <td className="px-6 py-3">
+                      <div className="truncate font-medium text-gray-900" title={f.name}>
+                        {f.name}
+                      </div>
+                      <div className="mt-0.5 flex items-center gap-2 text-xs text-gray-500">
+                        {f.description && (
+                          <span className="line-clamp-1 min-w-0 flex-1" title={f.description}>
+                            {f.description}
+                          </span>
+                        )}
+                        <span
+                          className="shrink-0 font-mono text-[10px] text-gray-400"
+                          title={f.id}
+                        >
+                          {f.id.slice(0, 8)}
+                        </span>
+                      </div>
+                    </td>
                     {domainFilter === 'all' && (
-                      <td className="px-6 py-4">{renderCategoryBadge(f.domain)}</td>
+                      <td className="whitespace-nowrap px-6 py-3">{renderCategoryBadge(f.domain)}</td>
                     )}
-                    <td className="px-6 py-4 text-gray-500">{f.description}</td>
-                    <td className="px-6 py-4 text-gray-400">
+                    <td className="whitespace-nowrap px-6 py-3 text-gray-400">
                       {new Date(f.createdAt).toLocaleDateString()}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
+                    <td className="whitespace-nowrap px-6 py-3">
+                      <div className="flex items-center gap-1">
                         <button
                           onClick={(e) => handleSingleExport(f, e)}
-                          className="text-xs text-gray-500 hover:text-gray-800 transition"
+                          title={t('formula.export')}
+                          aria-label={t('formula.export')}
+                          className="rounded p-1.5 text-gray-500 transition hover:bg-gray-100 hover:text-gray-800"
                         >
-                          {t('formula.export')}
+                          <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 15V3" />
+                          </svg>
                         </button>
                         {isEditor && (
                           <button
                             onClick={(e) => handleCopyClick(f, e)}
-                            className="text-xs text-indigo-500 hover:text-indigo-700 transition"
+                            title={t('formula.copy')}
+                            aria-label={t('formula.copy')}
+                            className="rounded p-1.5 text-indigo-500 transition hover:bg-indigo-50 hover:text-indigo-700"
                           >
-                            {t('formula.copy')}
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                              <rect x="9" y="9" width="12" height="12" rx="2" ry="2" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
+                            </svg>
                           </button>
                         )}
                         {isAdmin && (
                           <button
                             onClick={(e) => handleDelete(f, e)}
-                            className="text-xs text-red-500 hover:text-red-700 transition"
+                            title={t('formula.delete')}
+                            aria-label={t('formula.delete')}
+                            className="rounded p-1.5 text-red-500 transition hover:bg-red-50 hover:text-red-700"
                           >
-                            {t('formula.delete')}
+                            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24" aria-hidden="true">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14zM10 11v6M14 11v6" />
+                            </svg>
                           </button>
                         )}
                       </div>
