@@ -90,6 +90,7 @@ export default function FormulaEditorPage() {
   const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
   const autoLayout = useAutoLayout()
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null
+  const nodeIdSet = useMemo(() => new Set(nodes.map((n) => n.id)), [nodes])
   const isEditor = user?.role === 'editor' || user?.role === 'admin'
 
   const { data: formula } = useQuery({
@@ -245,6 +246,25 @@ export default function FormulaEditorPage() {
     },
     []
   )
+
+  // Atomically rename a node: update node.id, all edges referencing it,
+  // and the selected node id. Caller is responsible for validating the new
+  // id (format + uniqueness) before invoking this.
+  const handleNodeIdChange = useCallback((oldId: string, newId: string) => {
+    if (oldId === newId) return
+    setNodes((prev) => prev.map((n) => (n.id === oldId ? { ...n, id: newId } : n)))
+    setEdges((prev) =>
+      prev.map((e) => {
+        if (e.source !== oldId && e.target !== oldId) return e
+        return {
+          ...e,
+          source: e.source === oldId ? newId : e.source,
+          target: e.target === oldId ? newId : e.target,
+        }
+      })
+    )
+    setSelectedNodeId((cur) => (cur === oldId ? newId : cur))
+  }, [])
 
   const handleApplyText = useCallback(async (text: string) => {
     setTextValue(text)
@@ -618,7 +638,13 @@ export default function FormulaEditorPage() {
               onNodeSelect={(node) => setSelectedNodeId(node?.id ?? null)}
               validation={validationState}
             />
-            <NodePropertiesPanel node={selectedNode} onChange={handleNodeDataChange} currentFormulaId={id ?? null} />
+            <NodePropertiesPanel
+              node={selectedNode}
+              onChange={handleNodeDataChange}
+              onIdChange={handleNodeIdChange}
+              existingNodeIds={nodeIdSet}
+              currentFormulaId={id ?? null}
+            />
           </div>
         ) : (
           <div className="h-full min-h-[520px] min-w-[820px]">

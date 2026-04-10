@@ -107,7 +107,10 @@
     "inclusiveEnd": "Inclusive End",
     "maxIterations": "Max Iterations",
     "loopNoTextMode": "This formula contains Loop nodes. Text mode is not supported — please use the visual editor.",
-    "loopTextLossy": "Warning: Loop settings (inclusiveEnd, maxIterations, version) will not be preserved in text mode."
+    "loopTextLossy": "Warning: Loop settings (inclusiveEnd, maxIterations, version) will not be preserved in text mode.",
+    "idEmpty": "ID cannot be empty",
+    "idInvalid": "ID must start with a letter or underscore, followed by letters, digits, or underscores (max 64)",
+    "idConflict": "ID conflicts with another node"
   },
   "node": {
     "variable": "Variable",

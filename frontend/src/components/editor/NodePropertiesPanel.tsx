@@ -1,20 +1,89 @@
+import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import type { Node } from '@xyflow/react'
 import { api } from '../../api/client'
 import { listTables } from '../../api/tables'
 import type { Formula, FormulaVersion, LookupTable } from '../../types/formula'
+import { validateNodeIdFormat } from '../../utils/nodeIdValidation'
 
 interface Props {
   node: Node | null
   onChange: (id: string, data: Record<string, unknown>) => void
+  onIdChange?: (oldId: string, newId: string) => void
+  existingNodeIds?: Set<string>
   currentFormulaId?: string | null
 }
 
-export default function NodePropertiesPanel({ node, onChange, currentFormulaId }: Props) {
+export default function NodePropertiesPanel({
+  node,
+  onChange,
+  onIdChange,
+  existingNodeIds,
+  currentFormulaId,
+}: Props) {
   const { t } = useTranslation()
   const config = ((node?.data.config as Record<string, unknown> | undefined) ?? {})
   const selectedFormulaId = String(config.formulaId ?? '')
+
+  // ── Editable node ID ──
+  // Draft lives in local state so we can validate on every keystroke without
+  // committing intermediate values into the graph. Commit on blur or Enter.
+  const [idDraft, setIdDraft] = useState(node?.id ?? '')
+  const [idError, setIdError] = useState<string | null>(null)
+  // Reset draft whenever the selected node changes (or its id is renamed).
+  useEffect(() => {
+    setIdDraft(node?.id ?? '')
+    setIdError(null)
+  }, [node?.id])
+
+  const validateIdDraft = (draft: string): string | null => {
+    if (!node) return null
+    if (draft === node.id) return null
+    const formatError = validateNodeIdFormat(draft)
+    if (formatError === 'empty') return t('editor.idEmpty')
+    if (formatError === 'invalid') return t('editor.idInvalid')
+    if (existingNodeIds && existingNodeIds.has(draft)) return t('editor.idConflict')
+    return null
+  }
+
+  const handleIdInputChange = (value: string) => {
+    setIdDraft(value)
+    setIdError(validateIdDraft(value))
+  }
+
+  const commitIdChange = () => {
+    if (!node) return
+    // Validate the raw input — do NOT trim. A space or any character that
+    // does not match the regex must surface as an error instead of being
+    // silently normalized, otherwise the advertised format contract breaks.
+    if (idDraft === node.id) {
+      setIdError(null)
+      return
+    }
+    const error = validateIdDraft(idDraft)
+    if (error) {
+      // Keep the draft visible with the error message so the user can fix it,
+      // but do not propagate the rename.
+      setIdError(error)
+      return
+    }
+    onIdChange?.(node.id, idDraft)
+    setIdError(null)
+  }
+
+  const handleIdKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault()
+      commitIdChange()
+      return
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      setIdDraft(node?.id ?? '')
+      setIdError(null)
+    }
+  }
 
   const { data: formulas = [] } = useQuery({
     queryKey: ['formulas', 'subformula-options'],
@@ -72,7 +141,23 @@ export default function NodePropertiesPanel({ node, onChange, currentFormulaId }
       <div className="space-y-3">
         <div>
           <label className="block text-xs text-gray-500 mb-1">ID</label>
-          <input className="w-full text-xs bg-gray-100 rounded px-2 py-1" value={node.id} disabled />
+          <input
+            className={`w-full text-xs rounded px-2 py-1 border ${
+              idError
+                ? 'border-red-400 bg-red-50 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-300'
+                : 'border-gray-300 bg-white focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-200'
+            }`}
+            value={idDraft}
+            onChange={(e) => handleIdInputChange(e.target.value)}
+            onBlur={commitIdChange}
+            onKeyDown={handleIdKeyDown}
+            disabled={!onIdChange}
+            spellCheck={false}
+            autoComplete="off"
+          />
+          {idError && (
+            <p className="mt-1 text-[11px] text-red-600">{idError}</p>
+          )}
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">Type</label>
