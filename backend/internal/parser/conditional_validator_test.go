@@ -188,6 +188,50 @@ func TestDAGToAST_RejectsCompositeConditionalWithClearMessage(t *testing.T) {
 	}
 }
 
+// TestDAGToAST_RejectsTableAggregateWithClearMessage is the task #046
+// counterpart for the composite-conditional test above. NodeTableAggregate
+// (introduced in task #040) cannot round-trip through the text editor
+// because the text grammar has no SQL-style aggregation syntax. The
+// serializer must therefore emit a recognizable error that the frontend
+// can detect to keep the formula in visual-only mode. Without this case
+// the LDF seed formula from task #045 (which is the first in-tree user of
+// tableAggregate) shows a raw "Unsupported node type" comment in the text
+// pane.
+func TestDAGToAST_RejectsTableAggregateWithClearMessage(t *testing.T) {
+	aggCfg := domain.TableAggregateConfig{
+		TableID:    "some-table",
+		Aggregate:  "avg",
+		Expression: "value",
+		Filters: []domain.TableFilter{
+			{Column: "year", Op: "eq", InputPort: "year"},
+		},
+	}
+	cfgJSON, err := json.Marshal(aggCfg)
+	if err != nil {
+		t.Fatalf("marshal cfg: %v", err)
+	}
+	graph := &domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "year", Type: domain.NodeVariable, Config: mustMarshalVar(t, "year")},
+			{ID: "agg", Type: domain.NodeTableAggregate, Config: cfgJSON},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "year", Target: "agg", SourcePort: "out", TargetPort: "year"},
+		},
+		Outputs: []string{"agg"},
+	}
+	_, err = DAGToAST(graph)
+	if err == nil {
+		t.Fatal("expected error from DAGToAST for tableAggregate, got nil")
+	}
+	if !strings.Contains(err.Error(), "tableAggregate") {
+		t.Fatalf("expected error to mention 'tableAggregate', got: %v", err)
+	}
+	if !strings.Contains(err.Error(), "visual editor") {
+		t.Fatalf("expected error to direct user to visual editor, got: %v", err)
+	}
+}
+
 // TestValidateGraph_LegacyConditionalStillAccepted ensures the legacy
 // single-comparator if/then/else shape still passes through unchanged
 // after the composite branch was added.

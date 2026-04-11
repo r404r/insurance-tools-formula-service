@@ -463,6 +463,13 @@ self-join); see the spec
 [`docs/specs/004-table-aggregate-node.md`](docs/specs/004-table-aggregate-node.md)
 for the v2 roadmap (column expressions, group-by, self-join).
 
+**Text editor mode is NOT supported** for `tableAggregate` nodes (same
+limitation as Loop and Composite Conditional). Any formula containing a
+`tableAggregate` node — including the seeded `日本損害保険 チェインラダー
+LDF` formula — must be edited in the visual editor only. Switching to
+text mode shows an explicit error directing the user back. Adding a
+`tableagg(...)` text DSL is a future task.
+
 ### No Built-in Statistical Distribution Functions
 
 Functions like `normal_cdf` / `normal_quantile` / `chi²` are not in the

@@ -230,6 +230,11 @@ formula contains any of these, you should stay in **Visual Editor** mode:
   a formula that uses composite conditionals can only be edited in the
   visual editor — switching to text mode will show an explicit error
   directing you back.
+- **TableAggregate nodes** (SQL-style aggregate over a lookup table,
+  added in task #040): the text grammar has no SQL aggregate syntax
+  yet. The seeded `日本損害保険 チェインラダー LDF` formula is the
+  first in-tree user; switching it to text mode shows an explicit error
+  directing you back to the visual editor.
 
 The full list of engine known limitations (including statistical
 distribution functions, date arithmetic, cross-row table aggregation,

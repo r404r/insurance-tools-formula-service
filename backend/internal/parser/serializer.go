@@ -704,6 +704,17 @@ func dagToASTWalk(
 			Children: []*ASTNode{comparison, thenNode, elseNode},
 		}, nil
 
+	case domain.NodeTableAggregate:
+		// Same UX pattern as the composite-conditional and loop limitations
+		// (task #040 / #043): the text grammar has no syntax for SQL-style
+		// aggregations over a table, so any formula containing a
+		// tableAggregate node can only be edited in the visual editor.
+		// Emit an explicit, recognizable error so the frontend can detect
+		// this case and stay in visual mode. Full text-mode round-trip
+		// would require a new tableagg(...) DSL — out of scope here, see
+		// docs/specs/004-table-aggregate-node.md §7.
+		return nil, fmt.Errorf("node %s: tableAggregate node is not supported in text editor mode; please use the visual editor", nodeID)
+
 	case domain.NodeTableLookup:
 		var cfg domain.TableLookupConfig
 		if err := json.Unmarshal(fn.Config, &cfg); err != nil {

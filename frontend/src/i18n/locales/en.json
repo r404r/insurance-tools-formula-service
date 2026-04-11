@@ -115,6 +115,7 @@
     "maxIterations": "Max Iterations",
     "loopNoTextMode": "This formula contains Loop nodes. Text mode is not supported — please use the visual editor.",
     "loopTextLossy": "Warning: Loop settings (inclusiveEnd, maxIterations, version) will not be preserved in text mode.",
+    "tableAggregateNoTextMode": "This formula contains TableAggregate nodes. Text mode is not supported — please use the visual editor.",
     "idEmpty": "ID cannot be empty",
     "idInvalid": "ID must start with a letter or underscore, followed by letters, digits, or underscores (max 64)",
     "idConflict": "ID conflicts with another node"

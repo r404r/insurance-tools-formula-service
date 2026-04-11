@@ -115,6 +115,7 @@
     "maxIterations": "最大反復回数",
     "loopNoTextMode": "この計算式にはLoopノードが含まれています。テキストモードはサポートされていません。ビジュアルエディタをご使用ください。",
     "loopTextLossy": "注意：Loopの一部設定（inclusiveEnd、maxIterations、version）はテキストモードでは保持されません。",
+    "tableAggregateNoTextMode": "この計算式にはTableAggregateノードが含まれています。テキストモードはサポートされていません。ビジュアルエディタをご使用ください。",
     "idEmpty": "IDは空にできません",
     "idInvalid": "IDは英字またはアンダースコアで始まり、続く文字は英字・数字・アンダースコアのみ（最大64文字）",
     "idConflict": "IDが他のノードと重複しています"

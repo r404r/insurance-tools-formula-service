@@ -128,6 +128,15 @@ export function reactFlowToText(nodes: Node[], edges: Edge[]): string {
         }
         break
       }
+      case 'tableAggregate': {
+        // task #046: same UX pattern as composite conditional and loop —
+        // text mode has no SQL-style aggregation grammar yet, so any
+        // formula with a tableAggregate node must stay in the visual
+        // editor. The message contains "tableAggregate" and "visual
+        // editor" so the editor surface (and any future detection code)
+        // can recognize this exact case.
+        throw new Error(`tableAggregate node ${nodeId} is not supported in text editor mode; please use the visual editor`)
+      }
       case 'tableLookup': {
         const keyColumns = (config.keyColumns as string[] | undefined) ?? ['key']
         if (keyColumns.length > 1) {

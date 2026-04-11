@@ -224,6 +224,7 @@ $$\sum_{t=1}^{n} \text{body}(t)$$
 
 - **Loop 节点**（`sum_loop` / `product_loop` / `fold_loop` 等）：部分 loop 配置项（`inclusiveEnd`、`maxIterations`、`version`）只在可视化模式下可编辑，文本模式无法表达。触发限制时编辑器会显示提示。
 - **复合 Conditional 节点**（包含多个条件用 `AND` / `OR` / `NOT` 组合，task #039 引入）：文本语法目前没有 `and` / `or` / `not` 关键字，所以使用了复合条件的公式只能用可视化编辑器编辑——切换到文本模式时会显示明确的错误提示，引导你切回。
+- **TableAggregate 节点**（对查找表做 SQL 风格聚合，task #040 引入）：文本语法目前没有 SQL 聚合语法。预置的 `日本損害保険 チェインラダー LDF` 公式是第一个使用此节点的内置公式；切换到文本模式时会显示明确的错误提示，引导你切回可视化编辑器。
 
 引擎层面的全部已知限制（包括统计分布函数、日期算术、表的跨行聚合、单次调用无状态等）记录在项目 [`README.md` § Known Limitations](../../README.md#known-limitations) 章节。
 
