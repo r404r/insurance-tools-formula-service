@@ -250,7 +250,12 @@ psql "postgres://formula:formula_dev@localhost:5432/formula_service?sslmode=disa
 
 ## Default Account & Seed Data
 
-On first startup, the system automatically creates:
+On first startup, the backend bootstraps the **default admin account**
+and the **3 default insurance categories** automatically. The 31 built-in
+formulas and 2 lookup tables (listed below) are loaded out-of-process by
+the `seed-runner` CLI — see [Loading the seed bundles](#loading-the-seed-bundles)
+at the bottom of this section. This split was introduced in task #047 so
+that small fixes to seed data no longer require rebuilding `cmd/server`.
 
 ### Default Admin Account
 
@@ -309,6 +314,42 @@ curl -s -X POST http://localhost:8080/api/v1/calculate \
   }'
 ```
 
+### Loading the seed bundles
+
+The 31 formulas and 2 lookup tables listed above live as JSON bundle
+files under [`backend/seed/`](backend/seed/README.md), one file per
+object. They are loaded into a running backend by the `seed-runner` CLI,
+which talks to the same public HTTP API a human admin would use. There
+are no special "seed-only" routes.
+
+```bash
+# Native: build once, run from the repo root
+cd backend && go build -o /tmp/seed-runner ./seed/runner && cd ..
+/tmp/seed-runner --seed-dir backend/seed
+
+# Docker compose (under the `seed` profile, pairs with any backend)
+docker compose --profile postgres up -d
+docker compose --profile postgres --profile seed run --rm seed-runner
+```
+
+The runner is **idempotent in single-writer use** — re-running against a
+populated DB skips every existing object and exits 0. It uses login as a
+readiness probe with a 60-second retry budget so it's safe to start
+concurrently with the backend container.
+
+Useful flags:
+
+- `--dry-run` — parse and validate every bundle without contacting the
+  backend. Use this in CI to catch broken `{{formula:NAME}}` /
+  `{{table:NAME}}` placeholders before they reach a deployed instance.
+- `--only NAME` — restrict the run to a single formula or table by name.
+  The runner still walks every other file in dependency order so
+  upstream `{{…}}` references resolve from the live DB; if a required
+  dependency isn't already there, the runner refuses with a clear error.
+
+Full bundle / placeholder syntax / "how to add a new seed" workflow is
+documented in [`backend/seed/README.md`](backend/seed/README.md).
+
 ## API
 
 All endpoints under `/api/v1/`:
@@ -345,7 +386,7 @@ All endpoints under `/api/v1/`:
 | DELETE | `/cache` | Clear cache | Admin |
 | GET | `/settings` | Get system settings | Admin |
 | PUT | `/settings` | Update system settings | Admin |
-| POST | `/admin/reset-seed` | Reset preset formulas/tables | Admin |
+| POST | `/admin/reset-seed` | Delete preset formulas/tables (re-seed via `seed-runner`) | Admin |
 
 ## RBAC Roles
 
@@ -496,7 +537,8 @@ client must orchestrate the carry-over.
 ```
 formula-service/
 ├── backend/
-│   ├── cmd/server/         # Entry point + seed data + reset handler
+│   ├── cmd/server/         # Entry point + admin/category bootstrap + reset handler
+│   ├── seed/               # JSON seed bundles + go:embed name set + seed-runner CLI
 │   └── internal/
 │       ├── api/            # HTTP handlers + router
 │       ├── auth/           # JWT + RBAC

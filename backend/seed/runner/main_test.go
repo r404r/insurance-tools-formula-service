@@ -1,6 +1,9 @@
 package main
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -110,3 +113,175 @@ func TestPeekFormulaName_RejectsEmptyBundle(t *testing.T) {
 		t.Fatal("expected error for empty bundle")
 	}
 }
+
+// writeTestSeedDir lays out a tiny in-tree seed/ tree (one table, two
+// formulas where the second references the first via a placeholder) so we
+// can drive the runner end-to-end without a real backend.
+func writeTestSeedDir(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	mustMkdir(t, filepath.Join(dir, "tables"))
+	mustMkdir(t, filepath.Join(dir, "formulas"))
+
+	mustWriteJSON(t, filepath.Join(dir, "tables", "010-rates.json"), map[string]any{
+		"name":      "rates",
+		"domain":    "life",
+		"tableType": "rate",
+		"data":      []any{},
+	})
+	mustWriteJSON(t, filepath.Join(dir, "formulas", "010-body.json"), map[string]any{
+		"version": "1.0",
+		"formulas": []any{
+			map[string]any{
+				"name":   "body",
+				"domain": "life",
+				"graph": map[string]any{
+					"nodes":   []any{},
+					"edges":   []any{},
+					"outputs": []any{},
+				},
+			},
+		},
+	})
+	mustWriteJSON(t, filepath.Join(dir, "formulas", "020-consumer.json"), map[string]any{
+		"version": "1.0",
+		"formulas": []any{
+			map[string]any{
+				"name":   "consumer",
+				"domain": "life",
+				"graph": map[string]any{
+					"nodes": []any{
+						map[string]any{
+							"id":   "loop",
+							"type": "loop",
+							"config": map[string]any{
+								"formulaId": "{{formula:body}}",
+								"tableId":   "{{table:rates}}",
+							},
+						},
+					},
+					"edges":   []any{},
+					"outputs": []any{},
+				},
+			},
+		},
+	})
+	return dir
+}
+
+func mustMkdir(t *testing.T, p string) {
+	t.Helper()
+	if err := os.MkdirAll(p, 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mustWriteJSON(t *testing.T, path string, v any) {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRun_DryRunResolvesAllPlaceholders(t *testing.T) {
+	dir := writeTestSeedDir(t)
+	cfg := config{SeedDir: dir, DryRun: true}
+	if err := run(cfg); err != nil {
+		t.Fatalf("dry-run should succeed against valid bundles: %v", err)
+	}
+}
+
+func TestRun_DryRunFailsWhenPlaceholderUnresolved(t *testing.T) {
+	dir := t.TempDir()
+	mustMkdir(t, filepath.Join(dir, "tables"))
+	mustMkdir(t, filepath.Join(dir, "formulas"))
+	mustWriteJSON(t, filepath.Join(dir, "formulas", "010-broken.json"), map[string]any{
+		"version": "1.0",
+		"formulas": []any{
+			map[string]any{
+				"name":   "broken",
+				"domain": "life",
+				"graph": map[string]any{
+					"nodes": []any{
+						map[string]any{
+							"id":   "n",
+							"type": "loop",
+							"config": map[string]any{
+								"formulaId": "{{formula:does-not-exist}}",
+							},
+						},
+					},
+					"edges":   []any{},
+					"outputs": []any{},
+				},
+			},
+		},
+	})
+	cfg := config{SeedDir: dir, DryRun: true}
+	err := run(cfg)
+	if err == nil {
+		t.Fatal("expected dry-run to fail on unresolved placeholder")
+	}
+	if !strings.Contains(err.Error(), "does-not-exist") {
+		t.Errorf("error should name the missing dependency, got: %v", err)
+	}
+}
+
+func TestRun_OnlyFiltersDependencies_DryRun(t *testing.T) {
+	dir := writeTestSeedDir(t)
+	cfg := config{SeedDir: dir, DryRun: true, Only: "consumer"}
+	// Even though we only ask for "consumer", the runner must still resolve
+	// the {{formula:body}} and {{table:rates}} placeholders against
+	// synthetic dry-run ids minted for the filtered-out files.
+	if err := run(cfg); err != nil {
+		t.Fatalf("dry-run --only should succeed when deps are minted as DRY-RUN ids: %v", err)
+	}
+}
+
+func TestRun_OnlyTypoFailsLoudly(t *testing.T) {
+	dir := writeTestSeedDir(t)
+	cfg := config{SeedDir: dir, DryRun: true, Only: "this-name-does-not-exist"}
+	err := run(cfg)
+	if err == nil {
+		t.Fatal("expected --only with no matches to return an error")
+	}
+	if !strings.Contains(err.Error(), "did not match") {
+		t.Errorf("error message should mention 'did not match', got: %v", err)
+	}
+}
+
+func TestFindDryRunRefs(t *testing.T) {
+	resolved := []byte(`{
+  "config": {
+    "formulaId": "DRY-RUN-FORMULA-生存率因子 1-qx",
+    "tableId": "DRY-RUN-TABLE-rates",
+    "other": "real-uuid-not-flagged"
+  },
+  "dup": "DRY-RUN-FORMULA-生存率因子 1-qx"
+}`)
+	got := findDryRunRefs(resolved)
+	want := []string{
+		"formula:生存率因子 1-qx",
+		"table:rates",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("want %v, got %v", want, got)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Errorf("[%d] want %q, got %q", i, want[i], got[i])
+		}
+	}
+}
+
+func TestFindDryRunRefs_NoMatches(t *testing.T) {
+	resolved := []byte(`{"config":{"formulaId":"abc-123","tableId":"def-456"}}`)
+	if got := findDryRunRefs(resolved); len(got) != 0 {
+		t.Errorf("expected no matches, got %v", got)
+	}
+}
+

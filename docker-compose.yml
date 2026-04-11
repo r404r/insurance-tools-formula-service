@@ -156,6 +156,36 @@ services:
       - "3000:80"
     restart: unless-stopped
 
+  # ─────────────────────────────────────────────────────────────────
+  # Seed runner — one-shot CLI that POSTs the JSON bundles in
+  # backend/seed/{tables,formulas}/ to the running backend's public
+  # API. Lives under its own `seed` profile so it doesn't start
+  # automatically; run it once after the backend is up.
+  #
+  # Usage (any backend profile works since the runner targets the
+  # `backend` network alias used by all three backend variants):
+  #
+  #   docker compose --profile postgres up -d
+  #   docker compose --profile postgres --profile seed run --rm seed-runner
+  #
+  # The runner exits 0 on success and 1 on failure; --rm removes the
+  # container after exit. The runner is idempotent (skips objects
+  # whose names already exist), so running it twice is safe.
+  # ─────────────────────────────────────────────────────────────────
+  seed-runner:
+    profiles: ["seed"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.seed
+    environment:
+      - SEED_BASE_URL=http://backend:8080
+      - SEED_ADMIN_USER=admin
+      - SEED_ADMIN_PASS=admin99999
+      - SEED_DIR=/seed
+    networks:
+      - default
+    restart: "no"
+
 volumes:
   sqlite-data:
   postgres-data:

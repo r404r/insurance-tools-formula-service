@@ -143,6 +143,24 @@ Flags:
 | `--admin-user` | `admin` | `SEED_ADMIN_USER` |
 | `--admin-pass` | `admin99999` | `SEED_ADMIN_PASS` |
 | `--seed-dir` | `backend/seed` | `SEED_DIR` |
+| `--dry-run` | off | — |
+| `--only NAME` | off | — |
+
+`--dry-run` parses every bundle file, runs the placeholder substitution
+pass against an in-memory name → synthetic-id map, and exits 0 if every
+reference resolves. It does **not** contact the backend, so it's the
+fastest way to validate that the on-disk bundles are internally
+consistent (no broken `{{formula:…}}` / `{{table:…}}` references and no
+malformed JSON). Use it as a CI check before merging a bundle change.
+
+`--only NAME` restricts the run to a single bundle whose top-level
+name (formula name for `formulas/*.json`, table name for
+`tables/*.json`) matches `NAME` exactly. The runner still walks all the
+other files in dependency order so a downstream consumer can resolve
+upstream placeholders against the live DB; if any required dependency
+isn't already in the DB, the runner refuses to import the target with a
+clear error pointing at the missing dep. Use it for fast iteration on
+one formula without re-seeding everything else.
 
 The runner is **idempotent in single-writer use**: it queries the backend
 for existing names before creating anything, so re-running against a
@@ -199,15 +217,37 @@ a rebuild.
    `backend/seed/tables/NNN-slug.json` matching the schema above.
 4. Same rebuild + reset note as for formulas.
 
-## Known limitations (stage 1)
+## Running inside docker compose
 
-- **No `--dry-run`**: stage 2 will add a flag to parse and validate
-  bundles without making API calls.
-- **No `--only NAME`**: stage 2 will add single-formula seeding for
-  faster iteration.
-- **No multi-formula bundles**: each file holds exactly one formula. The
-  format supports more, but the runner enforces single-entry on read.
+Stage 2 added a one-shot `seed-runner` service under the `seed` profile.
+Build is shared with the backend module via `backend/Dockerfile.seed`,
+and the bundles are baked into the image at build time so the runner
+container has no host filesystem dependency.
+
+```bash
+# Bring up backend (any profile) without seeds
+docker compose --profile postgres up -d
+
+# Run the seed runner once. --rm cleans up after the container exits.
+docker compose --profile postgres --profile seed run --rm seed-runner
+
+# Re-running is a no-op (idempotent skip lines)
+docker compose --profile postgres --profile seed run --rm seed-runner
+```
+
+The `seed-runner` service targets the `backend` network alias used by
+all three backend variants (sqlite/postgres/mysql), so the same `seed`
+profile pairs with whichever backend profile you have active.
+
+## Known limitations / deferred work
+
+- **No multi-formula bundles**: each file holds exactly one formula.
+  The format supports more, but the runner enforces single-entry on
+  read.
 - **Sub-domain organization**: bundles live in a flat `formulas/`
-  directory with numeric prefixes. Stage 2 will optionally split into
-  `formulas/{life,property,auto}/` subdirectories.
-- **Reset doesn't re-seed**: see above.
+  directory with numeric prefixes. Splitting into
+  `formulas/{life,property,auto}/` subdirectories is plausible future
+  work but adds churn for marginal benefit since the numeric prefixes
+  already give git-friendly diffs.
+- **Reset doesn't re-seed**: by design — the reset endpoint only
+  deletes; re-seeding is the runner's job.
