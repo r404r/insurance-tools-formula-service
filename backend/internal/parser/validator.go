@@ -139,6 +139,8 @@ func ValidateGraph(graph *domain.FormulaGraph) []ValidationError {
 			errs = append(errs, validateConditional(n, inDegree[n.ID])...)
 		case domain.NodeTableLookup:
 			errs = append(errs, validateTableLookup(n)...)
+		case domain.NodeTableAggregate:
+			errs = append(errs, validateTableAggregate(n)...)
 		case domain.NodeSubFormula:
 			errs = append(errs, validateSubFormula(n)...)
 		case domain.NodeAggregate:
@@ -332,6 +334,63 @@ func validateTableLookup(n domain.FormulaNode) []ValidationError {
 	}
 	if cfg.TableID == "" {
 		errs = append(errs, ValidationError{NodeID: n.ID, Message: "table lookup has empty tableId"})
+	}
+	return errs
+}
+
+// validateTableAggregate checks the structural sanity of a NodeTableAggregate
+// config — non-empty tableId / expression / aggregate, valid filter ops and
+// combinator, and the value/inputPort exclusivity of each filter. The wire
+// count is intentionally not checked here because the port set is dynamic
+// (only filters with InputPort need an incoming edge); the engine layer's
+// validateGraph handles per-filter port presence.
+func validateTableAggregate(n domain.FormulaNode) []ValidationError {
+	var errs []ValidationError
+	var cfg domain.TableAggregateConfig
+	if err := json.Unmarshal(n.Config, &cfg); err != nil {
+		errs = append(errs, ValidationError{NodeID: n.ID, Message: "invalid table aggregate config: " + err.Error()})
+		return errs
+	}
+	if cfg.TableID == "" {
+		errs = append(errs, ValidationError{NodeID: n.ID, Message: "table aggregate has empty tableId"})
+	}
+	if cfg.Expression == "" {
+		errs = append(errs, ValidationError{NodeID: n.ID, Message: "table aggregate has empty expression (column name)"})
+	}
+	validAggs := map[string]bool{
+		"sum": true, "avg": true, "count": true, "min": true, "max": true, "product": true,
+	}
+	if !validAggs[cfg.Aggregate] {
+		errs = append(errs, ValidationError{
+			NodeID:  n.ID,
+			Message: fmt.Sprintf("table aggregate has unknown aggregate %q (expected sum/avg/count/min/max/product)", cfg.Aggregate),
+		})
+	}
+	if cfg.FilterCombinator != "" && cfg.FilterCombinator != "and" && cfg.FilterCombinator != "or" {
+		errs = append(errs, ValidationError{
+			NodeID:  n.ID,
+			Message: fmt.Sprintf("table aggregate has unknown filterCombinator %q (expected and/or)", cfg.FilterCombinator),
+		})
+	}
+	for i, f := range cfg.Filters {
+		if f.Column == "" {
+			errs = append(errs, ValidationError{
+				NodeID:  n.ID,
+				Message: fmt.Sprintf("table aggregate filter %d: missing column", i),
+			})
+		}
+		if !validComparators[f.Op] {
+			errs = append(errs, ValidationError{
+				NodeID:  n.ID,
+				Message: fmt.Sprintf("table aggregate filter %d: unknown op %q (expected one of eq, ne, gt, ge, lt, le)", i, f.Op),
+			})
+		}
+		if f.Value != "" && f.InputPort != "" {
+			errs = append(errs, ValidationError{
+				NodeID:  n.ID,
+				Message: fmt.Sprintf("table aggregate filter %d: cannot set both value and inputPort", i),
+			})
+		}
 	}
 	return errs
 }

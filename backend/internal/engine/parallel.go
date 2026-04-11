@@ -40,15 +40,17 @@ type Executor struct {
 }
 
 // NewExecutor creates an Executor with the given worker count and precision
-// configuration. If workers <= 0 it defaults to 1.
-func NewExecutor(workers int, precision PrecisionConfig, subFormulaRunner SubFormulaRunner, loopRunner LoopRunner) *Executor {
+// configuration. If workers <= 0 it defaults to 1. The optional resolver is
+// passed through to the evaluator so that NodeTableAggregate can scan a
+// table at evaluation time; pass nil if no aggregate nodes will run.
+func NewExecutor(workers int, precision PrecisionConfig, resolver TableResolver, subFormulaRunner SubFormulaRunner, loopRunner LoopRunner) *Executor {
 	if workers <= 0 {
 		workers = 1
 	}
 	return &Executor{
 		workers:          workers,
 		precision:        precision,
-		evaluator:        NewEvaluator(precision),
+		evaluator:        NewEvaluator(precision, resolver),
 		subFormulaRunner: subFormulaRunner,
 		loopRunner:       loopRunner,
 	}

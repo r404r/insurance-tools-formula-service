@@ -35,7 +35,7 @@ A visual formula calculation engine for the insurance industry, supporting life 
 
 ### Formula Editor
 - **Visual Editor** — Drag-and-drop DAG editor powered by React Flow with auto layout
-- **9 Node Types** — variable, constant, operator, function, subFormula, tableLookup, conditional, aggregate, **loop**
+- **10 Node Types** — variable, constant, operator, function, subFormula, tableLookup, **tableAggregate**, conditional, aggregate, **loop**
 - **Dual-Mode Editing** — Switch between visual canvas and text expression mode with bidirectional conversion
 - **LaTeX Preview** — Real-time mathematical notation rendering (KaTeX)
 - **LaTeX Input** — Type LaTeX directly, auto-converts to formula text
@@ -266,7 +266,8 @@ Formulas are stored as JSON DAGs:
 | `operator` | Arithmetic op | `op` (add/subtract/multiply/divide/power/modulo) |
 | `function` | Math function | `fn` (round/floor/ceil/abs/min/max/sqrt/ln/exp), `args` |
 | `subFormula` | Sub-formula ref | `formulaId`, `version` |
-| `tableLookup` | Table lookup | `tableId`, `keyColumns`, `column` |
+| `tableLookup` | Single-key table lookup | `tableId`, `keyColumns`, `column` |
+| `tableAggregate` | SQL-style aggregate over a table (since task #040) | `tableId`, `aggregate` (sum/avg/count/min/max/product), `expression` (column name), `filters` (array of `{column, op, value\|inputPort, negate}`), `filterCombinator` (`and`/`or`) |
 | `conditional` | If/else branch | Legacy: `comparator` (eq/ne/gt/ge/lt/le). Composite (since task #039): `conditions` (array of `{op, negate}`) + `combinator` (`and`/`or`) for multi-term AND/OR/NOT — see Known Limitations |
 | `aggregate` | Aggregation | `fn` (sum/product/count/avg), `range` |
 | `loop` | Iteration | `mode`, `formulaId`, `iterator`, `aggregation`, `accumulatorVar` (fold), `initValue` (fold), `inclusiveEnd`, `maxIterations` |
@@ -324,14 +325,17 @@ Limitations of the current implementation:
    hand-written JSON. A panel UI for "add condition / change
    combinator" is a follow-up frontend task.
 
-### Lookup Tables — No Cross-Row Aggregation
+### Lookup Table Aggregation — Supported via `tableAggregate`
 
-`tableLookup` resolves a single composite key to a single value. There
-is no built-in "sum / avg / count of column X where filter Y" operation
-on a lookup table. Workarounds today: pre-compute the aggregate as a
-new column in the table, or use a `loop` node with a lookup body.
-Native support is the next planned engine extension —
-see [`docs/specs/004-table-aggregate-node.md`](docs/specs/004-table-aggregate-node.md).
+Since task #040 (spec 004) the engine has a dedicated `tableAggregate`
+node that does SQL-style `SELECT <aggregate>(<column>) FROM <table>
+WHERE <filters>`. It supports `sum / avg / count / min / max / product`,
+multi-filter `AND / OR / NOT`, and dynamic filter values pulled from
+other nodes — sufficient to express the chain ladder LDF in a single
+node. v1 only allows a single column name in `expression` (no DSL or
+self-join); see the spec
+[`docs/specs/004-table-aggregate-node.md`](docs/specs/004-table-aggregate-node.md)
+for the v2 roadmap (column expressions, group-by, self-join).
 
 ### No Built-in Statistical Distribution Functions
 

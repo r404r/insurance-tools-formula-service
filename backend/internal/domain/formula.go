@@ -57,10 +57,11 @@ const (
 	NodeOperator    NodeType = "operator"
 	NodeFunction    NodeType = "function"
 	NodeSubFormula  NodeType = "subFormula"
-	NodeTableLookup NodeType = "tableLookup"
-	NodeConditional NodeType = "conditional"
-	NodeAggregate   NodeType = "aggregate"
-	NodeLoop        NodeType = "loop"
+	NodeTableLookup    NodeType = "tableLookup"
+	NodeTableAggregate NodeType = "tableAggregate"
+	NodeConditional    NodeType = "conditional"
+	NodeAggregate      NodeType = "aggregate"
+	NodeLoop           NodeType = "loop"
 )
 
 // FormulaEdge connects two nodes in the DAG
@@ -119,6 +120,42 @@ func (c *TableLookupConfig) EffectiveKeyColumns() []string {
 		return []string{"key"}
 	}
 	return c.KeyColumns
+}
+
+// TableAggregateConfig configures a NodeTableAggregate node, which performs
+// a SQL-style "SELECT <aggregate>(<expression>) FROM <tableId> WHERE <filters>"
+// over a lookup table. v1 only supports a single column name in Expression
+// (no DSL); v2 will add column expressions and self-join. See spec
+// docs/specs/004-table-aggregate-node.md for the design rationale.
+type TableAggregateConfig struct {
+	TableID string `json:"tableId"` // required: lookup_tables.id
+
+	// Filters narrow down which rows participate in the aggregate. Each
+	// filter compares row[Column] against either a constant Value or a
+	// dynamic value pulled from another node via InputPort. When the
+	// list is empty, every row in the table is selected.
+	Filters          []TableFilter `json:"filters,omitempty"`
+	FilterCombinator string        `json:"filterCombinator,omitempty"` // "and" (default) or "or"
+
+	// Aggregate selects the reduction. One of: sum, avg, count, min, max, product.
+	Aggregate string `json:"aggregate"`
+
+	// Expression names the column to aggregate. v1 supports only a single
+	// column name; future versions may extend to a small DSL.
+	Expression string `json:"expression"`
+}
+
+// TableFilter is one filter clause inside TableAggregateConfig. The right
+// side of the comparison is either a literal Value or a dynamic InputPort
+// (mutually exclusive). Negate inverts the term result.
+type TableFilter struct {
+	Column    string `json:"column"`
+	Op        string `json:"op"` // eq, ne, gt, ge, lt, le
+
+	Value     string `json:"value,omitempty"`     // literal right-hand side
+	InputPort string `json:"inputPort,omitempty"` // dynamic right-hand side from a connected node
+
+	Negate bool `json:"negate,omitempty"`
 }
 
 // ConditionalConfig configures an if-then-else node.

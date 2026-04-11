@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -13,13 +14,21 @@ import (
 
 // Evaluator computes the result of a single FormulaNode given its resolved
 // input values. Input values are keyed by target port name.
+//
+// TableResolver is optional and only required when the formula contains
+// NodeTableAggregate nodes. NodeTableLookup uses pre-loaded data injected
+// into inputs (the "table:<key>" entries built by preloadTableData), so
+// the legacy lookup path does not depend on this field.
 type Evaluator struct {
-	Precision PrecisionConfig
+	Precision     PrecisionConfig
+	TableResolver TableResolver
 }
 
 // NewEvaluator creates an Evaluator with the given precision configuration.
-func NewEvaluator(precision PrecisionConfig) *Evaluator {
-	return &Evaluator{Precision: precision}
+// The optional resolver is used by NodeTableAggregate to scan full table
+// rows at evaluation time. Pass nil if no aggregate nodes will run.
+func NewEvaluator(precision PrecisionConfig, resolver TableResolver) *Evaluator {
+	return &Evaluator{Precision: precision, TableResolver: resolver}
 }
 
 // EvaluateNode computes the output of the given node. The inputs map is keyed
@@ -37,6 +46,8 @@ func (ev *Evaluator) EvaluateNode(node *domain.FormulaNode, inputs map[string]De
 		return ev.evalFunction(node, inputs)
 	case domain.NodeTableLookup:
 		return ev.evalTableLookup(node, inputs)
+	case domain.NodeTableAggregate:
+		return ev.evalTableAggregate(node, inputs)
 	case domain.NodeConditional:
 		return ev.evalConditional(node, inputs)
 	case domain.NodeAggregate:
@@ -239,6 +250,243 @@ func (ev *Evaluator) evalTableLookup(node *domain.FormulaNode, inputs map[string
 		return Zero, fmt.Errorf("node %s: no table entry for key %q in table %s", node.ID, compositeKey, cfg.TableID)
 	}
 	return val, nil
+}
+
+// evalTableAggregate evaluates a NodeTableAggregate (task #040, spec 004).
+//
+// The semantics are SQL-like:
+//
+//	SELECT <aggregate>(<expression>)
+//	FROM <tableId>
+//	WHERE <filters joined by FilterCombinator>
+//
+// v1 only supports a single column name in cfg.Expression. Filters can
+// reference either literal values or other node outputs via InputPort.
+// Empty result-set semantics: count→0, sum→0, product→1; avg/min/max
+// return an error so the user notices the empty filter.
+func (ev *Evaluator) evalTableAggregate(node *domain.FormulaNode, inputs map[string]Decimal) (Decimal, error) {
+	var cfg domain.TableAggregateConfig
+	if err := json.Unmarshal(node.Config, &cfg); err != nil {
+		return Zero, fmt.Errorf("node %s: invalid tableAggregate config: %w", node.ID, err)
+	}
+	if cfg.TableID == "" {
+		return Zero, fmt.Errorf("node %s: tableAggregate missing tableId", node.ID)
+	}
+	if cfg.Expression == "" {
+		return Zero, fmt.Errorf("node %s: tableAggregate missing expression (column name)", node.ID)
+	}
+	if ev.TableResolver == nil {
+		return Zero, fmt.Errorf("node %s: tableAggregate requires a TableResolver but none was configured on the engine", node.ID)
+	}
+
+	// Background context here is intentional: the resolver's GetRows
+	// hits a process-local cache (task #037), so request cancellation
+	// would only affect the very first cold load. Aggregating over a
+	// shared cached slice has no I/O.
+	rows, err := ev.TableResolver.GetRows(context.Background(), cfg.TableID)
+	if err != nil {
+		return Zero, fmt.Errorf("node %s: load table %s: %w", node.ID, cfg.TableID, err)
+	}
+
+	combinator := cfg.FilterCombinator
+	if combinator == "" {
+		combinator = "and"
+	}
+	if combinator != "and" && combinator != "or" {
+		return Zero, fmt.Errorf("node %s: unknown filterCombinator %q", node.ID, combinator)
+	}
+
+	// Walk every row, track three things separately so count and the
+	// numeric reductions get coherent semantics across columns of any
+	// type:
+	//
+	//   presentCount — rows that pass the filter AND have the
+	//     expression column present in the row map. This is what
+	//     'count' uses, mirroring SQL `COUNT(column)` (NULLs/missing
+	//     cells are excluded, regardless of whether the value parses
+	//     as numeric).
+	//
+	//   values — rows where the column is present AND parses as a
+	//     Decimal. Used by sum / product / avg / min / max. Rows
+	//     with non-numeric or missing values are silently skipped,
+	//     which is the "ignore empty cell" behavior chain-ladder
+	//     triangles depend on.
+	//
+	// Counting on a text column (e.g. region codes) returns
+	// presentCount — that's the codex round 1 P2 fix; previously
+	// count fell off the slice population step and returned 0.
+	values := make([]Decimal, 0, len(rows))
+	presentCount := 0
+	for _, row := range rows {
+		ok, ferr := matchTableFilters(row, cfg.Filters, combinator, inputs)
+		if ferr != nil {
+			return Zero, fmt.Errorf("node %s: %w", node.ID, ferr)
+		}
+		if !ok {
+			continue
+		}
+		raw, present := row[cfg.Expression]
+		if !present {
+			continue
+		}
+		presentCount++
+		d, err := decimal.NewFromString(raw)
+		if err != nil {
+			continue
+		}
+		values = append(values, d)
+	}
+
+	return ev.aggregateDecimalValues(node.ID, cfg.Aggregate, values, presentCount)
+}
+
+// matchTableFilters runs every filter against a row and combines the
+// results with the supplied combinator. The filter's right-hand side
+// is either a literal Value or a dynamic InputPort lookup; mixing both
+// on the same filter is rejected as a config error.
+func matchTableFilters(row map[string]string, filters []domain.TableFilter, combinator string, inputs map[string]Decimal) (bool, error) {
+	if len(filters) == 0 {
+		return true, nil
+	}
+
+	var running bool
+	for i, f := range filters {
+		if f.Value != "" && f.InputPort != "" {
+			return false, fmt.Errorf("filter %d on column %s: cannot set both value and inputPort", i, f.Column)
+		}
+		cellVal, present := row[f.Column]
+		// A row without the filter column never matches; it's not an
+		// error (sparse triangle data is the whole point).
+		if !present {
+			if combinator == "or" {
+				if i == 0 {
+					running = false
+				}
+				continue
+			}
+			running = false
+			continue
+		}
+
+		// Resolve the right-hand side.
+		var rhs string
+		if f.InputPort != "" {
+			d, ok := inputs[f.InputPort]
+			if !ok {
+				return false, fmt.Errorf("filter %d on column %s: inputPort %q not connected", i, f.Column, f.InputPort)
+			}
+			rhs = d.String()
+		} else {
+			rhs = f.Value
+		}
+
+		// Compare. We try numeric first; if either side fails to parse
+		// as Decimal we fall back to string compare, which only makes
+		// sense for eq/ne.
+		match, cerr := compareCell(cellVal, f.Op, rhs)
+		if cerr != nil {
+			return false, fmt.Errorf("filter %d on column %s: %w", i, f.Column, cerr)
+		}
+		if f.Negate {
+			match = !match
+		}
+		if i == 0 {
+			running = match
+			continue
+		}
+		if combinator == "or" {
+			running = running || match
+		} else {
+			running = running && match
+		}
+	}
+	return running, nil
+}
+
+// compareCell does the actual comparison for a TableFilter. Numeric on
+// both sides goes through Decimal; otherwise eq/ne fall back to string
+// equality and the ordering ops (gt/ge/lt/le) error out.
+func compareCell(left, op, right string) (bool, error) {
+	leftDec, lerr := decimal.NewFromString(left)
+	rightDec, rerr := decimal.NewFromString(right)
+	if lerr == nil && rerr == nil {
+		return compareDecimals("tableFilter", op, leftDec, rightDec)
+	}
+	switch op {
+	case "eq":
+		return left == right, nil
+	case "ne":
+		return left != right, nil
+	default:
+		return false, fmt.Errorf("op %q on non-numeric column requires eq/ne", op)
+	}
+}
+
+// aggregateDecimalValues reduces a slice of numeric values using the named
+// aggregate. presentCount is the number of selected rows whose expression
+// column was present (regardless of whether the value parsed as numeric).
+// Count uses presentCount, mirroring SQL `COUNT(column)` semantics; the
+// numeric reductions use the values slice, which is necessarily a subset
+// of the present rows (only those whose value parsed as Decimal).
+//
+// Empty input semantics: count → 0 (presentCount), sum → 0, product → 1.
+// avg/min/max return an error on an empty values slice so the user notices.
+//
+// avg uses DivRound with the engine's intermediate precision so that the
+// new node's averaging behaves identically to the legacy aggregate node
+// (which also routes division through DivRound). Without this, shopspring's
+// global DivisionPrecision (16 digits) would override the user's configured
+// ENGINE_INTERMEDIATE_PRECISION setting.
+func (ev *Evaluator) aggregateDecimalValues(nodeID, mode string, values []Decimal, presentCount int) (Decimal, error) {
+	switch mode {
+	case "count":
+		return decimal.NewFromInt(int64(presentCount)), nil
+	case "sum":
+		acc := Zero
+		for _, v := range values {
+			acc = acc.Add(v)
+		}
+		return acc, nil
+	case "product":
+		acc := One
+		for _, v := range values {
+			acc = acc.Mul(v)
+		}
+		return acc, nil
+	case "avg":
+		if len(values) == 0 {
+			return Zero, fmt.Errorf("node %s: avg over empty selection", nodeID)
+		}
+		acc := Zero
+		for _, v := range values {
+			acc = acc.Add(v)
+		}
+		return acc.DivRound(decimal.NewFromInt(int64(len(values))), ev.Precision.IntermediatePrecision), nil
+	case "min":
+		if len(values) == 0 {
+			return Zero, fmt.Errorf("node %s: min over empty selection", nodeID)
+		}
+		m := values[0]
+		for _, v := range values[1:] {
+			if v.LessThan(m) {
+				m = v
+			}
+		}
+		return m, nil
+	case "max":
+		if len(values) == 0 {
+			return Zero, fmt.Errorf("node %s: max over empty selection", nodeID)
+		}
+		m := values[0]
+		for _, v := range values[1:] {
+			if v.GreaterThan(m) {
+				m = v
+			}
+		}
+		return m, nil
+	default:
+		return Zero, fmt.Errorf("node %s: unknown aggregate %q", nodeID, mode)
+	}
 }
 
 // evalConditional evaluates a conditional (if-then-else) node. Two

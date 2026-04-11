@@ -170,6 +170,21 @@ func (r *StoreTableResolver) getRows(ctx context.Context, tableID string) ([]map
 	}
 }
 
+// GetRows returns the parsed rows of a table, loaded through the same
+// singleflight + cache + invalidation-generation path that powers
+// ResolveTable. This is the public counterpart of the internal getRows
+// method, exposed so that NodeTableAggregate (task #040) can scan a
+// whole table at evaluation time without paying for a redundant
+// JSON unmarshal.
+//
+// The returned slice is shared by reference with the cache and MUST be
+// treated as read-only by the caller. The single in-tree consumer
+// (engine.evalTableAggregate) only iterates rows to evaluate filters
+// and pull a column value, which is safe.
+func (r *StoreTableResolver) GetRows(ctx context.Context, tableID string) ([]map[string]string, error) {
+	return r.getRows(ctx, tableID)
+}
+
 // InvalidateAll drops every cached table and bumps the generation so that
 // any in-flight loader's write-back is rejected. Called by Engine.ClearCache().
 func (r *StoreTableResolver) InvalidateAll() {

@@ -68,11 +68,20 @@ func (ve ValidationError) Error() string {
 	return ve.Message
 }
 
-// TableResolver resolves lookup table data by table ID. keyColumns specifies
-// which columns form the composite lookup key (values joined with "|").
-// Returns a map from composite key to column value (as string-encoded decimal).
+// TableResolver resolves lookup table data by table ID.
+//
+// ResolveTable returns a composite-key indexed map for NodeTableLookup
+// fast-path access (the original API; keyColumns are joined with "|"
+// to build the key).
+//
+// GetRows returns the full set of parsed rows for a table, used by
+// NodeTableAggregate to scan + filter + aggregate at evaluation time.
+// Implementations are expected to share underlying parsed-row caches
+// between the two methods so that the same table is only deserialized
+// once per process — see StoreTableResolver for the canonical case.
 type TableResolver interface {
 	ResolveTable(ctx context.Context, tableID string, keyColumns []string, column string) (map[string]string, error)
+	GetRows(ctx context.Context, tableID string) ([]map[string]string, error)
 }
 
 // DefaultMaxLoopIterations is the engine-level cap on loop iterations when
@@ -119,7 +128,7 @@ func NewEngine(cfg EngineConfig) Engine {
 		tableResolver:   cfg.TableResolver,
 		formulaResolver: cfg.FormulaResolver,
 	}
-	engine.executor = NewExecutor(cfg.Workers, cfg.Precision, engine.executeSubFormula, engine.executeLoop)
+	engine.executor = NewExecutor(cfg.Workers, cfg.Precision, cfg.TableResolver, engine.executeSubFormula, engine.executeLoop)
 	return engine
 }
 
@@ -854,6 +863,41 @@ func validateNodeConfig(node domain.FormulaNode) error {
 			return fmt.Errorf("tableLookup config missing tableId")
 		}
 
+	case domain.NodeTableAggregate:
+		var cfg domain.TableAggregateConfig
+		if err := json.Unmarshal(node.Config, &cfg); err != nil {
+			return fmt.Errorf("invalid tableAggregate config: %w", err)
+		}
+		if cfg.TableID == "" {
+			return fmt.Errorf("tableAggregate config missing tableId")
+		}
+		if cfg.Expression == "" {
+			return fmt.Errorf("tableAggregate config missing expression (column name)")
+		}
+		validAggs := map[string]bool{
+			"sum": true, "avg": true, "count": true, "min": true, "max": true, "product": true,
+		}
+		if !validAggs[cfg.Aggregate] {
+			return fmt.Errorf("tableAggregate config: unknown aggregate %q (expected sum/avg/count/min/max/product)", cfg.Aggregate)
+		}
+		validOps := map[string]bool{
+			"eq": true, "ne": true, "gt": true, "ge": true, "lt": true, "le": true,
+		}
+		if cfg.FilterCombinator != "" && cfg.FilterCombinator != "and" && cfg.FilterCombinator != "or" {
+			return fmt.Errorf("tableAggregate config: unknown filterCombinator %q (expected and/or)", cfg.FilterCombinator)
+		}
+		for i, f := range cfg.Filters {
+			if f.Column == "" {
+				return fmt.Errorf("tableAggregate config: filter %d missing column", i)
+			}
+			if !validOps[f.Op] {
+				return fmt.Errorf("tableAggregate config: filter %d unknown op %q", i, f.Op)
+			}
+			if f.Value != "" && f.InputPort != "" {
+				return fmt.Errorf("tableAggregate config: filter %d cannot set both value and inputPort", i)
+			}
+		}
+
 	case domain.NodeSubFormula:
 		var cfg domain.SubFormulaConfig
 		if err := json.Unmarshal(node.Config, &cfg); err != nil {
@@ -1027,6 +1071,26 @@ func validateRequiredPorts(graph *domain.FormulaGraph, dag *DAG) []ValidationErr
 					errs = append(errs, ValidationError{
 						NodeID:  n.ID,
 						Message: fmt.Sprintf("tableLookup node missing %q input connection", kc),
+					})
+				}
+			}
+
+		case domain.NodeTableAggregate:
+			// Each filter that pulls its right-hand side from a node
+			// (rather than a literal Value) needs that input port
+			// connected. Filters with literal Value need no input edge.
+			var taCfg domain.TableAggregateConfig
+			if err := json.Unmarshal(n.Config, &taCfg); err != nil {
+				continue
+			}
+			for i, f := range taCfg.Filters {
+				if f.InputPort == "" {
+					continue
+				}
+				if !hasPort(f.InputPort) {
+					errs = append(errs, ValidationError{
+						NodeID:  n.ID,
+						Message: fmt.Sprintf("tableAggregate filter %d: missing %q input connection", i, f.InputPort),
 					})
 				}
 			}
