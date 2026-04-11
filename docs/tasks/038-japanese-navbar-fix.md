@@ -78,8 +78,8 @@ ZH 和 EN 不动（用户确认只聚焦 JA）。
 - [x] 修改 `ja.json`
 - [x] 修改 `Navbar.tsx`（app title + 6 nav Link + lang button + user button 共 9 处加 `whitespace-nowrap`）
 - [x] `cd frontend && npm run build` 通过
-- [x] 浏览器冒烟：切到 JA，navbar 单行显示（`tests/screenshots/038/17-nav-ja-full-title.png`）
-- [x] 截图对比（前：用户原始图；后：17-nav-ja-full-title.png）
+- [x] 浏览器冒烟：切到 JA，navbar 单行显示（`tests/screenshots/038/02-ja-fixed.png`）
+- [x] 截图对比（前：用户原始图；后：02-ja-fixed.png）
 - [x] codex review → P2 修复（恢复 `保険` 前缀）→ commit
 
 ## 完成标准
