@@ -1,6 +1,6 @@
 # Task #047: Seed 数据提取到外部脚本（API-driven）
 
-## Status: in-progress
+## Status: done
 
 ## 需求
 
