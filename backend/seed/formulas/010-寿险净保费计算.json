@@ -1,0 +1,185 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.903562591Z",
+  "formulas": [
+    {
+      "sourceId": "寿险净保费计算",
+      "sourceVersion": 1,
+      "name": "寿险净保费计算",
+      "domain": "life",
+      "description": "Net premium = sumAssured × qx × v, where v = 1/(1+i). 输入: sumAssured(保额), qx(死亡率), interestRate(预定利率)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "sumAssured"
+            }
+          },
+          {
+            "id": "n2",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "qx"
+            }
+          },
+          {
+            "id": "n3",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "interestRate"
+            }
+          },
+          {
+            "id": "n4",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "n5",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "n6",
+            "type": "operator",
+            "config": {
+              "op": "divide"
+            }
+          },
+          {
+            "id": "n7",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "n8",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "n9",
+            "type": "function",
+            "config": {
+              "args": {
+                "places": "18"
+              },
+              "fn": "round"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "n4",
+            "target": "n5",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n3",
+            "target": "n5",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n4",
+            "target": "n6",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n5",
+            "target": "n6",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n1",
+            "target": "n7",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n2",
+            "target": "n7",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n7",
+            "target": "n8",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n6",
+            "target": "n8",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n8",
+            "target": "n9",
+            "sourcePort": "out",
+            "targetPort": "in"
+          }
+        ],
+        "outputs": [
+          "n9"
+        ],
+        "layout": {
+          "positions": {
+            "n1": {
+              "x": 50,
+              "y": 50
+            },
+            "n2": {
+              "x": 50,
+              "y": 150
+            },
+            "n3": {
+              "x": 50,
+              "y": 250
+            },
+            "n4": {
+              "x": 50,
+              "y": 350
+            },
+            "n5": {
+              "x": 250,
+              "y": 300
+            },
+            "n6": {
+              "x": 450,
+              "y": 300
+            },
+            "n7": {
+              "x": 250,
+              "y": 100
+            },
+            "n8": {
+              "x": 550,
+              "y": 150
+            },
+            "n9": {
+              "x": 700,
+              "y": 150
+            }
+          }
+        }
+      }
+    }
+  ]
+}

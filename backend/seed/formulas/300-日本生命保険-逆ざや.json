@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:33.036253802Z",
+  "formulas": [
+    {
+      "sourceId": "日本生命保険 逆ざや",
+      "sourceVersion": 1,
+      "name": "日本生命保険 逆ざや",
+      "domain": "life",
+      "description": "Negative interest spread = (平均予定利率 − 運用利回り) × 利息算入対象責任準備金. 入力: planned(平均予定利率), actual(運用利回り), reserve(利息算入対象責任準備金)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_planned",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "planned"
+            }
+          },
+          {
+            "id": "var_actual",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "actual"
+            }
+          },
+          {
+            "id": "var_reserve",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "reserve"
+            }
+          },
+          {
+            "id": "op_gap",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "op_neg",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_planned",
+            "target": "op_gap",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_actual",
+            "target": "op_gap",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_gap",
+            "target": "op_neg",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_reserve",
+            "target": "op_neg",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_neg"
+        ]
+      }
+    }
+  ]
+}

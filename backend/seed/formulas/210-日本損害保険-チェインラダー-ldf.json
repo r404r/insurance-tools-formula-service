@@ -1,0 +1,53 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:33.003607268Z",
+  "formulas": [
+    {
+      "sourceId": "日本損害保険 チェインラダー LDF",
+      "sourceVersion": 1,
+      "name": "日本損害保険 チェインラダー LDF",
+      "domain": "property",
+      "description": "Chain ladder LDF for a single development year: avg(development_ratio WHERE dev_year = j). 入力: dev_year(j 動的). 表: claims_triangle_sample (年度ごとの development_ratio を事前計算済み)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_dev_year",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "dev_year"
+            }
+          },
+          {
+            "id": "agg_ldf",
+            "type": "tableAggregate",
+            "config": {
+              "tableId": "{{table:claims_triangle_sample}}",
+              "filters": [
+                {
+                  "column": "dev_year",
+                  "op": "eq",
+                  "inputPort": "dev_year"
+                }
+              ],
+              "filterCombinator": "and",
+              "aggregate": "avg",
+              "expression": "development_ratio"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_dev_year",
+            "target": "agg_ldf",
+            "sourcePort": "out",
+            "targetPort": "dev_year"
+          }
+        ],
+        "outputs": [
+          "agg_ldf"
+        ]
+      }
+    }
+  ]
+}

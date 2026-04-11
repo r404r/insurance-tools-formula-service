@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.99611609Z",
+  "formulas": [
+    {
+      "sourceId": "日本損害保険 損害率",
+      "sourceVersion": 1,
+      "name": "日本損害保険 損害率",
+      "domain": "property",
+      "description": "Loss ratio LR = (正味支払保険金 + 損害調査費) / 正味収入保険料. 入力: paid(正味支払保険金), adj(損害調査費), premium(正味収入保険料)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_paid",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "paid"
+            }
+          },
+          {
+            "id": "var_adj",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "adj"
+            }
+          },
+          {
+            "id": "var_premium",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "premium"
+            }
+          },
+          {
+            "id": "op_add",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "op_div",
+            "type": "operator",
+            "config": {
+              "op": "divide"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_paid",
+            "target": "op_add",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_adj",
+            "target": "op_add",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_add",
+            "target": "op_div",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_premium",
+            "target": "op_div",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_div"
+        ]
+      }
+    }
+  ]
+}

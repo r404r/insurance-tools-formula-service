@@ -1,0 +1,137 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.992814187Z",
+  "formulas": [
+    {
+      "sourceId": "日本生命保険 チルメル式責任準備金",
+      "sourceVersion": 1,
+      "name": "日本生命保険 チルメル式責任準備金",
+      "domain": "life",
+      "description": "Zillmer reserve V_z = V − α(1 − a_part/a_full). 入力: V(将来法責任準備金), alpha(チルメル額), a_part(残存期間年金現価), a_full(全期間年金現価)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_V",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "V"
+            }
+          },
+          {
+            "id": "var_alpha",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "alpha"
+            }
+          },
+          {
+            "id": "var_apart",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "a_part"
+            }
+          },
+          {
+            "id": "var_afull",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "a_full"
+            }
+          },
+          {
+            "id": "c_one",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "op_div",
+            "type": "operator",
+            "config": {
+              "op": "divide"
+            }
+          },
+          {
+            "id": "op_inner",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "op_mul",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "op_outer",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_apart",
+            "target": "op_div",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_afull",
+            "target": "op_div",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "c_one",
+            "target": "op_inner",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_div",
+            "target": "op_inner",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_alpha",
+            "target": "op_mul",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_inner",
+            "target": "op_mul",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_V",
+            "target": "op_outer",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_mul",
+            "target": "op_outer",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_outer"
+        ]
+      }
+    }
+  ]
+}

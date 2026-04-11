@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.986256338Z",
+  "formulas": [
+    {
+      "sourceId": "日本生命保険 基数 Dx",
+      "sourceVersion": 1,
+      "name": "日本生命保険 基数 Dx",
+      "domain": "life",
+      "description": "Commutation function D_x = v^x · l_x. 入力: v(割引因子), x(年齢), l(l_x 生存者数). C_x, M_x, N_x も同様の構造で構築可能",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_v",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "v"
+            }
+          },
+          {
+            "id": "var_x",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "x"
+            }
+          },
+          {
+            "id": "var_l",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "l"
+            }
+          },
+          {
+            "id": "op_pow",
+            "type": "operator",
+            "config": {
+              "op": "power"
+            }
+          },
+          {
+            "id": "op_mul",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_v",
+            "target": "op_pow",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_x",
+            "target": "op_pow",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_pow",
+            "target": "op_mul",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_l",
+            "target": "op_mul",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_mul"
+        ]
+      }
+    }
+  ]
+}

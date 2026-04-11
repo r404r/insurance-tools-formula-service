@@ -1,0 +1,86 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.961013649Z",
+  "formulas": [
+    {
+      "sourceId": "定期保険一時払純保険料",
+      "sourceVersion": 1,
+      "name": "定期保険一時払純保険料",
+      "domain": "life",
+      "description": "Term life single pure premium: S * Σ_{t=1}^{n} v^t * _{t-1}p_x * q_{x+t-1}. 入力: S(保険金額), x(年齢), n(保険期間), v(割引因子)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_S",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "S"
+            }
+          },
+          {
+            "id": "var_n",
+            "type": "variable",
+            "config": {
+              "dataType": "integer",
+              "name": "n"
+            }
+          },
+          {
+            "id": "c_1",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "loop_sum",
+            "type": "loop",
+            "config": {
+              "aggregation": "sum",
+              "formulaId": "{{formula:死亡給付PV項}}",
+              "iterator": "t",
+              "mode": "range"
+            }
+          },
+          {
+            "id": "op_result",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "c_1",
+            "target": "loop_sum",
+            "sourcePort": "out",
+            "targetPort": "start"
+          },
+          {
+            "source": "var_n",
+            "target": "loop_sum",
+            "sourcePort": "out",
+            "targetPort": "end"
+          },
+          {
+            "source": "var_S",
+            "target": "op_result",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "loop_sum",
+            "target": "op_result",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_result"
+        ]
+      }
+    }
+  ]
+}

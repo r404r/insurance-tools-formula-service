@@ -1,0 +1,149 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:33.02764042Z",
+  "formulas": [
+    {
+      "sourceId": "日本損害保険 Bühlmann信頼度",
+      "sourceVersion": 1,
+      "name": "日本損害保険 Bühlmann信頼度",
+      "domain": "property",
+      "description": "Bühlmann credibility μ̂ = (n·X + K·μ) / (n+K). 入力: X(集団の経験平均), mu(全体の手引値), n(データ数), K(個別/個別間変動比)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_X",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "X"
+            }
+          },
+          {
+            "id": "var_mu",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "mu"
+            }
+          },
+          {
+            "id": "var_n",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "n"
+            }
+          },
+          {
+            "id": "var_K",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "K"
+            }
+          },
+          {
+            "id": "op_nX",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "op_Kmu",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "op_num",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "op_den",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "op_pred",
+            "type": "operator",
+            "config": {
+              "op": "divide"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_n",
+            "target": "op_nX",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_X",
+            "target": "op_nX",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_K",
+            "target": "op_Kmu",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_mu",
+            "target": "op_Kmu",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_nX",
+            "target": "op_num",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_Kmu",
+            "target": "op_num",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_n",
+            "target": "op_den",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_K",
+            "target": "op_den",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_num",
+            "target": "op_pred",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_den",
+            "target": "op_pred",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_pred"
+        ]
+      }
+    }
+  ]
+}

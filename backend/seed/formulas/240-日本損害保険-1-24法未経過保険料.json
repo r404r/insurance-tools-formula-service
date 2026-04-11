@@ -1,0 +1,135 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:33.021120905Z",
+  "formulas": [
+    {
+      "sourceId": "日本損害保険 1/24法未経過保険料",
+      "sourceVersion": 1,
+      "name": "日本損害保険 1/24法未経過保険料",
+      "domain": "property",
+      "description": "Unearned premium under 1/24 method: premium · (2·start_month − 1) / 24. 入力: premium(年間保険料), start_month(始期月 1..12). 1月始期 → 1/24, 12月始期 → 23/24 が未経過.",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_premium",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "premium"
+            }
+          },
+          {
+            "id": "var_month",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "start_month"
+            }
+          },
+          {
+            "id": "c_2",
+            "type": "constant",
+            "config": {
+              "value": "2"
+            }
+          },
+          {
+            "id": "c_1",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "c_24",
+            "type": "constant",
+            "config": {
+              "value": "24"
+            }
+          },
+          {
+            "id": "op_2x",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "op_2xm1",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "op_frac",
+            "type": "operator",
+            "config": {
+              "op": "divide"
+            }
+          },
+          {
+            "id": "op_uerp",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "c_2",
+            "target": "op_2x",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_month",
+            "target": "op_2x",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_2x",
+            "target": "op_2xm1",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "c_1",
+            "target": "op_2xm1",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_2xm1",
+            "target": "op_frac",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "c_24",
+            "target": "op_frac",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_premium",
+            "target": "op_uerp",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_frac",
+            "target": "op_uerp",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_uerp"
+        ]
+      }
+    }
+  ]
+}

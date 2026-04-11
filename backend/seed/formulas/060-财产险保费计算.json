@@ -1,0 +1,197 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.930336565Z",
+  "formulas": [
+    {
+      "sourceId": "财产险保费计算",
+      "sourceVersion": 1,
+      "name": "财产险保费计算",
+      "domain": "property",
+      "description": "Premium = baseRate × riskScore × sumInsured × (1 - discount). 输入: baseRate(基础费率), riskScore(风险评分), sumInsured(保额), discount(折扣率)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "baseRate"
+            }
+          },
+          {
+            "id": "n2",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "riskScore"
+            }
+          },
+          {
+            "id": "n3",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "sumInsured"
+            }
+          },
+          {
+            "id": "n4",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "discount"
+            }
+          },
+          {
+            "id": "n5",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "n6",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "n7",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "n8",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "n9",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "n10",
+            "type": "function",
+            "config": {
+              "args": {
+                "places": "2"
+              },
+              "fn": "round"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "n5",
+            "target": "n6",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n4",
+            "target": "n6",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n1",
+            "target": "n7",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n2",
+            "target": "n7",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n7",
+            "target": "n8",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n3",
+            "target": "n8",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n8",
+            "target": "n9",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n6",
+            "target": "n9",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n9",
+            "target": "n10",
+            "sourcePort": "out",
+            "targetPort": "in"
+          }
+        ],
+        "outputs": [
+          "n10"
+        ],
+        "layout": {
+          "positions": {
+            "n1": {
+              "x": 50,
+              "y": 50
+            },
+            "n10": {
+              "x": 750,
+              "y": 200
+            },
+            "n2": {
+              "x": 50,
+              "y": 150
+            },
+            "n3": {
+              "x": 50,
+              "y": 250
+            },
+            "n4": {
+              "x": 50,
+              "y": 350
+            },
+            "n5": {
+              "x": 250,
+              "y": 350
+            },
+            "n6": {
+              "x": 450,
+              "y": 350
+            },
+            "n7": {
+              "x": 250,
+              "y": 100
+            },
+            "n8": {
+              "x": 450,
+              "y": 150
+            },
+            "n9": {
+              "x": 600,
+              "y": 200
+            }
+          }
+        }
+      }
+    }
+  ]
+}

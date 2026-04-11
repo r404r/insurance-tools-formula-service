@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:33.000234156Z",
+  "formulas": [
+    {
+      "sourceId": "日本損害保険 発生保険金",
+      "sourceVersion": 1,
+      "name": "日本損害保険 発生保険金",
+      "domain": "property",
+      "description": "Incurred losses = 当期支払保険金 + (当期末支払備金 − 前期末支払備金). 入力: paid(当期支払), end_res(期末支払備金), begin_res(期初支払備金)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_paid",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "paid"
+            }
+          },
+          {
+            "id": "var_end",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "end_res"
+            }
+          },
+          {
+            "id": "var_begin",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "begin_res"
+            }
+          },
+          {
+            "id": "op_delta",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "op_total",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_end",
+            "target": "op_delta",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_begin",
+            "target": "op_delta",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_paid",
+            "target": "op_total",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_delta",
+            "target": "op_total",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_total"
+        ]
+      }
+    }
+  ]
+}

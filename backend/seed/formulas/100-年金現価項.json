@@ -1,0 +1,131 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.950705066Z",
+  "formulas": [
+    {
+      "sourceId": "年金現価項",
+      "sourceVersion": 1,
+      "name": "年金現価項",
+      "domain": "life",
+      "description": "Annuity PV term: v^t * _tp_x. 入力: t(イテレータ), x(年齢), v(割引因子)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_t",
+            "type": "variable",
+            "config": {
+              "dataType": "integer",
+              "name": "t"
+            }
+          },
+          {
+            "id": "var_v",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "v"
+            }
+          },
+          {
+            "id": "c_0",
+            "type": "constant",
+            "config": {
+              "value": "0"
+            }
+          },
+          {
+            "id": "c_1",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "op_pow",
+            "type": "operator",
+            "config": {
+              "op": "power"
+            }
+          },
+          {
+            "id": "op_tminus1",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "loop_px",
+            "type": "loop",
+            "config": {
+              "aggregation": "product",
+              "formulaId": "{{formula:生存率因子 1-qx}}",
+              "iterator": "k",
+              "mode": "range"
+            }
+          },
+          {
+            "id": "op_mul",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_v",
+            "target": "op_pow",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_t",
+            "target": "op_pow",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_t",
+            "target": "op_tminus1",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "c_1",
+            "target": "op_tminus1",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "c_0",
+            "target": "loop_px",
+            "sourcePort": "out",
+            "targetPort": "start"
+          },
+          {
+            "source": "op_tminus1",
+            "target": "loop_px",
+            "sourcePort": "out",
+            "targetPort": "end"
+          },
+          {
+            "source": "op_pow",
+            "target": "op_mul",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "loop_px",
+            "target": "op_mul",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_mul"
+        ]
+      }
+    }
+  ]
+}

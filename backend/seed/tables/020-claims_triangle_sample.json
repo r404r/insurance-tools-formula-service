@@ -1,0 +1,63 @@
+{
+  "name": "claims_triangle_sample",
+  "domain": "property",
+  "tableType": "loss_triangle",
+  "data": [
+    {
+      "acc_year": "2020",
+      "dev_year": "1",
+      "cumulative_claim": "100",
+      "development_ratio": "1.27"
+    },
+    {
+      "acc_year": "2020",
+      "dev_year": "2",
+      "cumulative_claim": "127",
+      "development_ratio": "1.173"
+    },
+    {
+      "acc_year": "2020",
+      "dev_year": "3",
+      "cumulative_claim": "149",
+      "development_ratio": "1.127"
+    },
+    {
+      "acc_year": "2020",
+      "dev_year": "4",
+      "cumulative_claim": "168"
+    },
+    {
+      "acc_year": "2021",
+      "dev_year": "1",
+      "cumulative_claim": "95",
+      "development_ratio": "1.274"
+    },
+    {
+      "acc_year": "2021",
+      "dev_year": "2",
+      "cumulative_claim": "121",
+      "development_ratio": "1.190"
+    },
+    {
+      "acc_year": "2021",
+      "dev_year": "3",
+      "cumulative_claim": "144"
+    },
+    {
+      "acc_year": "2022",
+      "dev_year": "1",
+      "cumulative_claim": "105",
+      "development_ratio": "1.267"
+    },
+    {
+      "acc_year": "2022",
+      "dev_year": "2",
+      "cumulative_claim": "133"
+    },
+    {
+      "acc_year": "2023",
+      "dev_year": "1",
+      "cumulative_claim": "98"
+    }
+  ]
+}

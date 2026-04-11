@@ -1,0 +1,56 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:33.031464071Z",
+  "formulas": [
+    {
+      "sourceId": "日本損害賠償 休業損害(自賠責基準)",
+      "sourceVersion": 1,
+      "name": "日本損害賠償 休業損害(自賠責基準)",
+      "domain": "auto",
+      "description": "Lost wages under jibaiseki standard: 6,100 yen × 休業日数. 入力: days(休業日数)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_days",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "days"
+            }
+          },
+          {
+            "id": "c_6100",
+            "type": "constant",
+            "config": {
+              "value": "6100"
+            }
+          },
+          {
+            "id": "op_loss",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "c_6100",
+            "target": "op_loss",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_days",
+            "target": "op_loss",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_loss"
+        ]
+      }
+    }
+  ]
+}

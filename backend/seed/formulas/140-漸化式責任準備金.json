@@ -1,0 +1,87 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.972595435Z",
+  "formulas": [
+    {
+      "sourceId": "漸化式責任準備金",
+      "sourceVersion": 1,
+      "name": "漸化式責任準備金",
+      "domain": "life",
+      "description": "Recursive reserve: fold_{t=0}^{n-1} (V+P)*(1+i) - S*q_{x+t}. 入力: x(年齢), n(保険期間), P(保険料), i(予定利率), S(保険金額)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_n",
+            "type": "variable",
+            "config": {
+              "dataType": "integer",
+              "name": "n"
+            }
+          },
+          {
+            "id": "c_0",
+            "type": "constant",
+            "config": {
+              "value": "0"
+            }
+          },
+          {
+            "id": "c_1",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "op_nm1",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "loop_fold",
+            "type": "loop",
+            "config": {
+              "accumulatorVar": "V",
+              "aggregation": "fold",
+              "formulaId": "{{formula:責任準備金ステップ}}",
+              "initValue": "0",
+              "iterator": "t",
+              "mode": "range"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_n",
+            "target": "op_nm1",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "c_1",
+            "target": "op_nm1",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "c_0",
+            "target": "loop_fold",
+            "sourcePort": "out",
+            "targetPort": "start"
+          },
+          {
+            "source": "op_nm1",
+            "target": "loop_fold",
+            "sourcePort": "out",
+            "targetPort": "end"
+          }
+        ],
+        "outputs": [
+          "loop_fold"
+        ]
+      }
+    }
+  ]
+}

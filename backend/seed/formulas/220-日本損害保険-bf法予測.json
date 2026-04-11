@@ -1,0 +1,129 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:33.016349049Z",
+  "formulas": [
+    {
+      "sourceId": "日本損害保険 BF法予測",
+      "sourceVersion": 1,
+      "name": "日本損害保険 BF法予測",
+      "domain": "property",
+      "description": "Bornhuetter-Ferguson final loss = C + E · (1 − 1/f). 入力: C(現時点までの実績発生保険金), E(事前想定保険金), f(累積 LDF)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_C",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "C"
+            }
+          },
+          {
+            "id": "var_E",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "E"
+            }
+          },
+          {
+            "id": "var_f",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "f"
+            }
+          },
+          {
+            "id": "c_one",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "op_recip",
+            "type": "operator",
+            "config": {
+              "op": "divide"
+            }
+          },
+          {
+            "id": "op_inner",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "op_mul",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "op_total",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "c_one",
+            "target": "op_recip",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_f",
+            "target": "op_recip",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "c_one",
+            "target": "op_inner",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_recip",
+            "target": "op_inner",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_E",
+            "target": "op_mul",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_inner",
+            "target": "op_mul",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_C",
+            "target": "op_total",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_mul",
+            "target": "op_total",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_total"
+        ]
+      }
+    }
+  ]
+}

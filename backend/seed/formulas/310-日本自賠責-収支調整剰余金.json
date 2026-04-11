@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:33.037547963Z",
+  "formulas": [
+    {
+      "sourceId": "日本自賠責 収支調整剰余金",
+      "sourceVersion": 1,
+      "name": "日本自賠責 収支調整剰余金",
+      "domain": "auto",
+      "description": "CALI no-profit/no-loss surplus = collected_premium − claims_paid − admin_expense. 入力: premium(収入保険料), paid(支払保険金), admin(事務費)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_premium",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "premium"
+            }
+          },
+          {
+            "id": "var_paid",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "paid"
+            }
+          },
+          {
+            "id": "var_admin",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "admin"
+            }
+          },
+          {
+            "id": "op_minus_paid",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "op_minus_admin",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_premium",
+            "target": "op_minus_paid",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_paid",
+            "target": "op_minus_paid",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_minus_paid",
+            "target": "op_minus_admin",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_admin",
+            "target": "op_minus_admin",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_minus_admin"
+        ]
+      }
+    }
+  ]
+}

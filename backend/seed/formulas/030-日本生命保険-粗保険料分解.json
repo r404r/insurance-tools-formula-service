@@ -1,0 +1,163 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.916827578Z",
+  "formulas": [
+    {
+      "sourceId": "日本生命保険 粗保険料分解",
+      "sourceVersion": 1,
+      "name": "日本生命保険 粗保険料分解",
+      "domain": "life",
+      "description": "Gross premium decomposition based on net premium plus expense loadings. 输入: netPremium(純保険料), acquisitionExpense(新契約費), collectionExpense(集金費), maintenanceExpense(維持費)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "netPremium"
+            }
+          },
+          {
+            "id": "n2",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "acquisitionExpense"
+            }
+          },
+          {
+            "id": "n3",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "collectionExpense"
+            }
+          },
+          {
+            "id": "n4",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "maintenanceExpense"
+            }
+          },
+          {
+            "id": "n5",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "n6",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "n7",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "n8",
+            "type": "function",
+            "config": {
+              "args": {
+                "places": "2"
+              },
+              "fn": "round"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "n1",
+            "target": "n5",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n2",
+            "target": "n5",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n5",
+            "target": "n6",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n3",
+            "target": "n6",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n6",
+            "target": "n7",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n4",
+            "target": "n7",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n7",
+            "target": "n8",
+            "sourcePort": "out",
+            "targetPort": "in"
+          }
+        ],
+        "outputs": [
+          "n8"
+        ],
+        "layout": {
+          "positions": {
+            "n1": {
+              "x": 60,
+              "y": 60
+            },
+            "n2": {
+              "x": 60,
+              "y": 180
+            },
+            "n3": {
+              "x": 60,
+              "y": 300
+            },
+            "n4": {
+              "x": 60,
+              "y": 420
+            },
+            "n5": {
+              "x": 320,
+              "y": 120
+            },
+            "n6": {
+              "x": 560,
+              "y": 210
+            },
+            "n7": {
+              "x": 800,
+              "y": 255
+            },
+            "n8": {
+              "x": 1040,
+              "y": 255
+            }
+          }
+        }
+      }
+    }
+  ]
+}

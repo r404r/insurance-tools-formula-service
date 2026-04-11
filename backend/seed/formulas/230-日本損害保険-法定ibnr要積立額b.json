@@ -1,0 +1,136 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:33.018270083Z",
+  "formulas": [
+    {
+      "sourceId": "日本損害保険 法定IBNR要積立額b",
+      "sourceVersion": 1,
+      "name": "日本損害保険 法定IBNR要積立額b",
+      "domain": "property",
+      "description": "Statutory IBNR amount b = (y1 + y2 + y3) / 3 / 12 (1/12 法). 入力: y1, y2, y3 (直近3年度の発生保険金)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_y1",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "y1"
+            }
+          },
+          {
+            "id": "var_y2",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "y2"
+            }
+          },
+          {
+            "id": "var_y3",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "y3"
+            }
+          },
+          {
+            "id": "c_three",
+            "type": "constant",
+            "config": {
+              "value": "3"
+            }
+          },
+          {
+            "id": "c_twelve",
+            "type": "constant",
+            "config": {
+              "value": "12"
+            }
+          },
+          {
+            "id": "op_sum12",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "op_sum123",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "op_avg",
+            "type": "operator",
+            "config": {
+              "op": "divide"
+            }
+          },
+          {
+            "id": "op_b",
+            "type": "operator",
+            "config": {
+              "op": "divide"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_y1",
+            "target": "op_sum12",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_y2",
+            "target": "op_sum12",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_sum12",
+            "target": "op_sum123",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_y3",
+            "target": "op_sum123",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_sum123",
+            "target": "op_avg",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "c_three",
+            "target": "op_avg",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_avg",
+            "target": "op_b",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "c_twelve",
+            "target": "op_b",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_b"
+        ]
+      }
+    }
+  ]
+}

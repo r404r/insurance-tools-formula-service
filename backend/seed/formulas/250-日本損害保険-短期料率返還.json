@@ -1,0 +1,83 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:33.024353725Z",
+  "formulas": [
+    {
+      "sourceId": "日本損害保険 短期料率返還",
+      "sourceVersion": 1,
+      "name": "日本損害保険 短期料率返還",
+      "domain": "property",
+      "description": "Short-rate refund = annual_premium · (1 − short_rate). 入力: premium(年間保険料), short_rate(既経過期間に対応する短期料率, 0..1)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_premium",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "premium"
+            }
+          },
+          {
+            "id": "var_rate",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "short_rate"
+            }
+          },
+          {
+            "id": "c_one",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "op_inner",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "op_refund",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "c_one",
+            "target": "op_inner",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_rate",
+            "target": "op_inner",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_premium",
+            "target": "op_refund",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_inner",
+            "target": "op_refund",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_refund"
+        ]
+      }
+    }
+  ]
+}

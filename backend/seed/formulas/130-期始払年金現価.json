@@ -1,0 +1,85 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.965970296Z",
+  "formulas": [
+    {
+      "sourceId": "期始払年金現価",
+      "sourceVersion": 1,
+      "name": "期始払年金現価",
+      "domain": "life",
+      "description": "Annuity-due present value: ä_{x:n} = Σ_{t=0}^{n-1} v^t * _tp_x. 入力: x(年齢), n(保険期間), v(割引因子)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_n",
+            "type": "variable",
+            "config": {
+              "dataType": "integer",
+              "name": "n"
+            }
+          },
+          {
+            "id": "c_0",
+            "type": "constant",
+            "config": {
+              "value": "0"
+            }
+          },
+          {
+            "id": "c_1",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "op_nm1",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "loop_sum",
+            "type": "loop",
+            "config": {
+              "aggregation": "sum",
+              "formulaId": "{{formula:年金現価項}}",
+              "iterator": "t",
+              "mode": "range"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_n",
+            "target": "op_nm1",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "c_1",
+            "target": "op_nm1",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "c_0",
+            "target": "loop_sum",
+            "sourcePort": "out",
+            "targetPort": "start"
+          },
+          {
+            "source": "op_nm1",
+            "target": "loop_sum",
+            "sourcePort": "out",
+            "targetPort": "end"
+          }
+        ],
+        "outputs": [
+          "loop_sum"
+        ]
+      }
+    }
+  ]
+}

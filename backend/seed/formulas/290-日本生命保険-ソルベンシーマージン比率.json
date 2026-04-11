@@ -1,0 +1,267 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:33.034747558Z",
+  "formulas": [
+    {
+      "sourceId": "日本生命保険 ソルベンシー・マージン比率",
+      "sourceVersion": 1,
+      "name": "日本生命保険 ソルベンシー・マージン比率",
+      "domain": "life",
+      "description": "Solvency margin ratio = SMM / (0.5 · sqrt(R1² + (R2+R3)² + R4²)) · 100. 入力: SMM(マージン総額), R1(保険リスク), R2(予定利率リスク), R3(資産運用リスク), R4(経営管理リスク)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_SMM",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "SMM"
+            }
+          },
+          {
+            "id": "var_R1",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "R1"
+            }
+          },
+          {
+            "id": "var_R2",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "R2"
+            }
+          },
+          {
+            "id": "var_R3",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "R3"
+            }
+          },
+          {
+            "id": "var_R4",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "R4"
+            }
+          },
+          {
+            "id": "c_2",
+            "type": "constant",
+            "config": {
+              "value": "2"
+            }
+          },
+          {
+            "id": "c_half",
+            "type": "constant",
+            "config": {
+              "value": "0.5"
+            }
+          },
+          {
+            "id": "c_100",
+            "type": "constant",
+            "config": {
+              "value": "100"
+            }
+          },
+          {
+            "id": "op_R1sq",
+            "type": "operator",
+            "config": {
+              "op": "power"
+            }
+          },
+          {
+            "id": "op_R23",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "op_R23sq",
+            "type": "operator",
+            "config": {
+              "op": "power"
+            }
+          },
+          {
+            "id": "op_R4sq",
+            "type": "operator",
+            "config": {
+              "op": "power"
+            }
+          },
+          {
+            "id": "op_inner1",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "op_inner2",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "fn_sqrt",
+            "type": "function",
+            "config": {
+              "fn": "sqrt"
+            }
+          },
+          {
+            "id": "op_half",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "op_ratio",
+            "type": "operator",
+            "config": {
+              "op": "divide"
+            }
+          },
+          {
+            "id": "op_pct",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_R1",
+            "target": "op_R1sq",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "c_2",
+            "target": "op_R1sq",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_R2",
+            "target": "op_R23",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_R3",
+            "target": "op_R23",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_R23",
+            "target": "op_R23sq",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "c_2",
+            "target": "op_R23sq",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_R4",
+            "target": "op_R4sq",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "c_2",
+            "target": "op_R4sq",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_R1sq",
+            "target": "op_inner1",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_R23sq",
+            "target": "op_inner1",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_inner1",
+            "target": "op_inner2",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_R4sq",
+            "target": "op_inner2",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_inner2",
+            "target": "fn_sqrt",
+            "sourcePort": "out",
+            "targetPort": "in"
+          },
+          {
+            "source": "c_half",
+            "target": "op_half",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "fn_sqrt",
+            "target": "op_half",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_SMM",
+            "target": "op_ratio",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_half",
+            "target": "op_ratio",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_ratio",
+            "target": "op_pct",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "c_100",
+            "target": "op_pct",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_pct"
+        ]
+      }
+    }
+  ]
+}

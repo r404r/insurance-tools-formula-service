@@ -1,0 +1,84 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.989666158Z",
+  "formulas": [
+    {
+      "sourceId": "日本生命保険 将来法責任準備金",
+      "sourceVersion": 1,
+      "name": "日本生命保険 将来法責任準備金",
+      "domain": "life",
+      "description": "Prospective reserve V_t = A_{x+t} − P_x · ä_{x+t}. 入力: A(将来の給付現価), P(純保険料), a(将来の収入現価=年金現価)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_A",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "A"
+            }
+          },
+          {
+            "id": "var_P",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "P"
+            }
+          },
+          {
+            "id": "var_a",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "a"
+            }
+          },
+          {
+            "id": "op_pa",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "op_sub",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_P",
+            "target": "op_pa",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_a",
+            "target": "op_pa",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_A",
+            "target": "op_sub",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_pa",
+            "target": "op_sub",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_sub"
+        ]
+      }
+    }
+  ]
+}

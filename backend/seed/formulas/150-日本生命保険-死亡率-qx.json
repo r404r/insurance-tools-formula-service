@@ -1,0 +1,57 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.982175521Z",
+  "formulas": [
+    {
+      "sourceId": "日本生命保険 死亡率 qx",
+      "sourceVersion": 1,
+      "name": "日本生命保険 死亡率 qx",
+      "domain": "life",
+      "description": "Mortality rate q_x = d_x / l_x. 入力: d(該当年齢の年間死亡者数), l(該当年齢の生存者数)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_d",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "d"
+            }
+          },
+          {
+            "id": "var_l",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "l"
+            }
+          },
+          {
+            "id": "op_div",
+            "type": "operator",
+            "config": {
+              "op": "divide"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_d",
+            "target": "op_div",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_l",
+            "target": "op_div",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_div"
+        ]
+      }
+    }
+  ]
+}

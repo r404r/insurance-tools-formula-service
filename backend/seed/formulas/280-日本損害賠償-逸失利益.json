@@ -1,0 +1,110 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:33.033175939Z",
+  "formulas": [
+    {
+      "sourceId": "日本損害賠償 逸失利益",
+      "sourceVersion": 1,
+      "name": "日本損害賠償 逸失利益",
+      "domain": "auto",
+      "description": "Lost future income = annual_income · (1 − living_expense_rate) · leibniz_coefficient. 入力: income(年収), rate(生活費控除率), leibniz(ライプニッツ係数)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_income",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "income"
+            }
+          },
+          {
+            "id": "var_rate",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "rate"
+            }
+          },
+          {
+            "id": "var_leibniz",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "leibniz"
+            }
+          },
+          {
+            "id": "c_one",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "op_keep",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "op_take",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "op_pv",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "c_one",
+            "target": "op_keep",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_rate",
+            "target": "op_keep",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_income",
+            "target": "op_take",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_keep",
+            "target": "op_take",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_take",
+            "target": "op_pv",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_leibniz",
+            "target": "op_pv",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_pv"
+        ]
+      }
+    }
+  ]
+}

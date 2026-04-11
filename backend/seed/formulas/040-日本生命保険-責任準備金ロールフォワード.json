@@ -1,0 +1,232 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.920101857Z",
+  "formulas": [
+    {
+      "sourceId": "日本生命保険 責任準備金ロールフォワード",
+      "sourceVersion": 1,
+      "name": "日本生命保険 責任準備金ロールフォワード",
+      "domain": "life",
+      "description": "Reserve roll-forward approximation using level premium accumulation. 输入: reserveBegin(期初責任準備金), assumedInterestRate(予定利率), levelPremium(平準保険料), expectedBenefit(想定保険金), maintenanceExpense(維持費)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "reserveBegin"
+            }
+          },
+          {
+            "id": "n2",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "assumedInterestRate"
+            }
+          },
+          {
+            "id": "n3",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "levelPremium"
+            }
+          },
+          {
+            "id": "n4",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "expectedBenefit"
+            }
+          },
+          {
+            "id": "n5",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "maintenanceExpense"
+            }
+          },
+          {
+            "id": "n6",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "n7",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "n8",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "n9",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "n10",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "n11",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "n12",
+            "type": "function",
+            "config": {
+              "args": {
+                "places": "2"
+              },
+              "fn": "round"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "n6",
+            "target": "n7",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n2",
+            "target": "n7",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n1",
+            "target": "n8",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n7",
+            "target": "n8",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n8",
+            "target": "n9",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n3",
+            "target": "n9",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n9",
+            "target": "n10",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n4",
+            "target": "n10",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n10",
+            "target": "n11",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n5",
+            "target": "n11",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n11",
+            "target": "n12",
+            "sourcePort": "out",
+            "targetPort": "in"
+          }
+        ],
+        "outputs": [
+          "n12"
+        ],
+        "layout": {
+          "positions": {
+            "n1": {
+              "x": 60,
+              "y": 60
+            },
+            "n10": {
+              "x": 1260,
+              "y": 255
+            },
+            "n11": {
+              "x": 1500,
+              "y": 300
+            },
+            "n12": {
+              "x": 1740,
+              "y": 300
+            },
+            "n2": {
+              "x": 60,
+              "y": 180
+            },
+            "n3": {
+              "x": 60,
+              "y": 300
+            },
+            "n4": {
+              "x": 60,
+              "y": 420
+            },
+            "n5": {
+              "x": 60,
+              "y": 540
+            },
+            "n6": {
+              "x": 300,
+              "y": 180
+            },
+            "n7": {
+              "x": 540,
+              "y": 180
+            },
+            "n8": {
+              "x": 780,
+              "y": 120
+            },
+            "n9": {
+              "x": 1020,
+              "y": 210
+            }
+          }
+        }
+      }
+    }
+  ]
+}

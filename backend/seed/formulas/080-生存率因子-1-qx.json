@@ -1,0 +1,100 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.939921776Z",
+  "formulas": [
+    {
+      "sourceId": "生存率因子 1-qx",
+      "sourceVersion": 1,
+      "name": "生存率因子 1-qx",
+      "domain": "life",
+      "description": "Survival factor: 1 - q_{x+k}. Loop body for computing survival probabilities. 入力: x(年齢), k(イテレータ)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_k",
+            "type": "variable",
+            "config": {
+              "dataType": "integer",
+              "name": "k"
+            }
+          },
+          {
+            "id": "var_x",
+            "type": "variable",
+            "config": {
+              "dataType": "integer",
+              "name": "x"
+            }
+          },
+          {
+            "id": "c_1",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "op_xk",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "tbl_qx",
+            "type": "tableLookup",
+            "config": {
+              "column": "qx",
+              "keyColumns": [
+                "key"
+              ],
+              "tableId": "{{table:日本標準生命表2007（簡易版）}}"
+            }
+          },
+          {
+            "id": "op_sub",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_x",
+            "target": "op_xk",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_k",
+            "target": "op_xk",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_xk",
+            "target": "tbl_qx",
+            "sourcePort": "out",
+            "targetPort": "key"
+          },
+          {
+            "source": "c_1",
+            "target": "op_sub",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "tbl_qx",
+            "target": "op_sub",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_sub"
+        ]
+      }
+    }
+  ]
+}

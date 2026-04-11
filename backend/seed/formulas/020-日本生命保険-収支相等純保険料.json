@@ -1,0 +1,128 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.910680187Z",
+  "formulas": [
+    {
+      "sourceId": "日本生命保険 収支相等純保険料",
+      "sourceVersion": 1,
+      "name": "日本生命保険 収支相等純保険料",
+      "domain": "life",
+      "description": "Pure premium approximation under the equivalence principle. 输入: deathBenefit(保険金額), expectedDeaths(想定死亡件数), policyCount(契約件数)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "deathBenefit"
+            }
+          },
+          {
+            "id": "n2",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "expectedDeaths"
+            }
+          },
+          {
+            "id": "n3",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "policyCount"
+            }
+          },
+          {
+            "id": "n4",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "n5",
+            "type": "operator",
+            "config": {
+              "op": "divide"
+            }
+          },
+          {
+            "id": "n6",
+            "type": "function",
+            "config": {
+              "args": {
+                "places": "2"
+              },
+              "fn": "round"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "n1",
+            "target": "n4",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n2",
+            "target": "n4",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n4",
+            "target": "n5",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n3",
+            "target": "n5",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n5",
+            "target": "n6",
+            "sourcePort": "out",
+            "targetPort": "in"
+          }
+        ],
+        "outputs": [
+          "n6"
+        ],
+        "layout": {
+          "positions": {
+            "n1": {
+              "x": 60,
+              "y": 60
+            },
+            "n2": {
+              "x": 60,
+              "y": 180
+            },
+            "n3": {
+              "x": 60,
+              "y": 300
+            },
+            "n4": {
+              "x": 300,
+              "y": 120
+            },
+            "n5": {
+              "x": 540,
+              "y": 180
+            },
+            "n6": {
+              "x": 780,
+              "y": 180
+            }
+          }
+        }
+      }
+    }
+  ]
+}

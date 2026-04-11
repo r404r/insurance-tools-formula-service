@@ -33,6 +33,8 @@
 
 ## 已排期
 
+- [047-seed-extraction.md](tasks/047-seed-extraction.md) — main.go seed 数据提取到 JSON bundle + seed-runner CLI（阶段 1 in-progress）
+
 ## 已完成
 
 - [046-tableaggregate-text-mode-guard.md](tasks/046-tableaggregate-text-mode-guard.md) — TableAggregate 文本模式守卫（task #040 P2 follow-up，由 task #045 暴露）（2026-04-11）

@@ -1,0 +1,163 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.924327798Z",
+  "formulas": [
+    {
+      "sourceId": "日本生命保険 解約返戻金近似",
+      "sourceVersion": 1,
+      "name": "日本生命保険 解約返戻金近似",
+      "domain": "life",
+      "description": "Surrender value approximation using reserve less a surrender charge amount, floored at zero. 输入: netPremiumReserve(純保険料式保険料積立金), deathBenefit(保険金額), surrenderChargeRate(控除率)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "n1",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "netPremiumReserve"
+            }
+          },
+          {
+            "id": "n2",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "deathBenefit"
+            }
+          },
+          {
+            "id": "n3",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "surrenderChargeRate"
+            }
+          },
+          {
+            "id": "n4",
+            "type": "constant",
+            "config": {
+              "value": "0"
+            }
+          },
+          {
+            "id": "n5",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "n6",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          },
+          {
+            "id": "n7",
+            "type": "function",
+            "config": {
+              "args": {},
+              "fn": "max"
+            }
+          },
+          {
+            "id": "n8",
+            "type": "function",
+            "config": {
+              "args": {
+                "places": "2"
+              },
+              "fn": "round"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "n2",
+            "target": "n5",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n3",
+            "target": "n5",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n1",
+            "target": "n6",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n5",
+            "target": "n6",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n6",
+            "target": "n7",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "n4",
+            "target": "n7",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "n7",
+            "target": "n8",
+            "sourcePort": "out",
+            "targetPort": "in"
+          }
+        ],
+        "outputs": [
+          "n8"
+        ],
+        "layout": {
+          "positions": {
+            "n1": {
+              "x": 60,
+              "y": 60
+            },
+            "n2": {
+              "x": 60,
+              "y": 180
+            },
+            "n3": {
+              "x": 60,
+              "y": 300
+            },
+            "n4": {
+              "x": 300,
+              "y": 300
+            },
+            "n5": {
+              "x": 360,
+              "y": 210
+            },
+            "n6": {
+              "x": 600,
+              "y": 135
+            },
+            "n7": {
+              "x": 840,
+              "y": 180
+            },
+            "n8": {
+              "x": 1080,
+              "y": 180
+            }
+          }
+        }
+      }
+    }
+  ]
+}

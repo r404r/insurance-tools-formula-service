@@ -1,0 +1,208 @@
+{
+  "version": "1.0",
+  "exportedAt": "2026-04-11T14:18:32.955406338Z",
+  "formulas": [
+    {
+      "sourceId": "責任準備金ステップ",
+      "sourceVersion": 1,
+      "name": "責任準備金ステップ",
+      "domain": "life",
+      "description": "Reserve recursion step: (V+P)*(1+i) - S*q_{x+t}. 入力: V(前期準備金), t(イテレータ), P(保険料), i(予定利率), S(保険金額), x(年齢)",
+      "graph": {
+        "nodes": [
+          {
+            "id": "var_V",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "V"
+            }
+          },
+          {
+            "id": "var_t",
+            "type": "variable",
+            "config": {
+              "dataType": "integer",
+              "name": "t"
+            }
+          },
+          {
+            "id": "var_P",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "P"
+            }
+          },
+          {
+            "id": "var_i",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "i"
+            }
+          },
+          {
+            "id": "var_S",
+            "type": "variable",
+            "config": {
+              "dataType": "decimal",
+              "name": "S"
+            }
+          },
+          {
+            "id": "var_x",
+            "type": "variable",
+            "config": {
+              "dataType": "integer",
+              "name": "x"
+            }
+          },
+          {
+            "id": "c_1",
+            "type": "constant",
+            "config": {
+              "value": "1"
+            }
+          },
+          {
+            "id": "op_vp",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "op_1i",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "op_grow",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "op_xt",
+            "type": "operator",
+            "config": {
+              "op": "add"
+            }
+          },
+          {
+            "id": "tbl_qx",
+            "type": "tableLookup",
+            "config": {
+              "column": "qx",
+              "keyColumns": [
+                "key"
+              ],
+              "tableId": "{{table:日本標準生命表2007（簡易版）}}"
+            }
+          },
+          {
+            "id": "op_sq",
+            "type": "operator",
+            "config": {
+              "op": "multiply"
+            }
+          },
+          {
+            "id": "op_result",
+            "type": "operator",
+            "config": {
+              "op": "subtract"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "source": "var_V",
+            "target": "op_vp",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_P",
+            "target": "op_vp",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "c_1",
+            "target": "op_1i",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_i",
+            "target": "op_1i",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_vp",
+            "target": "op_grow",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_1i",
+            "target": "op_grow",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "var_x",
+            "target": "op_xt",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "var_t",
+            "target": "op_xt",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_xt",
+            "target": "tbl_qx",
+            "sourcePort": "out",
+            "targetPort": "key"
+          },
+          {
+            "source": "var_S",
+            "target": "op_sq",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "tbl_qx",
+            "target": "op_sq",
+            "sourcePort": "out",
+            "targetPort": "right"
+          },
+          {
+            "source": "op_grow",
+            "target": "op_result",
+            "sourcePort": "out",
+            "targetPort": "left"
+          },
+          {
+            "source": "op_sq",
+            "target": "op_result",
+            "sourcePort": "out",
+            "targetPort": "right"
+          }
+        ],
+        "outputs": [
+          "op_result"
+        ]
+      }
+    }
+  ]
+}
