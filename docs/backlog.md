@@ -35,6 +35,7 @@
 
 ## 已完成
 
+- [045-japan-insurance-builtin-formulas.md](tasks/045-japan-insurance-builtin-formulas.md) — 日本保険公式 17 个内置公式 + 17 个模版（spec 002 #1-#13/#15-#18/#20）（2026-04-11）
 - [044-postgres-regression-run.md](tasks/044-postgres-regression-run.md) — PostgreSQL 后端正确性回归（4 batch / 190 case 全过）（2026-04-11）
 - [043-archived-version-fork-edit.md](tasks/043-archived-version-fork-edit.md) — 编辑已归档版本生成新版本（spec 006）（2026-04-11）
 - [042-formula-list-sortable.md](tasks/042-formula-list-sortable.md) — 公式列表加作成者/更新者 + 表头排序（spec 005）（2026-04-11）
