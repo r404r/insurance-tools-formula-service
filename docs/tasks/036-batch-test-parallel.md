@@ -167,9 +167,17 @@ grid 改为 `sm:grid-cols-5`（或者 `md:grid-cols-5`，响应式考虑）。
 
 ## 完成标准
 
-- [ ] 100 条 case 的 batch test 并行执行，总耗时明显降低
-- [ ] 结果数组顺序与输入一致
-- [ ] Summary 包含 totalExecutionTimeMs
-- [ ] UI 显示"总执行时间"卡片
-- [ ] 全局并发限流修改后，下一次 batch test 的 worker 数跟着调整
-- [ ] README 和 Settings hint 明确写出 1/5 关系
+- [x] 100 条 case 的 batch test 并行执行，总耗时明显降低
+      （实测：10.3s → 4.1s，2.52×，见上方"实测数据"表）
+- [x] 结果数组顺序与输入一致
+      （设计：结果按 index 写入预分配数组；`TestBatchTestConcurrentRequestsRace`
+      显式断言 "case-0"..."case-199" 顺序）
+- [x] Summary 包含 totalExecutionTimeMs
+      （`BatchTestSummary.TotalExecutionTimeMs` 已添加到 dto.go 并由 handler 填充）
+- [x] UI 显示"总执行时间"卡片
+      （冒烟测试已确认 5 个 summary card 正常渲染）
+- [x] 全局并发限流修改后，下一次 batch test 的 worker 数跟着调整
+      （handler 每次请求都调用 `computeBatchWorkers(h.Limiter.Limit())`，
+      不缓存；`TestBatchTestSetLimitMidFlightRace` 中途翻转 limit 验证 race-free）
+- [x] README 和 Settings hint 明确写出 1/5 关系
+      （README Concurrency Control 段 + en/zh/ja 三语 `maxConcurrentCalcsHint`）

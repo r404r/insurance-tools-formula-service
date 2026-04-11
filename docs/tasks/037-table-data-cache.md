@@ -65,13 +65,21 @@ batch run 中被**重复解析约 300 次**（100 case × ~3 次 preload/case，
 - [x] 写 `table_resolver_test.go`：基本命中、失效、并发 singleflight、并发 mutation 安全
 - [x] `go vet ./... && go test ./... -race` 通过
 - [ ] 手动验证：batch test 前后对比耗时（需重启现有 dev server）
-- [ ] codex review → fix P1/P2 → commit
+- [x] codex review → 修复 P1（失效期间的加载竞态）+ P2（取消传染） → commit a00a9ee
 - [x] 更新 `docs/backlog.md` 和 `docs/performance/001-batch-test-speedup-analysis.md`
 
 ## 完成标准
 
-- [ ] 功能正常：冷缓存首次查询走 DB，之后走缓存
-- [ ] 并发安全：`go test -race` 通过
-- [ ] 失效正确：TableHandler Update/Delete 触发的 ClearCache 级联清掉 table cache
-- [ ] 测试通过（race + 单元）
-- [ ] commit + codex review
+- [x] 功能正常：冷缓存首次查询走 DB，之后走缓存
+      （`TestStoreTableResolver_CachesParsedRows` 冷/热/跨 column 三种路径断言）
+- [x] 并发安全：`go test -race` 通过
+      （所有 7 个 resolver 测试 + 全 backend 套件在 `-race` 下通过）
+- [x] 失效正确：TableHandler Update/Delete 触发的 ClearCache 级联清掉 table cache
+      （`engine.defaultEngine.ClearCache()` 显式 interface 断言后调用
+      `InvalidateAll`；`TableHandler.Update/Delete` 已调用 `h.Cache.ClearCache()`；
+      `InvalidateAllForcesReload` + `InvalidateDuringLoadDoesNotResurrectStale`
+      覆盖两条链路）
+- [x] 测试通过（race + 单元）
+      （见上；codex review 两轮后全绿，commit a00a9ee）
+- [x] commit + codex review
+      （a00a9ee；codex round 1 发现 P1/P2 → 修复后 round 2 LGTM）
