@@ -5,6 +5,9 @@
 *.dylib
 /backend/formula-service
 /backend/cmd/server/server
+# Stray server binary from `go build ./cmd/server` without -o bin/server
+# (correct command is `go build -o bin/server ./cmd/server`, see Makefile)
+/backend/server
 
 # Database
 *.db
@@ -28,7 +31,7 @@ Thumbs.db
 /backend/vendor/
 
 # Node
-/frontend/node_modules/
+node_modules/
 /frontend/dist/
 /frontend/.env.local
 
