@@ -110,17 +110,101 @@ Backend runs on `http://localhost:8080`, frontend on `http://localhost:5173` wit
 
 ### Docker
 
+The compose file uses **profiles** to pick the database backend. Pick
+exactly one profile (sqlite is the default for local development):
+
 ```bash
+# Easiest path: copy .env.example so COMPOSE_PROFILES=sqlite is set,
+# then `up -d` works without extra flags.
+cp .env.example .env
 docker compose up -d
 ```
 
-Backend on port 8080, frontend on port 3000.
+Or override on the command line for one-off runs:
+
+```bash
+docker compose --profile sqlite up -d    # default
+docker compose --profile postgres up -d  # also boots postgres sidecar
+docker compose --profile mysql up -d     # also boots mysql sidecar
+```
+
+Backend on port 8080, frontend on port 3000. See
+[`Database Configuration`](#database-configuration) below for the full
+profile / DSN reference.
 
 ### Build
 
 ```bash
 make build
 ```
+
+## Database Configuration
+
+The backend supports three SQL backends — **SQLite** (default, embedded
+file), **PostgreSQL**, and **MySQL** — selected at startup via two
+environment variables. There is no compile-time switch; the same binary
+works with all three drivers.
+
+### Environment variables
+
+| Variable | Default | Notes |
+|---|---|---|
+| `DB_DRIVER` | `sqlite` | One of `sqlite` / `postgres` / `mysql`. Validated at startup. |
+| `DB_DSN` | `file:formula.db?_journal=WAL&_foreign_keys=on` | Connection string for the chosen driver. |
+
+A complete list of every environment variable the backend reads is in
+[`.env.example`](.env.example) — copy it to `.env` and edit.
+
+### Running the bare binary
+
+```bash
+# SQLite (default)
+./backend/bin/server
+
+# PostgreSQL
+DB_DRIVER=postgres \
+DB_DSN="postgres://formula:formula_dev@localhost:5432/formula_service?sslmode=disable" \
+./backend/bin/server
+
+# MySQL
+DB_DRIVER=mysql \
+DB_DSN="formula:formula_dev@tcp(localhost:3306)/formula_service?parseTime=true&charset=utf8mb4&loc=UTC" \
+./backend/bin/server
+```
+
+Each store implementation runs `CREATE TABLE IF NOT EXISTS` plus an
+idempotent `ALTER TABLE` block on first connect, so an empty database
+boots without manual schema setup, and a database that pre-dates a
+schema bump (such as task #042's `updated_by` column) is migrated in
+place.
+
+### Running with docker compose
+
+`docker-compose.yml` defines three profiles, one per backend store. The
+profile is selected with `--profile` on the command line or by setting
+`COMPOSE_PROFILES` in `.env`:
+
+```bash
+# SQLite (default profile, no extra services)
+docker compose --profile sqlite up
+
+# PostgreSQL — also boots a postgres:16-alpine sidecar
+docker compose --profile postgres up
+
+# MySQL — also boots a mysql:8 sidecar
+docker compose --profile mysql up
+```
+
+Database credentials (`POSTGRES_*` / `MYSQL_*`) and the matching
+`DB_DSN` value live in `.env.example`. The sidecar containers come up
+healthy (`pg_isready` / `mysqladmin ping`) before the backend starts,
+so the schema migration sees a ready database.
+
+> **Switching profiles is a destructive boundary**: data lives in
+> separate volumes per driver, so moving from SQLite to Postgres does
+> not migrate existing formulas. Export them via the Formulas page →
+> Export All before switching, and re-import after the new database
+> is up.
 
 ## Default Account & Seed Data
 

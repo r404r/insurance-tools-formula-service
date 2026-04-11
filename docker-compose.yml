@@ -1,7 +1,26 @@
-version: "3.8"
+# This compose file uses three profiles to pick the database backend.
+# Exactly ONE backend variant should be active at a time. Pick via:
+#
+#   docker compose --profile sqlite up      # default (no extra services)
+#   docker compose --profile postgres up    # backend + postgres sidecar
+#   docker compose --profile mysql up       # backend + mysql sidecar
+#
+# Or set COMPOSE_PROFILES in .env (see .env.example) so plain
+# `docker compose up` picks the right profile automatically.
+#
+# Frontend has no profile and starts in every configuration. Volumes
+# are profile-specific so switching profiles does not corrupt the
+# previous database — but data does NOT migrate across profiles, see
+# README §Database Configuration.
 
 services:
-  backend:
+  # ─────────────────────────────────────────────────────────────────
+  # Backend — three variants, one per profile, sharing the same image
+  # build. Each variant claims port 8080 so only one can be active.
+  # ─────────────────────────────────────────────────────────────────
+
+  backend-sqlite:
+    profiles: ["sqlite"]
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -11,13 +30,115 @@ services:
       - SERVER_PORT=8080
       - DB_DRIVER=sqlite
       - DB_DSN=file:/data/formula.db?_journal=WAL&_foreign_keys=on
-      - AUTH_JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:-change-me-in-production}
       - ENGINE_MAX_WORKERS=0
       - ENGINE_INTERMEDIATE_PRECISION=28
       - ENGINE_OUTPUT_PRECISION=18
+      - ENGINE_MAX_CONCURRENT_CALCS=100
     volumes:
-      - db-data:/data
+      - sqlite-data:/data
+    networks:
+      default:
+        # Expose under the stable hostname `backend` so the frontend's
+        # nginx upstream (`proxy_pass http://backend:8080`) keeps working
+        # regardless of which profile is active. Each profile-specific
+        # backend service uses the same alias.
+        aliases: ["backend"]
     restart: unless-stopped
+
+  backend-postgres:
+    profiles: ["postgres"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - DB_DRIVER=postgres
+      - DB_DSN=postgres://${POSTGRES_USER:-formula}:${POSTGRES_PASSWORD:-formula_dev}@postgres:5432/${POSTGRES_DB:-formula_service}?sslmode=disable
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:-change-me-in-production}
+      - ENGINE_MAX_WORKERS=0
+      - ENGINE_INTERMEDIATE_PRECISION=28
+      - ENGINE_OUTPUT_PRECISION=18
+      - ENGINE_MAX_CONCURRENT_CALCS=100
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      default:
+        aliases: ["backend"]
+    restart: unless-stopped
+
+  backend-mysql:
+    profiles: ["mysql"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_PORT=8080
+      - DB_DRIVER=mysql
+      - DB_DSN=${MYSQL_USER:-formula}:${MYSQL_PASSWORD:-formula_dev}@tcp(mysql:3306)/${MYSQL_DATABASE:-formula_service}?parseTime=true&charset=utf8mb4&loc=UTC
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:-change-me-in-production}
+      - ENGINE_MAX_WORKERS=0
+      - ENGINE_INTERMEDIATE_PRECISION=28
+      - ENGINE_OUTPUT_PRECISION=18
+      - ENGINE_MAX_CONCURRENT_CALCS=100
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      default:
+        aliases: ["backend"]
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────
+  # Database sidecars (only run in their respective profile)
+  # ─────────────────────────────────────────────────────────────────
+
+  postgres:
+    profiles: ["postgres"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-formula_service}
+      POSTGRES_USER: ${POSTGRES_USER:-formula}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-formula_dev}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-formula} -d ${POSTGRES_DB:-formula_service}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  mysql:
+    profiles: ["mysql"]
+    image: mysql:8
+    command: --default-authentication-plugin=caching_sha2_password
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-formula_service}
+      MYSQL_USER: ${MYSQL_USER:-formula}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-formula_dev}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-formula_root_dev}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-formula_root_dev}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  # ─────────────────────────────────────────────────────────────────
+  # Frontend — runs in every profile (no `profiles:` key means it is
+  # always-on). It does not declare depends_on for any specific
+  # backend variant because at most one of those is active at a time;
+  # the active backend is reachable on localhost:8080 from the host
+  # network just like before.
+  # ─────────────────────────────────────────────────────────────────
 
   frontend:
     build:
@@ -25,22 +146,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:80"
-    depends_on:
-      - backend
     restart: unless-stopped
 
-  # Optional: PostgreSQL for production deployments
-  # postgres:
-  #   image: postgres:16-alpine
-  #   ports:
-  #     - "5432:5432"
-  #   environment:
-  #     POSTGRES_DB: formula_service
-  #     POSTGRES_USER: formula
-  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-formula_dev}
-  #   volumes:
-  #     - pg-data:/var/lib/postgresql/data
-
 volumes:
-  db-data:
-  # pg-data:
+  sqlite-data:
+  postgres-data:
+  mysql-data:
