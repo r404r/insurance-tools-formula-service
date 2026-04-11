@@ -206,6 +206,48 @@ so the schema migration sees a ready database.
 > Export All before switching, and re-import after the new database
 > is up.
 
+### Connecting to PostgreSQL from the host (dev only)
+
+When the `postgres` profile is active, the `postgres` sidecar
+publishes its 5432 port to the host so that you can connect from
+`psql`, DataGrip, pgAdmin, TablePlus, or any JDBC client. The bind
+is **`127.0.0.1:5432:5432`** — the database is reachable from the
+machine running docker compose, but not from the LAN or the public
+internet. Removing the `127.0.0.1` prefix would let any host on the
+network connect with the default credentials below; do not do that
+even for dev.
+
+| Field | Value (default) | Override variable |
+|---|---|---|
+| Host | `localhost` (or `127.0.0.1`) | — |
+| Port | `5432` | hardcoded in `docker-compose.yml` |
+| Database | `formula_service` | `POSTGRES_DB` |
+| User | `formula` | `POSTGRES_USER` |
+| Password | `formula_dev` | `POSTGRES_PASSWORD` |
+
+The `POSTGRES_*` variables come from `.env` (template in
+[`.env.example`](.env.example)). If you change them there, the
+`backend-postgres` service inside compose picks up the same values
+through string interpolation in its `DB_DSN`, so the backend and
+your host client see the same credentials.
+
+```bash
+# psql (host CLI)
+psql -h localhost -p 5432 -U formula -d formula_service
+# password: formula_dev (or whatever POSTGRES_PASSWORD you set)
+
+# Or via DSN
+psql "postgres://formula:formula_dev@localhost:5432/formula_service?sslmode=disable"
+```
+
+> The MySQL sidecar deliberately does **not** publish 3306 to the
+> host. If you need the same affordance for MySQL, mirror the
+> `ports: ["127.0.0.1:3306:3306"]` pattern in `docker-compose.yml`.
+>
+> If your host already runs a native postgres on 5432, change the
+> left side of the bind to a free port, e.g.
+> `"127.0.0.1:5433:5432"`, and connect to `localhost:5433`.
+
 ## Default Account & Seed Data
 
 On first startup, the system automatically creates:

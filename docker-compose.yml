@@ -101,6 +101,14 @@ services:
   postgres:
     profiles: ["postgres"]
     image: postgres:16-alpine
+    # Bind 5432 to 127.0.0.1 only — the dev database is reachable from
+    # the host (psql / DataGrip / pgAdmin / etc.) but NOT from the LAN
+    # or the public internet. Removing the 127.0.0.1 prefix would let
+    # any machine on the same network connect with the default
+    # credentials below, which is unsafe even for dev. See README
+    # § Database Configuration for the connection details.
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-formula_service}
       POSTGRES_USER: ${POSTGRES_USER:-formula}
