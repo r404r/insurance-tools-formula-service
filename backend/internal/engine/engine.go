@@ -209,8 +209,17 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 }
 
 // ClearCache implements Engine.ClearCache.
+//
+// In addition to flushing the ResultCache (cached formula outputs), this also
+// cascades to the TableResolver when it supports invalidation. The table
+// HTTP handler calls ClearCache() on every Update/Delete (see table_handler.go),
+// so this keeps the parsed-rows cache in StoreTableResolver consistent with
+// the underlying lookup_tables rows without any extra plumbing.
 func (e *defaultEngine) ClearCache() {
 	e.cache.Clear()
+	if inv, ok := e.tableResolver.(interface{ InvalidateAll() }); ok {
+		inv.InvalidateAll()
+	}
 }
 
 // CacheStats implements Engine.CacheStats.

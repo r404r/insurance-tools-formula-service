@@ -10,6 +10,7 @@
 
 ## 已完成
 
+- [037-table-data-cache.md](tasks/037-table-data-cache.md) — Lookup Table 数据缓存（性能报告方向 B）（2026-04-11）
 - [036-batch-test-parallel.md](tasks/036-batch-test-parallel.md) — Batch Test 服务端并行化 + 总执行时间（2026-04-11）
 - [035-editable-node-id.md](tasks/035-editable-node-id.md) — 可视化编辑器支持修改节点 ID + 合法/冲突校验（2026-04-11）
 - [034-formula-canvas-stale-closure-fix.md](tasks/034-formula-canvas-stale-closure-fix.md) — 新拖入节点无法连线（stale closure）修复（2026-04-11）
