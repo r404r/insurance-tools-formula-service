@@ -64,7 +64,25 @@ batch run 中被**重复解析约 300 次**（100 case × ~3 次 preload/case，
 - [x] 修改 `engine.go` 的 `ClearCache()`：类型断言 + 级联 InvalidateAll
 - [x] 写 `table_resolver_test.go`：基本命中、失效、并发 singleflight、并发 mutation 安全
 - [x] `go vet ./... && go test ./... -race` 通过
-- [ ] 手动验证：batch test 前后对比耗时（需重启现有 dev server）
+- [x] 手动验证：batch test 前后对比耗时（2026-04-11）
+
+  方法：对同一份 100-case batch（task #033 的 `term-life-n1-100.json`）用
+  预热 3 次 + 测量 8 次，分别跑 pre-037 二进制（`git show a00a9ee^` 里的
+  `table_resolver.go` + `engine.go`）和 a00a9ee 构建的二进制，每次 run 前
+  `DELETE /api/v1/cache` 清掉 ResultCache。
+
+  | 指标 | OLD (pre-037) | NEW (with table cache) | Δ |
+  |---|---:|---:|---:|
+  | min    | 4117.6 ms | 3976.6 ms | **−141.0 ms (3.42%)** |
+  | median | 4135.7 ms | 4017.9 ms | **−117.9 ms (2.85%)** |
+  | mean   | 4138.2 ms | 4024.8 ms | **−113.4 ms (2.74%)** |
+  | max    | 4166.0 ms | 4084.7 ms | −81.3 ms |
+  | stdev  |    18.0 ms |    38.2 ms |   — |
+
+  实测 ~118 ms @ median 精准落在性能分析报告预测的 100–300 ms 区间内。
+  噪声地板 18–38 ms，信号 113–141 ms，信噪比 ~3–8×，足以确认收益真实存在
+  （不是噪声伪影）。speedup 约 **1.029× (2.85%)** 符合方向 B 被列为
+  "低成本次要收益" 的定位。
 - [x] codex review → 修复 P1（失效期间的加载竞态）+ P2（取消传染） → commit a00a9ee
 - [x] 更新 `docs/backlog.md` 和 `docs/performance/001-batch-test-speedup-analysis.md`
 
