@@ -31,6 +31,7 @@
 
 ## 已完成
 
+- [041-integration-test-039-040.md](tasks/041-integration-test-039-040.md) — 集成回归测试：复合 Conditional + TableAggregate（20 cases，异常危险准备金取崩判定）（2026-04-11）
 - [040-table-aggregate-node.md](tasks/040-table-aggregate-node.md) — 表聚合节点 NodeTableAggregate（spec 004 优先级 2，链梯法解锁）（2026-04-11）
 - [039-conditional-logical-operators.md](tasks/039-conditional-logical-operators.md) — Conditional 节点的 AND/OR/NOT 支持（spec 003 优先级 1）（2026-04-11）
 - [038-japanese-navbar-fix.md](tasks/038-japanese-navbar-fix.md) — 日语 Navbar 换行修复（i18n 简洁化 + whitespace-nowrap）（2026-04-11）

@@ -1,0 +1,202 @@
+[
+  {
+    "label": "01_avgBelowThreshold_avg2023",
+    "inputs": {
+      "current_year": "2023",
+      "current_loss_ratio": "0.70",
+      "is_safe_zone": "0",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "0" }
+  },
+  {
+    "label": "02_allTrue_year2022",
+    "inputs": {
+      "current_year": "2022",
+      "current_loss_ratio": "0.70",
+      "is_safe_zone": "0",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "100" }
+  },
+  {
+    "label": "03_allTrue_year2021",
+    "inputs": {
+      "current_year": "2021",
+      "current_loss_ratio": "0.70",
+      "is_safe_zone": "0",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "100" }
+  },
+  {
+    "label": "04_avgEqualsThreshold",
+    "inputs": {
+      "current_year": "2020",
+      "current_loss_ratio": "0.70",
+      "is_safe_zone": "0",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "0" }
+  },
+  {
+    "label": "05_earliestYear",
+    "inputs": {
+      "current_year": "2019",
+      "current_loss_ratio": "0.70",
+      "is_safe_zone": "0",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "0" }
+  },
+  {
+    "label": "06_currLossLow",
+    "inputs": {
+      "current_year": "2022",
+      "current_loss_ratio": "0.40",
+      "is_safe_zone": "0",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "0" }
+  },
+  {
+    "label": "07_currEqualsThreshold",
+    "inputs": {
+      "current_year": "2022",
+      "current_loss_ratio": "0.50",
+      "is_safe_zone": "0",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "0" }
+  },
+  {
+    "label": "08_currJustAbove",
+    "inputs": {
+      "current_year": "2022",
+      "current_loss_ratio": "0.51",
+      "is_safe_zone": "0",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "100" }
+  },
+  {
+    "label": "09_safeZone_year2022",
+    "inputs": {
+      "current_year": "2022",
+      "current_loss_ratio": "0.70",
+      "is_safe_zone": "1",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "0" }
+  },
+  {
+    "label": "10_safeZone_year2021",
+    "inputs": {
+      "current_year": "2021",
+      "current_loss_ratio": "0.70",
+      "is_safe_zone": "1",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "0" }
+  },
+  {
+    "label": "11_releaseZero",
+    "inputs": {
+      "current_year": "2022",
+      "current_loss_ratio": "0.70",
+      "is_safe_zone": "0",
+      "release_amount": "0"
+    },
+    "expected": { "cond": "0" }
+  },
+  {
+    "label": "12_largeRelease",
+    "inputs": {
+      "current_year": "2022",
+      "current_loss_ratio": "0.70",
+      "is_safe_zone": "0",
+      "release_amount": "5000"
+    },
+    "expected": { "cond": "5000" }
+  },
+  {
+    "label": "13_normalRelease",
+    "inputs": {
+      "current_year": "2021",
+      "current_loss_ratio": "0.60",
+      "is_safe_zone": "0",
+      "release_amount": "250"
+    },
+    "expected": { "cond": "250" }
+  },
+  {
+    "label": "14_avgFails_year2020",
+    "inputs": {
+      "current_year": "2020",
+      "current_loss_ratio": "0.60",
+      "is_safe_zone": "0",
+      "release_amount": "250"
+    },
+    "expected": { "cond": "0" }
+  },
+  {
+    "label": "15_currAndSafeBoundary",
+    "inputs": {
+      "current_year": "2021",
+      "current_loss_ratio": "0.51",
+      "is_safe_zone": "1",
+      "release_amount": "999"
+    },
+    "expected": { "cond": "0" }
+  },
+  {
+    "label": "16_irregularRelease",
+    "inputs": {
+      "current_year": "2022",
+      "current_loss_ratio": "0.61",
+      "is_safe_zone": "0",
+      "release_amount": "12345"
+    },
+    "expected": { "cond": "12345" }
+  },
+  {
+    "label": "17_extremeCurrLossLow_avg",
+    "inputs": {
+      "current_year": "2023",
+      "current_loss_ratio": "0.99",
+      "is_safe_zone": "0",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "0" }
+  },
+  {
+    "label": "18_extremeCurrLowestAvg",
+    "inputs": {
+      "current_year": "2019",
+      "current_loss_ratio": "0.99",
+      "is_safe_zone": "0",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "0" }
+  },
+  {
+    "label": "19_currJustAtBoundary",
+    "inputs": {
+      "current_year": "2022",
+      "current_loss_ratio": "0.55",
+      "is_safe_zone": "0",
+      "release_amount": "7777"
+    },
+    "expected": { "cond": "7777" }
+  },
+  {
+    "label": "20_doubleFalse",
+    "inputs": {
+      "current_year": "2022",
+      "current_loss_ratio": "0.50",
+      "is_safe_zone": "1",
+      "release_amount": "100"
+    },
+    "expected": { "cond": "0" }
+  }
+]
