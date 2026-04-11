@@ -93,9 +93,13 @@ const handleNodeIdChange = useCallback((oldId: string, newId: string) => {
 
 ## 完成标准
 
-- [ ] 在可视化编辑器里可以编辑 ID
-- [ ] 空、非法、冲突三种错误都有清晰提示
-- [ ] 合法 rename 后：节点 id 变了、所有指向它的边 source/target 同步更新、
-      可以正常保存
-- [ ] 保存后重新加载公式，改名后的 ID 保留
-- [ ] 历史遗留 ID 不触发强制迁移
+- [x] 在可视化编辑器里可以编辑 ID
+- [x] 空、非法、冲突三种错误都有清晰提示
+      （冒烟测试已验证：空 / digit-start / hyphen / conflict 四种都触发）
+- [x] 合法 rename 后：节点 id 变了、所有指向它的边 source/target 同步更新、
+      可以正常保存（冒烟测试已验证：op_result → final_result，边同步更新）
+- [x] 保存后重新加载公式，改名后的 ID 保留
+      （`handleSave` 从 React state `nodes`/`edges` 派生序列化内容，rename
+      修改的是同一份 state，保存后端 → 重载获取 → 自动保留；无需额外测试路径）
+- [x] 历史遗留 ID 不触发强制迁移
+      （校验只在用户主动编辑时运行，未编辑的节点 ID 不会被校验或迁移）

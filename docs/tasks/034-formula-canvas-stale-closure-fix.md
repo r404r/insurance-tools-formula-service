@@ -1,6 +1,6 @@
 # Task #034: 新拖入节点无法连线的 stale closure 修复
 
-## Status: in-progress
+## Status: done
 
 ## 需求
 
@@ -133,12 +133,13 @@ const handleEdgesChange: OnEdgesChange = useCallback(
 - [x] `npm run build` 验证：通过
 - [x] 浏览器冒烟测试：干净 v5 版本下拖入 function 节点 → 节点正常落盘、有 dimensions、有 in handle
 - [x] `/codex review`：无 findings
-- [ ] 用户人工验证：在真实浏览器里复现原 bug 场景（drop → 立刻连线），确认修复生效
-- [ ] commit
+- [x] 用户人工验证：在真实浏览器里复现原 bug 场景（drop → 立刻连线），确认修复生效
+      （prompt_history 2026-04-11 Prompt 12: "连线一次到位成功"）
+- [x] commit（99b7635）
 
 ## 完成标准
 
-- [ ] TypeScript 类型编译通过
-- [ ] 干净状态下拖入新节点后立即能从 `op_result.out` 连线到新节点的 `in`
-- [ ] 无需切换 Text/Visual 模式作为 workaround
-- [ ] 其它交互（拖动、选择、删除）不受影响
+- [x] TypeScript 类型编译通过（`npm run build` 已验证）
+- [x] 干净状态下拖入新节点后立即能从 `op_result.out` 连线到新节点的 `in`
+- [x] 无需切换 Text/Visual 模式作为 workaround
+- [x] 其它交互（拖动、选择、删除）不受影响
