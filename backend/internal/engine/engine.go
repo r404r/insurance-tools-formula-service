@@ -810,8 +810,27 @@ func validateNodeConfig(node domain.FormulaNode) error {
 		validComps := map[string]bool{
 			"eq": true, "ne": true, "gt": true, "ge": true, "lt": true, "le": true,
 		}
-		if !validComps[cfg.Comparator] {
-			return fmt.Errorf("unknown comparator %q", cfg.Comparator)
+		if len(cfg.Conditions) > 0 {
+			// Composite path: validate each term and the combinator. The
+			// legacy Comparator field is intentionally ignored when in
+			// composite mode (the evaluator does the same).
+			combinator := cfg.Combinator
+			if combinator == "" {
+				combinator = "and"
+			}
+			if combinator != "and" && combinator != "or" {
+				return fmt.Errorf("unknown combinator %q", cfg.Combinator)
+			}
+			for i, term := range cfg.Conditions {
+				if !validComps[term.Op] {
+					return fmt.Errorf("conditional term %d: unknown op %q", i, term.Op)
+				}
+			}
+		} else {
+			// Legacy path: Comparator must be set and valid.
+			if !validComps[cfg.Comparator] {
+				return fmt.Errorf("unknown comparator %q", cfg.Comparator)
+			}
 		}
 
 	case domain.NodeAggregate:
@@ -951,12 +970,50 @@ func validateRequiredPorts(graph *domain.FormulaGraph, dag *DAG) []ValidationErr
 			}
 
 		case domain.NodeConditional:
-			for _, port := range []string{"condition", "conditionRight", "thenValue", "elseValue"} {
+			var condCfg domain.ConditionalConfig
+			// Tolerate unmarshal failures here — the config-level validator
+			// above already reports them; we just default to legacy port set
+			// so the user does not get cascaded "missing port" noise on top
+			// of the real error.
+			_ = json.Unmarshal(n.Config, &condCfg)
+
+			// Then/else are required by both branches.
+			for _, port := range []string{"thenValue", "elseValue"} {
 				if !hasPort(port) {
 					errs = append(errs, ValidationError{
 						NodeID:  n.ID,
 						Message: fmt.Sprintf("conditional node missing '%s' input connection", port),
 					})
+				}
+			}
+
+			if len(condCfg.Conditions) > 0 {
+				// Composite path: each term i needs `condition_i` and `conditionRight_i`.
+				for i := range condCfg.Conditions {
+					leftPort := fmt.Sprintf("condition_%d", i)
+					rightPort := fmt.Sprintf("conditionRight_%d", i)
+					if !hasPort(leftPort) {
+						errs = append(errs, ValidationError{
+							NodeID:  n.ID,
+							Message: fmt.Sprintf("conditional node missing '%s' input connection", leftPort),
+						})
+					}
+					if !hasPort(rightPort) {
+						errs = append(errs, ValidationError{
+							NodeID:  n.ID,
+							Message: fmt.Sprintf("conditional node missing '%s' input connection", rightPort),
+						})
+					}
+				}
+			} else {
+				// Legacy path: single condition / conditionRight.
+				for _, port := range []string{"condition", "conditionRight"} {
+					if !hasPort(port) {
+						errs = append(errs, ValidationError{
+							NodeID:  n.ID,
+							Message: fmt.Sprintf("conditional node missing '%s' input connection", port),
+						})
+					}
 				}
 			}
 

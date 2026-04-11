@@ -241,46 +241,127 @@ func (ev *Evaluator) evalTableLookup(node *domain.FormulaNode, inputs map[string
 	return val, nil
 }
 
-// evalConditional evaluates a conditional (if-then-else) node.
+// evalConditional evaluates a conditional (if-then-else) node. Two
+// branches are supported:
+//
+//   - Legacy single comparison (cfg.Conditions empty): reads ports
+//     "condition" and "conditionRight", uses cfg.Comparator. Original
+//     behavior, kept untouched for backward compatibility.
+//
+//   - Composite (cfg.Conditions non-empty): for each ConditionTerm i,
+//     reads ports "condition_i" and "conditionRight_i", applies the
+//     term's Op (and Negate flag), then joins all terms with the
+//     configured Combinator ("and" default, or "or"). Combinator is
+//     uniform across the term list — mixed AND/OR must be expressed
+//     by nesting Conditional nodes.
+//
+// Both branches still consult "thenValue" / "elseValue" for outputs.
 func (ev *Evaluator) evalConditional(node *domain.FormulaNode, inputs map[string]Decimal) (Decimal, error) {
 	var cfg domain.ConditionalConfig
 	if err := json.Unmarshal(node.Config, &cfg); err != nil {
 		return Zero, fmt.Errorf("node %s: invalid conditional config: %w", node.ID, err)
 	}
 
-	condLeft, ok1 := inputs["condition"]
-	condRight, ok2 := inputs["conditionRight"]
-	if !ok1 || !ok2 {
-		return Zero, fmt.Errorf("node %s: conditional requires 'condition' and 'conditionRight' inputs", node.ID)
-	}
-	thenVal, ok3 := inputs["thenValue"]
-	elseVal, ok4 := inputs["elseValue"]
-	if !ok3 || !ok4 {
+	thenVal, okThen := inputs["thenValue"]
+	elseVal, okElse := inputs["elseValue"]
+	if !okThen || !okElse {
 		return Zero, fmt.Errorf("node %s: conditional requires 'thenValue' and 'elseValue' inputs", node.ID)
 	}
 
 	var result bool
-	switch cfg.Comparator {
-	case "eq":
-		result = condLeft.Equal(condRight)
-	case "ne":
-		result = !condLeft.Equal(condRight)
-	case "gt":
-		result = condLeft.GreaterThan(condRight)
-	case "ge":
-		result = condLeft.GreaterThanOrEqual(condRight)
-	case "lt":
-		result = condLeft.LessThan(condRight)
-	case "le":
-		result = condLeft.LessThanOrEqual(condRight)
-	default:
-		return Zero, fmt.Errorf("node %s: unknown comparator %q", node.ID, cfg.Comparator)
+	var err error
+	if len(cfg.Conditions) > 0 {
+		result, err = ev.evalCompositeConditions(node.ID, cfg, inputs)
+	} else {
+		result, err = ev.evalLegacySingleCondition(node.ID, cfg, inputs)
+	}
+	if err != nil {
+		return Zero, err
 	}
 
 	if result {
 		return thenVal, nil
 	}
 	return elseVal, nil
+}
+
+// evalLegacySingleCondition implements the original single-comparison
+// behavior used when ConditionalConfig.Conditions is empty.
+func (ev *Evaluator) evalLegacySingleCondition(nodeID string, cfg domain.ConditionalConfig, inputs map[string]Decimal) (bool, error) {
+	left, l := inputs["condition"]
+	right, r := inputs["conditionRight"]
+	if !l || !r {
+		return false, fmt.Errorf("node %s: conditional requires 'condition' and 'conditionRight' inputs", nodeID)
+	}
+	return compareDecimals(nodeID, cfg.Comparator, left, right)
+}
+
+// evalCompositeConditions evaluates each ConditionTerm, applies Negate,
+// and joins them with cfg.Combinator. The first term seeds the running
+// truth value; subsequent terms AND or OR into it. We could short-circuit
+// once the result is decided, but every input has already been evaluated
+// up the DAG (levels-based execution), so the only thing to save is a
+// per-term comparison call — micro-optimization, not worth the branch
+// asymmetry, so we keep the loop straight-through.
+func (ev *Evaluator) evalCompositeConditions(nodeID string, cfg domain.ConditionalConfig, inputs map[string]Decimal) (bool, error) {
+	combinator := cfg.Combinator
+	if combinator == "" {
+		combinator = "and"
+	}
+	if combinator != "and" && combinator != "or" {
+		return false, fmt.Errorf("node %s: unknown combinator %q", nodeID, combinator)
+	}
+
+	var running bool
+	for i, term := range cfg.Conditions {
+		leftKey := fmt.Sprintf("condition_%d", i)
+		rightKey := fmt.Sprintf("conditionRight_%d", i)
+		left, l := inputs[leftKey]
+		right, r := inputs[rightKey]
+		if !l || !r {
+			return false, fmt.Errorf("node %s: composite conditional term %d requires '%s' and '%s' inputs", nodeID, i, leftKey, rightKey)
+		}
+		cmp, err := compareDecimals(nodeID, term.Op, left, right)
+		if err != nil {
+			return false, err
+		}
+		if term.Negate {
+			cmp = !cmp
+		}
+		if i == 0 {
+			running = cmp
+			continue
+		}
+		if combinator == "or" {
+			running = running || cmp
+		} else {
+			running = running && cmp
+		}
+	}
+	return running, nil
+}
+
+// compareDecimals applies a single comparison operator to two Decimal
+// values. Shared between the legacy single-condition path and every
+// term in the composite path so the operator semantics stay in one
+// place.
+func compareDecimals(nodeID, op string, left, right Decimal) (bool, error) {
+	switch op {
+	case "eq":
+		return left.Equal(right), nil
+	case "ne":
+		return !left.Equal(right), nil
+	case "gt":
+		return left.GreaterThan(right), nil
+	case "ge":
+		return left.GreaterThanOrEqual(right), nil
+	case "lt":
+		return left.LessThan(right), nil
+	case "le":
+		return left.LessThanOrEqual(right), nil
+	default:
+		return false, fmt.Errorf("node %s: unknown comparator %q", nodeID, op)
+	}
 }
 
 // evalAggregate computes an aggregate function over a set of item values.

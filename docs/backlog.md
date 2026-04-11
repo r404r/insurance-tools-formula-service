@@ -2,6 +2,12 @@
 
 ## 待规划
 
+### 🥇 引擎能力扩展（来自日本保险公式覆盖度调研，[specs/002-Japan-insurance-coverage-analysis.md](specs/002-Japan-insurance-coverage-analysis.md)）
+
+- [ ] **优先级 2：表聚合节点（Table Aggregate Node）** — 详见 [specs/004-table-aggregate-node.md](specs/004-table-aggregate-node.md)。预估 3 天。解锁链梯法（公式 8），是当前唯一卡脖子的扩展点。
+
+### 其它
+
 - [ ] Lookup Tables目前已经有基础的功能，请改造或者增加一种新功能，即能管理多种表，且能自定义每个表的表结构（比如有a，b，c，d四个字段，实际使用的时候通过a，b，c字段来定位d字段），并能批量通过csv或者Excel上传表的实际内容。
 - [ ] E2E 测试
 - [ ] 负载测试
@@ -11,6 +17,7 @@
 
 ## 已完成
 
+- [039-conditional-logical-operators.md](tasks/039-conditional-logical-operators.md) — Conditional 节点的 AND/OR/NOT 支持（spec 003 优先级 1）（2026-04-11）
 - [038-japanese-navbar-fix.md](tasks/038-japanese-navbar-fix.md) — 日语 Navbar 换行修复（i18n 简洁化 + whitespace-nowrap）（2026-04-11）
 - [037-table-data-cache.md](tasks/037-table-data-cache.md) — Lookup Table 数据缓存（性能报告方向 B）（2026-04-11）
 - [036-batch-test-parallel.md](tasks/036-batch-test-parallel.md) — Batch Test 服务端并行化 + 总执行时间（2026-04-11）

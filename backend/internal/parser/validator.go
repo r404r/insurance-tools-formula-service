@@ -260,6 +260,44 @@ func validateConditional(n domain.FormulaNode, inputCount int) []ValidationError
 		errs = append(errs, ValidationError{NodeID: n.ID, Message: "invalid conditional config: " + err.Error()})
 		return errs
 	}
+
+	// Composite path: cfg.Conditions non-empty. Each term contributes a
+	// (condition_i, conditionRight_i) pair, plus thenValue/elseValue, so
+	// the expected wire count is 2*len(Conditions) + 2. This must mirror
+	// the engine-side validator in backend/internal/engine/engine.go so
+	// that an exported composite Conditional graph can be re-imported.
+	if len(cfg.Conditions) > 0 {
+		combinator := cfg.Combinator
+		if combinator == "" {
+			combinator = "and"
+		}
+		if combinator != "and" && combinator != "or" {
+			errs = append(errs, ValidationError{
+				NodeID:  n.ID,
+				Message: fmt.Sprintf("unknown conditional combinator %q; expected \"and\" or \"or\"", cfg.Combinator),
+			})
+		}
+		for i, term := range cfg.Conditions {
+			if !validComparators[term.Op] {
+				errs = append(errs, ValidationError{
+					NodeID:  n.ID,
+					Message: fmt.Sprintf("conditional term %d: unknown op %q; expected one of eq, ne, gt, ge, lt, le", i, term.Op),
+				})
+			}
+		}
+		expected := 2*len(cfg.Conditions) + 2
+		if inputCount != expected {
+			errs = append(errs, ValidationError{
+				NodeID:  n.ID,
+				Message: fmt.Sprintf("composite conditional with %d term(s) expects %d inputs (condition_i, conditionRight_i for each term plus thenValue, elseValue) but has %d", len(cfg.Conditions), expected, inputCount),
+			})
+		}
+		return errs
+	}
+
+	// Legacy path: single comparator. Two shapes are accepted depending
+	// on whether Comparator is set (pure comparison node — 2 inputs) or
+	// blank (legacy if-then-else — 3 inputs). Behavior unchanged.
 	if cfg.Comparator != "" {
 		if !validComparators[cfg.Comparator] {
 			errs = append(errs, ValidationError{

@@ -121,8 +121,42 @@ func (c *TableLookupConfig) EffectiveKeyColumns() []string {
 	return c.KeyColumns
 }
 
+// ConditionalConfig configures an if-then-else node.
+//
+// Two formats are supported:
+//
+//   - Legacy single-comparison form: set Comparator to one of
+//     eq/ne/gt/ge/lt/le. The evaluator reads ports "condition" and
+//     "conditionRight" for the comparison sides, and "thenValue" /
+//     "elseValue" for the branch outputs.
+//
+//   - Composite form: leave Comparator empty (or unused) and supply
+//     Conditions []ConditionTerm + Combinator. The i-th condition
+//     reads ports "condition_i" and "conditionRight_i". All conditions
+//     are joined with the same Combinator ("and" / "or"). For mixed
+//     AND/OR you nest two Conditional nodes — this is intentional
+//     so a single node stays simple.
+//
+// Detection of which form to use is by len(Conditions): when the slice
+// is non-empty the composite path is taken; otherwise the legacy fields
+// are used. This keeps existing formulas (single-comparison) working
+// without any migration.
 type ConditionalConfig struct {
-	Comparator string `json:"comparator"` // eq, ne, gt, ge, lt, le
+	// Legacy single-comparison fields (kept for backward compatibility)
+	Comparator string `json:"comparator,omitempty"` // eq, ne, gt, ge, lt, le
+
+	// Composite condition fields (preferred for new formulas)
+	Conditions []ConditionTerm `json:"conditions,omitempty"`
+	Combinator string          `json:"combinator,omitempty"` // "and" (default) or "or"
+}
+
+// ConditionTerm is one comparison inside a composite Conditional. Negate
+// inverts the result of this single term (so users can write `NOT (A == B)`
+// without an extra node). Term i is wired via input ports `condition_i`
+// and `conditionRight_i`.
+type ConditionTerm struct {
+	Op     string `json:"op"`               // eq, ne, gt, ge, lt, le
+	Negate bool   `json:"negate,omitempty"` // if true, the term's truth value is inverted
 }
 
 type AggregateConfig struct {

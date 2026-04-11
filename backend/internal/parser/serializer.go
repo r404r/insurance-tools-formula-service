@@ -655,7 +655,20 @@ func dagToASTWalk(
 		}
 		edges := inEdges[nodeID]
 
-		// Merged conditional node: comparator + condition/conditionRight/thenValue/elseValue.
+		// Composite conditionals (cfg.Conditions populated, AND/OR/NOT
+		// over multiple terms) cannot yet round-trip through the text
+		// editor: the lexer/parser side has no syntax for boolean
+		// combinators. Emit an explicit, recognizable error so the
+		// frontend can detect this case and disable text mode for the
+		// affected formula — same UX pattern as the existing loop
+		// limitation (frontend i18n key: editor.loopNoTextMode). Full
+		// text-mode support is deliberately scoped out of task #039
+		// per docs/specs/003-conditional-logical-operators.md §3.
+		if len(cfg.Conditions) > 0 {
+			return nil, fmt.Errorf("node %s: composite conditional (with AND/OR combinator) is not supported in text editor mode; please use the visual editor", nodeID)
+		}
+
+		// Legacy single-comparison shape: comparator + condition / conditionRight / thenValue / elseValue.
 		condLeftID := findEdgeSource(edges, "condition")
 		condRightID := findEdgeSource(edges, "conditionRight")
 		thenID := findEdgeSource(edges, "thenValue")
