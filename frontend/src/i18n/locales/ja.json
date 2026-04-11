@@ -84,9 +84,12 @@
     "published": "公開済み",
     "archived": "アーカイブ済み",
     "changeNote": "変更メモ",
-    "diff": "バージョン比較"
+    "diff": "バージョン比較",
+    "edit": "編集",
+    "editArchivedConfirm": "アーカイブ済みのバージョン v{{version}} を基に編集しようとしています。保存すると新しいバージョン v{{next}} が作成され、元のアーカイブ版はそのまま残ります。続行しますか？"
   },
   "editor": {
+    "forkModeBanner": "{{state}}バージョン v{{version}} を基に編集中です。保存すると新しいバージョン v{{next}} が作成され、元の{{state}}バージョンはそのまま残ります。",
     "visual": "ビジュアルエディタ",
     "text": "テキストエディタ",
     "test": "テスト",

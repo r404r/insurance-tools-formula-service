@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
 	"strconv"
@@ -75,8 +76,23 @@ func (h *VersionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Determine the parent version. If the request explicitly names a
+	// baseVersion (task #043 fork-from-archived flow), validate that
+	// it exists and use it as the parent. Otherwise default to the
+	// previous max version, which preserves the pre-task-#043 "fork
+	// from latest" semantics for ordinary save flows.
 	var parentVer *int
-	if nextVersion > 1 {
+	if req.BaseVersion != nil {
+		base := *req.BaseVersion
+		if _, err := h.Versions.GetVersion(r.Context(), formulaID, base); err != nil {
+			writeJSON(w, http.StatusNotFound, ErrorResponse{
+				Error: fmt.Sprintf("baseVersion %d not found for formula %s", base, formulaID),
+				Code:  http.StatusNotFound,
+			})
+			return
+		}
+		parentVer = &base
+	} else if nextVersion > 1 {
 		prev := nextVersion - 1
 		parentVer = &prev
 	}

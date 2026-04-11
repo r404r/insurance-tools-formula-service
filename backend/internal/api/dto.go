@@ -45,9 +45,17 @@ type UpdateFormulaRequest struct {
 // --- Version DTOs ---
 
 // CreateVersionRequest carries data for creating a new formula version.
+//
+// BaseVersion is optional. When set, the new draft's ParentVer is set
+// to this value (and the API verifies that the referenced version
+// exists). When omitted, ParentVer defaults to the previous max
+// version, preserving the legacy "fork from latest" behavior. The
+// fork-from-archived flow added by task #043 uses BaseVersion to
+// branch off an old archived version without modifying it.
 type CreateVersionRequest struct {
-	Graph      domain.FormulaGraph `json:"graph"`
-	ChangeNote string              `json:"changeNote"`
+	Graph       domain.FormulaGraph `json:"graph"`
+	ChangeNote  string              `json:"changeNote"`
+	BaseVersion *int                `json:"baseVersion,omitempty"`
 }
 
 // UpdateVersionStateRequest carries the target state for a version transition.

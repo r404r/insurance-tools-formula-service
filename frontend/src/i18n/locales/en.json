@@ -84,9 +84,12 @@
     "published": "Published",
     "archived": "Archived",
     "changeNote": "Change Note",
-    "diff": "Version Diff"
+    "diff": "Version Diff",
+    "edit": "Edit",
+    "editArchivedConfirm": "You are about to fork the archived version v{{version}}. Saving will create a new version v{{next}}; the original archived version will remain unchanged. Continue?"
   },
   "editor": {
+    "forkModeBanner": "Editing fork from {{state}} v{{version}}. Saving will create new version v{{next}}; the original {{state}} version will remain unchanged.",
     "visual": "Visual Editor",
     "text": "Text Editor",
     "test": "Test",

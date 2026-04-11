@@ -9,7 +9,7 @@
 
 ### 📋 公式管理 UX 强化
 
-- [ ] **F2：编辑已归档版本生成新版本** — 详见 [specs/006-archived-version-fork-edit.md](specs/006-archived-version-fork-edit.md)。预估 1.5 天。
+> F1（spec 005，task #042）和 F2（spec 006，task #043）已完成。
 
 ### 🔬 未来研究项目（来自 task #039 已知限制 + 引擎能力盘点）
 
@@ -35,6 +35,7 @@
 
 ## 已完成
 
+- [043-archived-version-fork-edit.md](tasks/043-archived-version-fork-edit.md) — 编辑已归档版本生成新版本（spec 006）（2026-04-11）
 - [042-formula-list-sortable.md](tasks/042-formula-list-sortable.md) — 公式列表加作成者/更新者 + 表头排序（spec 005）（2026-04-11）
 - [041-integration-test-039-040.md](tasks/041-integration-test-039-040.md) — 集成回归测试：复合 Conditional + TableAggregate（20 cases，异常危险准备金取崩判定）（2026-04-11）
 - [040-table-aggregate-node.md](tasks/040-table-aggregate-node.md) — 表聚合节点 NodeTableAggregate（spec 004 优先级 2，链梯法解锁）（2026-04-11）

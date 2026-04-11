@@ -120,7 +120,45 @@ export default function FormulaEditorPage() {
     queryFn: () => listCategories().then((response) => response.categories ?? []),
   })
 
-  const latestVersion = versions?.[0]
+  // Highest existing version number — needed to decide whether the
+  // requested baseVersion is actually older than the latest, and to
+  // compute the next version number shown in the fork-mode banner.
+  const maxVersionNumber = useMemo(() => {
+    if (!versions || versions.length === 0) return 0
+    return Math.max(...versions.map((v) => v.version))
+  }, [versions])
+
+  // Source version that the editor loads. By default this is the most
+  // recent version (versions are returned newest-first by the API). If
+  // the URL carries `?baseVersion=N` (task #043), we pick that version
+  // instead and remember its identity so the editor can display a
+  // fork-mode banner and pass baseVersion through to Save.
+  //
+  // Subtle: VersionsPage appends ?baseVersion=N for EVERY row so that
+  // clicking Edit on a published row still pins the right version when
+  // a newer draft exists (round 1 P1 fix). But that means clicking
+  // Edit on the latest row also arrives with ?baseVersion=<max>, which
+  // would otherwise label normal editing as a "fork" with banner and
+  // change note. So fork mode is ONLY active when baseVersion is
+  // strictly less than maxVersion — pinning to the latest is just a
+  // normal edit (round 2 P2 fix).
+  const baseVersionParam = searchParams.get('baseVersion')
+  const baseVersionNumber = baseVersionParam ? parseInt(baseVersionParam, 10) : null
+  const baseVersionIsValid =
+    baseVersionNumber !== null && !Number.isNaN(baseVersionNumber)
+  const isForkMode =
+    baseVersionIsValid && baseVersionNumber !== null && baseVersionNumber < maxVersionNumber
+  const sourceVersion = useMemo<FormulaVersion | undefined>(() => {
+    if (!versions || versions.length === 0) return undefined
+    if (baseVersionIsValid && baseVersionNumber !== null) {
+      // User pinned a specific version. Return it even if it equals
+      // the latest — the editor still loads its graph; only the fork
+      // banner / change note are suppressed in the equal case.
+      return versions.find((v) => v.version === baseVersionNumber)
+    }
+    return versions[0]
+  }, [versions, baseVersionIsValid, baseVersionNumber])
+  const latestVersion = sourceVersion
 
   const enrichSubFormulaNodes = useCallback(
     (inputNodes: Node[]) => {
@@ -337,14 +375,35 @@ export default function FormulaEditorPage() {
       // Carry through any frontend warnings even on success
       if (frontendIssues.length > 0) setValidationIssues(frontendIssues)
 
-      // Step 3: Save
-      const savedVersion = await api.post<FormulaVersion>(`/formulas/${id}/versions`, {
+      // Step 3: Save. In fork mode (?baseVersion=N) we pass the base
+      // version number to the backend so the new draft's ParentVer is
+      // set to that value rather than the implicit "previous max"
+      // — task #043. Otherwise the request body is the same as before.
+      const saveBody: { graph: typeof graph; changeNote: string; baseVersion?: number } = {
         graph,
-        changeNote: 'Updated via editor',
-      })
+        changeNote: isForkMode && sourceVersion
+          ? `Forked from v${sourceVersion.version} (${sourceVersion.state})`
+          : 'Updated via editor',
+      }
+      if (isForkMode && baseVersionNumber !== null) {
+        saveBody.baseVersion = baseVersionNumber
+      }
+      const savedVersion = await api.post<FormulaVersion>(`/formulas/${id}/versions`, saveBody)
       setCurrentVersion(savedVersion)
       setActiveVersionNumber(savedVersion.version)
       await queryClient.invalidateQueries({ queryKey: ['versions', id] })
+      // Drop the baseVersion query param after EVERY successful save,
+      // even when we are not currently in fork mode. Reason: if the
+      // user clicked Edit on the latest version, the URL still
+      // carries ?baseVersion=<old_max>. Saving creates a new version
+      // and bumps maxVersionNumber, which would make the previously
+      // equal baseVersion now smaller than max — and the editor would
+      // immediately flip into fork mode, reload the stale graph, and
+      // throw away the user's edits visually. Clearing the param
+      // unconditionally prevents that regression (codex round 3 P1).
+      if (baseVersionParam) {
+        navigate(`/formulas/${id}`, { replace: true })
+      }
       setSaveMessage(t('editor.saved'))
       saveMessageTimeoutRef.current = setTimeout(() => {
         setSaveMessage(null)
@@ -476,6 +535,19 @@ export default function FormulaEditorPage() {
 
   return (
     <div className="min-h-screen flex flex-col overflow-x-scroll overflow-y-scroll bg-white">
+      {/* Fork-mode banner: shown only when the user opened the editor
+          via ?baseVersion=N from the version history page. Tells them
+          which version they are forking from and what version number
+          will be created on save. */}
+      {isForkMode && sourceVersion && (
+        <div className="shrink-0 border-l-4 border-amber-400 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {t('editor.forkModeBanner', {
+            version: sourceVersion.version,
+            state: t(`version.${sourceVersion.state}`),
+            next: maxVersionNumber + 1,
+          })}
+        </div>
+      )}
       {/* Header */}
       <div className="shrink-0 flex flex-col gap-1 border-b border-gray-200 bg-white px-4 py-2">
         <div className="flex flex-wrap items-center justify-between gap-2">

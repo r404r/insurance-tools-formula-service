@@ -84,9 +84,12 @@
     "published": "已发布",
     "archived": "已归档",
     "changeNote": "变更说明",
-    "diff": "版本对比"
+    "diff": "版本对比",
+    "edit": "编辑",
+    "editArchivedConfirm": "你即将基于已归档的版本 v{{version}} 进行编辑。保存后将生成新版本 v{{next}}，原归档版本保持不变。确认继续？"
   },
   "editor": {
+    "forkModeBanner": "正在基于{{state}}版本 v{{version}} 进行编辑。保存后将生成新版本 v{{next}}，原{{state}}版本保持不变。",
     "visual": "可视化编辑",
     "text": "文本编辑",
     "test": "测试",

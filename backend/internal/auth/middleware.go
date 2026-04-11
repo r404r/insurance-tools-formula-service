@@ -67,3 +67,11 @@ func GetClaims(ctx context.Context) *Claims {
 	claims, _ := ctx.Value(claimsKey).(*Claims)
 	return claims
 }
+
+// WithClaims returns a new context with the given Claims attached. Used by
+// tests that need to bypass the HTTP middleware and inject a synthetic
+// authenticated user — production code goes through AuthMiddleware which
+// uses the same key.
+func WithClaims(ctx context.Context, claims *Claims) context.Context {
+	return context.WithValue(ctx, claimsKey, claims)
+}

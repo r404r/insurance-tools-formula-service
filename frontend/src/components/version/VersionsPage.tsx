@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
@@ -15,8 +15,30 @@ const stateBadge: Record<string, string> = {
 export default function VersionsPage() {
   const { id } = useParams<{ id: string }>()
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [diffTarget, setDiffTarget] = useState<{ from: number; to: number } | null>(null)
+
+  // Edit handler shared by every row's "Edit" button. EVERY row pins
+  // the URL with ?baseVersion=N so the editor opens that exact version,
+  // even if a newer draft already exists. Without this you cannot
+  // fork a still-published version while a draft sits on top of it
+  // (the editor would otherwise default to "load latest").
+  //
+  // Archived versions get an extra confirmation because forking them
+  // is the less obvious gesture — the original stays archived and a
+  // new draft is created on save. Draft and published rows skip the
+  // confirm to keep the common-case UX fast.
+  const handleEdit = (v: FormulaVersion) => {
+    if (v.state === 'archived') {
+      const nextVersion = (versions ? Math.max(...versions.map((x) => x.version)) : v.version) + 1
+      const ok = window.confirm(
+        t('version.editArchivedConfirm', { version: v.version, next: nextVersion }),
+      )
+      if (!ok) return
+    }
+    navigate(`/formulas/${id}?baseVersion=${v.version}`)
+  }
 
   const { data: formula } = useQuery({
     queryKey: ['formula', id],
@@ -72,6 +94,12 @@ export default function VersionsPage() {
                     {t('version.diff')}
                   </button>
                 )}
+                <button
+                  onClick={() => handleEdit(v)}
+                  className="text-xs bg-amber-50 text-amber-700 px-3 py-1 rounded border border-amber-200 hover:bg-amber-100"
+                >
+                  {t('version.edit')}
+                </button>
                 {v.state === 'draft' && (
                   <button
                     onClick={() => updateState.mutate({ ver: v.version, state: 'published' })}
