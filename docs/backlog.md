@@ -35,6 +35,7 @@
 
 ## 已完成
 
+- [044-postgres-regression-run.md](tasks/044-postgres-regression-run.md) — PostgreSQL 后端正确性回归（4 batch / 190 case 全过）（2026-04-11）
 - [043-archived-version-fork-edit.md](tasks/043-archived-version-fork-edit.md) — 编辑已归档版本生成新版本（spec 006）（2026-04-11）
 - [042-formula-list-sortable.md](tasks/042-formula-list-sortable.md) — 公式列表加作成者/更新者 + 表头排序（spec 005）（2026-04-11）
 - [041-integration-test-039-040.md](tasks/041-integration-test-039-040.md) — 集成回归测试：复合 Conditional + TableAggregate（20 cases，异常危险准备金取崩判定）（2026-04-11）
