@@ -1,6 +1,6 @@
 {
   "app": { "title": "保険計算式エンジン" },
-  "nav": { "formulas": "計算式管理", "tables": "ルックアップテーブル", "categories": "分類管理", "users": "ユーザー管理", "cache": "キャッシュ管理", "batchTest": "バッチテスト", "adminSettings": "システム設定", "logout": "ログアウト" },
+  "nav": { "formulas": "計算式", "tables": "参照テーブル", "categories": "分類", "users": "ユーザー", "cache": "キャッシュ", "batchTest": "バッチテスト", "adminSettings": "設定", "logout": "ログアウト" },
   "auth": {
     "login": "ログイン",
     "register": "登録",

@@ -36,14 +36,14 @@ export default function Navbar() {
   return (
     <nav className="flex h-14 items-center justify-between bg-gray-900 px-6 text-white">
       <div className="flex items-center gap-8">
-        <Link to="/" className="text-lg font-bold tracking-tight">
+        <Link to="/" className="whitespace-nowrap text-lg font-bold tracking-tight">
           {t('app.title')}
         </Link>
 
         <div className="flex items-center gap-4">
           <Link
             to="/"
-            className="rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
+            className="whitespace-nowrap rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
           >
             {t('nav.formulas')}
           </Link>
@@ -51,7 +51,7 @@ export default function Navbar() {
           {isEditor && (
             <Link
               to="/tables"
-              className="rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
+              className="whitespace-nowrap rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
             >
               {t('nav.tables')}
             </Link>
@@ -59,7 +59,7 @@ export default function Navbar() {
 
           <Link
             to="/batch-test"
-            className="rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
+            className="whitespace-nowrap rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
           >
             {t('nav.batchTest')}
           </Link>
@@ -67,7 +67,7 @@ export default function Navbar() {
           {isAdmin && (
             <Link
               to="/categories"
-              className="rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
+              className="whitespace-nowrap rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
             >
               {t('nav.categories')}
             </Link>
@@ -76,7 +76,7 @@ export default function Navbar() {
           {isAdmin && (
             <Link
               to="/users"
-              className="rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
+              className="whitespace-nowrap rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
             >
               {t('nav.users')}
             </Link>
@@ -85,7 +85,7 @@ export default function Navbar() {
           {isAdmin && (
             <Link
               to="/admin/settings"
-              className="rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
+              className="whitespace-nowrap rounded px-3 py-1.5 text-sm font-medium text-gray-300 transition hover:bg-gray-800 hover:text-white"
             >
               {t('nav.adminSettings')}
             </Link>
@@ -98,7 +98,7 @@ export default function Navbar() {
         <div className="relative">
           <button
             onClick={() => setLangOpen(!langOpen)}
-            className="rounded px-3 py-1.5 text-sm text-gray-300 transition hover:bg-gray-800 hover:text-white"
+            className="whitespace-nowrap rounded px-3 py-1.5 text-sm text-gray-300 transition hover:bg-gray-800 hover:text-white"
           >
             {currentLang.label}
           </button>
@@ -126,7 +126,7 @@ export default function Navbar() {
           <div className="relative">
             <button
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-2 rounded px-3 py-1.5 text-sm text-gray-300 transition hover:bg-gray-800 hover:text-white"
+              className="flex items-center gap-2 whitespace-nowrap rounded px-3 py-1.5 text-sm text-gray-300 transition hover:bg-gray-800 hover:text-white"
             >
               <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-xs font-bold uppercase text-white">
                 {user.username.charAt(0)}

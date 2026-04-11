@@ -1,7 +1,8 @@
 # Backlog
 
 ## 待规划
-- [ ] Lookup Tables改造成能管理多种表，且能自定义每个表的表结构（比如有a，b，c，d四个字段，实际使用的时候通过a，b，c字段来定位d字段），并能批量通过csv or Excel上传表内容的功能
+
+- [ ] Lookup Tables目前已经有基础的功能，请改造或者增加一种新功能，即能管理多种表，且能自定义每个表的表结构（比如有a，b，c，d四个字段，实际使用的时候通过a，b，c字段来定位d字段），并能批量通过csv或者Excel上传表的实际内容。
 - [ ] E2E 测试
 - [ ] 负载测试
 - [ ] 更丰富的节点视觉效果
@@ -10,6 +11,7 @@
 
 ## 已完成
 
+- [038-japanese-navbar-fix.md](tasks/038-japanese-navbar-fix.md) — 日语 Navbar 换行修复（i18n 简洁化 + whitespace-nowrap）（2026-04-11）
 - [037-table-data-cache.md](tasks/037-table-data-cache.md) — Lookup Table 数据缓存（性能报告方向 B）（2026-04-11）
 - [036-batch-test-parallel.md](tasks/036-batch-test-parallel.md) — Batch Test 服务端并行化 + 总执行时间（2026-04-11）
 - [035-editable-node-id.md](tasks/035-editable-node-id.md) — 可视化编辑器支持修改节点 ID + 合法/冲突校验（2026-04-11）
