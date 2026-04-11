@@ -216,6 +216,26 @@ Click the **"LaTeX"** tab to type LaTeX expressions directly. The system convert
 
 After editing in text mode, click **"Apply to Graph"** to convert the text back into a visual graph.
 
+### 6.6 Text Mode Limitations
+
+Some node types do not yet round-trip through the text editor. If your
+formula contains any of these, you should stay in **Visual Editor** mode:
+
+- **Loop nodes** (`sum_loop` / `product_loop` / `fold_loop` / etc.):
+  some loop configurations (`inclusiveEnd`, `maxIterations`, `version`)
+  are visual-only and cannot be expressed in text. An inline notice
+  appears when the limitation kicks in.
+- **Composite Conditional nodes** (multi-term `AND` / `OR` / `NOT`,
+  added in task #039): the text grammar has no boolean keywords yet, so
+  a formula that uses composite conditionals can only be edited in the
+  visual editor — switching to text mode will show an explicit error
+  directing you back.
+
+The full list of engine known limitations (including statistical
+distribution functions, date arithmetic, cross-row table aggregation,
+and per-call statelessness) is documented in the project
+[`README.md` § Known Limitations](../../README.md#known-limitations).
+
 ---
 
 ## 7. Testing and Calculating

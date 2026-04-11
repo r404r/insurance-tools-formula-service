@@ -6,6 +6,19 @@
 
 - [ ] **优先级 2：表聚合节点（Table Aggregate Node）** — 详见 [specs/004-table-aggregate-node.md](specs/004-table-aggregate-node.md)。预估 3 天。解锁链梯法（公式 8），是当前唯一卡脖子的扩展点。
 
+### 🔬 未来研究项目（来自 task #039 已知限制 + 引擎能力盘点）
+
+> 这些项目都不阻塞当前工作，记录在此供将来评估。每条都已经在
+> README.md § Known Limitations 中向用户公开。
+
+- [ ] **文本模式支持复合 Conditional**：扩展 `parser/lexer.go` + `parser.go` 加入 `and` / `or` / `not` 关键字，并更新 `serializer.go` 的 `dagToASTWalk` Conditional 分支以发出复合条件 AST。完成后 task #039 引入的 composite conditional 才能在文本模式编辑。预估 2-3 天。
+- [ ] **可视化编辑器支持复合 Conditional UI**：在 `NodePropertiesPanel` 加 "Add Condition" 按钮、combinator 切换、Negate 复选框，并自动管理 `condition_i` / `conditionRight_i` 端口名分配。当前只能通过手写 JSON / API 使用。预估 2 天。
+- [ ] **混合 AND/OR 在单 Conditional 内**：当前一个 Conditional 节点的 combinator 是 uniform 的，需要嵌套两层来表达 `A AND (B OR C)`。如果实务中经常出现混合规则，可以引入 boolean 表达式节点（`logic_and` / `logic_or` / `logic_not`）让 Conditional 的 if 输入接 boolean 节点。预估 3-5 天。
+- [ ] **统计分布函数**（`normal_cdf` / `normal_quantile` / `chi²` 等）：用 Abramowitz-Stegun 近似公式实现 normal 系列即可。解锁信用度理论的 `k` 分位数（公式 14）+ 未来 VaR/TVaR 风险测度。预估 1 天。
+- [ ] **日期/时间算术**：原生 `date` 类型 + 日数计算 + 月份按比例。当前 1/24 法、短期料率返还都靠预计算表绕。预估 3 天。
+- [ ] **第一公民的嵌套 Loop**：允许 Loop body 直接包含另一个 Loop 节点，不必经过 sub-formula。表达力不变，但消除人为切分。预估 2 天。
+- [ ] **跨 Calculate 调用的状态持久化**：让连续多次 Calculate 共享一个"会话"，避免客户端 orchestrate 准备金/链梯滚动。预估 5 天，需要存储层和 API 改造，影响面较大。
+
 ### 其它
 
 - [ ] Lookup Tables目前已经有基础的功能，请改造或者增加一种新功能，即能管理多种表，且能自定义每个表的表结构（比如有a，b，c，d四个字段，实际使用的时候通过a，b，c字段来定位d字段），并能批量通过csv或者Excel上传表的实际内容。

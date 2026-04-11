@@ -267,7 +267,7 @@ Formulas are stored as JSON DAGs:
 | `function` | Math function | `fn` (round/floor/ceil/abs/min/max/sqrt/ln/exp), `args` |
 | `subFormula` | Sub-formula ref | `formulaId`, `version` |
 | `tableLookup` | Table lookup | `tableId`, `keyColumns`, `column` |
-| `conditional` | If/else branch | `comparator` (eq/ne/gt/ge/lt/le) |
+| `conditional` | If/else branch | Legacy: `comparator` (eq/ne/gt/ge/lt/le). Composite (since task #039): `conditions` (array of `{op, negate}`) + `combinator` (`and`/`or`) for multi-term AND/OR/NOT — see Known Limitations |
 | `aggregate` | Aggregation | `fn` (sum/product/count/avg), `range` |
 | `loop` | Iteration | `mode`, `formulaId`, `iterator`, `aggregation`, `accumulatorVar` (fold), `initValue` (fold), `inclusiveEnd`, `maxIterations` |
 
@@ -287,6 +287,72 @@ A step-by-step user guide for non-technical users is available in three language
 - [Chinese (中文)](docs/guide/formula-editor-guide-zh.md)
 - [English](docs/guide/formula-editor-guide-en.md)
 - [Japanese (日本語)](docs/guide/formula-editor-guide-ja.md)
+
+## Known Limitations
+
+A few engine features have intentional gaps. Each is tracked as a future
+research item in [`docs/backlog.md`](docs/backlog.md).
+
+### Loop Node — Visual Editor Only
+
+Loop nodes (`sum_loop` / `product_loop` / `fold_loop` / etc.) cannot be
+edited in the **Text Editor** mode. Switching a formula that contains a
+loop node to text mode shows an inline notice
+(i18n key `editor.loopNoTextMode`). Use the **Visual Editor** for any
+formula that contains a loop. The text-mode lexer/parser would need a
+loop-comprehension syntax extension to round-trip these graphs.
+
+### Composite Conditional (AND / OR / NOT) — Visual Editor Only
+
+Since task #039, a `conditional` node can carry multiple condition terms
+joined by `and` / `or` / `not` (see the spec
+[`003-conditional-logical-operators.md`](docs/specs/003-conditional-logical-operators.md)).
+This unblocks IBNR-style release rules and any other multi-term predicate.
+
+Limitations of the current implementation:
+
+1. **Text editor mode is not supported** for composite conditionals. The
+   text grammar has no `and` / `or` / `not` keywords yet, so DAGToAST
+   short-circuits with an explicit error directing the user to the
+   visual editor (same UX pattern as the loop limitation above). Adding
+   a boolean-aware text grammar is a future task.
+2. **Mixing AND and OR inside one node is not supported.** A single
+   `conditional` node uses one uniform `combinator` across all its
+   terms. To express `A AND (B OR C)`, nest two `conditional` nodes.
+3. **Visual editor UI for adding terms is not yet built.** Composite
+   conditionals are currently authorable through the API or
+   hand-written JSON. A panel UI for "add condition / change
+   combinator" is a follow-up frontend task.
+
+### Lookup Tables — No Cross-Row Aggregation
+
+`tableLookup` resolves a single composite key to a single value. There
+is no built-in "sum / avg / count of column X where filter Y" operation
+on a lookup table. Workarounds today: pre-compute the aggregate as a
+new column in the table, or use a `loop` node with a lookup body.
+Native support is the next planned engine extension —
+see [`docs/specs/004-table-aggregate-node.md`](docs/specs/004-table-aggregate-node.md).
+
+### No Built-in Statistical Distribution Functions
+
+Functions like `normal_cdf` / `normal_quantile` / `chi²` are not in the
+built-in math function set. For credibility-theory formulas that need
+the standard normal quantile (e.g., `k = 1.96` for a 95% confidence
+band), pass the constant in as an input variable or hardcode it as a
+`constant` node.
+
+### No Date / Time Arithmetic
+
+The engine has no `date` type and no day-count / month-fraction helpers.
+Time-based factors (the 1/24 unearned premium rule, short-term refund
+rates, day-count conventions) must be modeled as pre-computed lookup
+tables indexed by month or as closed-form arithmetic.
+
+### Engine State Is Per-Calculate-Call Only
+
+Each `Calculate` invocation is stateless. Reserves and other formulas
+that need historical state must receive that state through inputs; the
+client must orchestrate the carry-over.
 
 ## Project Structure
 
