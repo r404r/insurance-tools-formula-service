@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { api, getToken } from '../../api/client'
 import { useAuthStore } from '../../store/authStore'
 import { listCategories } from '../../api/categories'
 import TemplateGallery from './TemplateGallery'
-import type { Category, Formula, InsuranceDomain } from '../../types/formula'
+import type { Category, Formula, FormulaSortField, InsuranceDomain, SortOrder } from '../../types/formula'
 
 const PAGE_SIZE = 20
 
@@ -19,6 +19,45 @@ export default function FormulaList() {
   const [search, setSearch] = useState('')
   const [domainFilter, setDomainFilter] = useState<InsuranceDomain | 'all'>('all')
   const [page, setPage] = useState(1)
+  // Sort state lives in the URL query string so refresh, browser back,
+  // and link sharing all preserve the user's choice. The backend
+  // whitelist is mirrored here for the parse step (any URL value not
+  // in the whitelist is treated as if absent and falls back to the
+  // pre-task-#042 default of updatedAt desc).
+  const [searchParams, setSearchParams] = useSearchParams()
+  const validSortFields: readonly FormulaSortField[] = [
+    'name',
+    'createdAt',
+    'updatedAt',
+    'createdBy',
+    'updatedBy',
+  ]
+  const sortByParam = searchParams.get('sortBy') as FormulaSortField | null
+  const sortOrderParam = searchParams.get('sortOrder') as SortOrder | null
+  const sortBy: FormulaSortField =
+    sortByParam && validSortFields.includes(sortByParam) ? sortByParam : 'updatedAt'
+  const sortOrder: SortOrder =
+    sortOrderParam === 'asc' || sortOrderParam === 'desc' ? sortOrderParam : 'desc'
+  const handleSort = (field: FormulaSortField) => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        if (sortBy === field) {
+          // Same column → flip direction.
+          next.set('sortOrder', sortOrder === 'asc' ? 'desc' : 'asc')
+        } else {
+          // Different column → start at desc, which is the most useful
+          // default for time and "updater" type columns. Users can flip
+          // it with one more click.
+          next.set('sortBy', field)
+          next.set('sortOrder', 'desc')
+        }
+        return next
+      },
+      { replace: true },
+    )
+    setPage(1)
+  }
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showTemplateGallery, setShowTemplateGallery] = useState(false)
   const [newName, setNewName] = useState('')
@@ -39,13 +78,15 @@ export default function FormulaList() {
   )
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ['formulas', search, domainFilter, page],
+    queryKey: ['formulas', search, domainFilter, page, sortBy, sortOrder],
     queryFn: () => {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
       if (domainFilter !== 'all') params.set('domain', domainFilter)
       params.set('limit', String(PAGE_SIZE))
       params.set('offset', String((page - 1) * PAGE_SIZE))
+      params.set('sortBy', sortBy)
+      params.set('sortOrder', sortOrder)
       return api.get<{ formulas: Formula[]; total: number; limit: number; offset: number }>(
         `/formulas?${params.toString()}`
       )
@@ -432,11 +473,24 @@ export default function FormulaList() {
                       className="h-4 w-4 cursor-pointer rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     />
                   </th>
-                  <th className="whitespace-nowrap px-6 py-3 font-medium text-gray-600">{t('formula.name')}</th>
+                  <SortableTh field="name" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort}>
+                    {t('formula.name')}
+                  </SortableTh>
                   {domainFilter === 'all' && (
                     <th className="whitespace-nowrap px-6 py-3 font-medium text-gray-600">{t('formula.domain')}</th>
                   )}
-                  <th className="whitespace-nowrap px-6 py-3 font-medium text-gray-600">{t('formula.createdAt')}</th>
+                  <SortableTh field="createdBy" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort}>
+                    {t('formula.createdBy')}
+                  </SortableTh>
+                  <SortableTh field="updatedBy" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort}>
+                    {t('formula.updatedBy')}
+                  </SortableTh>
+                  <SortableTh field="createdAt" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort}>
+                    {t('formula.createdAt')}
+                  </SortableTh>
+                  <SortableTh field="updatedAt" sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort}>
+                    {t('formula.updatedAt')}
+                  </SortableTh>
                   <th className="whitespace-nowrap px-6 py-3 font-medium text-gray-600">{t('user.actions')}</th>
                 </tr>
               </thead>
@@ -482,8 +536,17 @@ export default function FormulaList() {
                     {domainFilter === 'all' && (
                       <td className="whitespace-nowrap px-6 py-3">{renderCategoryBadge(f.domain)}</td>
                     )}
+                    <td className="whitespace-nowrap px-6 py-3 text-gray-600">
+                      {f.createdByName || t('formula.unknownUser')}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-3 text-gray-600">
+                      {f.updatedByName || t('formula.unknownUser')}
+                    </td>
                     <td className="whitespace-nowrap px-6 py-3 text-gray-400">
                       {new Date(f.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-3 text-gray-400">
+                      {new Date(f.updatedAt).toLocaleDateString()}
                     </td>
                     <td className="whitespace-nowrap px-6 py-3">
                       <div className="flex items-center gap-1">
@@ -756,5 +819,46 @@ export default function FormulaList() {
         </div>
       )}
     </div>
+  )
+}
+
+// SortableTh renders a clickable column header with an arrow indicating
+// the current sort direction. When the column is not the active sort
+// field, an idle ⇅ glyph is shown so users see at a glance that the
+// column is sortable. The whole header is a button so it gets keyboard
+// focus + accessible-name semantics for free.
+function SortableTh({
+  field,
+  sortBy,
+  sortOrder,
+  onSort,
+  children,
+}: {
+  field: FormulaSortField
+  sortBy: FormulaSortField
+  sortOrder: SortOrder
+  onSort: (field: FormulaSortField) => void
+  children: React.ReactNode
+}) {
+  const isActive = sortBy === field
+  const arrow = isActive ? (sortOrder === 'asc' ? '↑' : '↓') : '⇅'
+  return (
+    <th className="whitespace-nowrap px-6 py-3 font-medium text-gray-600">
+      <button
+        type="button"
+        onClick={() => onSort(field)}
+        className={`inline-flex items-center gap-1 transition hover:text-gray-900 ${
+          isActive ? 'text-gray-900' : 'text-gray-600'
+        }`}
+      >
+        <span>{children}</span>
+        <span
+          className={`text-xs ${isActive ? 'text-indigo-600' : 'text-gray-300'}`}
+          aria-hidden="true"
+        >
+          {arrow}
+        </span>
+      </button>
+    </th>
   )
 }

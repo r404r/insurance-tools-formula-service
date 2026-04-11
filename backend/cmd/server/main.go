@@ -304,6 +304,13 @@ func seed(ctx context.Context, s store.Store, logger zerolog.Logger) error {
 		if err := s.Versions().CreateVersion(ctx, version); err != nil {
 			return "", fmt.Errorf("create version for %s: %w", name, err)
 		}
+		// Stamp updated_by/updated_at so the seed formula immediately
+		// shows the seeding admin as its updater on the list page,
+		// matching every other create-formula-and-version flow added
+		// by task #042 (Copy, Import, Save Version).
+		if err := s.Formulas().UpdateMeta(ctx, formulaID, adminID, now); err != nil {
+			logger.Warn().Err(err).Str("name", name).Msg("seed formula meta stamp failed")
+		}
 		logger.Info().Str("name", name).Str("domain", string(dom)).Msg("seed formula created")
 		return formulaID, nil
 	}

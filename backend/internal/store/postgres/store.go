@@ -80,6 +80,7 @@ func (s *PostgresStore) Migrate(ctx context.Context) error {
 			domain      TEXT NOT NULL,
 			description TEXT NOT NULL DEFAULT '',
 			created_by  TEXT NOT NULL REFERENCES users(id),
+			updated_by  TEXT REFERENCES users(id),
 			created_at  TIMESTAMPTZ NOT NULL,
 			updated_at  TIMESTAMPTZ NOT NULL
 		)`,
@@ -136,6 +137,17 @@ func (s *PostgresStore) Migrate(ctx context.Context) error {
 		}
 	}
 
+	// Idempotent column additions for old databases. Postgres has
+	// IF NOT EXISTS support directly on ADD COLUMN since 9.6.
+	alters := []string{
+		`ALTER TABLE formulas ADD COLUMN IF NOT EXISTS updated_by TEXT REFERENCES users(id)`,
+	}
+	for _, stmt := range alters {
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			return fmt.Errorf("migrate %q: %w", stmt[:40], err)
+		}
+	}
+
 	return tx.Commit()
 }
 
@@ -161,9 +173,22 @@ func (r *formulaRepo) Create(ctx context.Context, f *domain.Formula) error {
 
 func (r *formulaRepo) GetByID(ctx context.Context, id string) (*domain.Formula, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, name, domain, description, created_by, created_at, updated_at
+		`SELECT id, name, domain, description, created_by, updated_by, created_at, updated_at
 		 FROM formulas WHERE id = $1`, id)
 	return scanFormula(row)
+}
+
+// formulaSortColumns mirrors the sqlite implementation's whitelist:
+// the public sort field name is translated to a SQL column expression
+// here, never built from raw user input. Postgres can ORDER BY a NULLS
+// LAST clause directly, so we don't need the (col IS NULL) trick the
+// sqlite path uses.
+var formulaSortColumns = map[string]string{
+	"name":      "f.name",
+	"createdAt": "f.created_at",
+	"updatedAt": "f.updated_at",
+	"createdBy": "u1.username",
+	"updatedBy": "u2.username",
 }
 
 func (r *formulaRepo) List(ctx context.Context, filter domain.FormulaFilter) ([]*domain.Formula, int, error) {
@@ -172,12 +197,12 @@ func (r *formulaRepo) List(ctx context.Context, filter domain.FormulaFilter) ([]
 	argN := 1
 
 	if filter.Domain != nil {
-		whereClauses = append(whereClauses, fmt.Sprintf("domain = $%d", argN))
+		whereClauses = append(whereClauses, fmt.Sprintf("f.domain = $%d", argN))
 		args = append(args, string(*filter.Domain))
 		argN++
 	}
 	if filter.Search != nil && *filter.Search != "" {
-		whereClauses = append(whereClauses, fmt.Sprintf("(name ILIKE $%d OR description ILIKE $%d)", argN, argN+1))
+		whereClauses = append(whereClauses, fmt.Sprintf("(f.name ILIKE $%d OR f.description ILIKE $%d)", argN, argN+1))
 		pattern := "%" + *filter.Search + "%"
 		args = append(args, pattern, pattern)
 		argN += 2
@@ -188,14 +213,28 @@ func (r *formulaRepo) List(ctx context.Context, filter domain.FormulaFilter) ([]
 		whereSQL = "WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
-	countQuery := "SELECT COUNT(*) FROM formulas " + whereSQL
+	countQuery := "SELECT COUNT(*) FROM formulas f " + whereSQL
 	var total int
 	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count formulas: %w", err)
 	}
 
-	query := "SELECT id, name, domain, description, created_by, created_at, updated_at FROM formulas " +
-		whereSQL + " ORDER BY updated_at DESC"
+	sortCol, ok := formulaSortColumns[filter.SortBy]
+	if !ok {
+		sortCol = "f.updated_at"
+	}
+	sortDir := "DESC"
+	if strings.EqualFold(filter.SortOrder, "asc") {
+		sortDir = "ASC"
+	}
+
+	query := `SELECT f.id, f.name, f.domain, f.description,
+		f.created_by, f.updated_by, f.created_at, f.updated_at,
+		COALESCE(u1.username, ''), COALESCE(u2.username, '')
+		FROM formulas f
+		LEFT JOIN users u1 ON u1.id = f.created_by
+		LEFT JOIN users u2 ON u2.id = f.updated_by
+		` + whereSQL + ` ORDER BY ` + sortCol + ` ` + sortDir + ` NULLS LAST`
 	pageArgs := append([]interface{}{}, args...)
 
 	if filter.Limit > 0 {
@@ -218,7 +257,7 @@ func (r *formulaRepo) List(ctx context.Context, filter domain.FormulaFilter) ([]
 
 	var result []*domain.Formula
 	for rows.Next() {
-		f, err := scanFormulaRows(rows)
+		f, err := scanFormulaListRow(rows)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -228,6 +267,23 @@ func (r *formulaRepo) List(ctx context.Context, filter domain.FormulaFilter) ([]
 		return nil, 0, fmt.Errorf("iterate formulas: %w", err)
 	}
 	return result, total, nil
+}
+
+// UpdateMeta sets only updated_by and updated_at; see the sqlite store's
+// equivalent for the design rationale.
+func (r *formulaRepo) UpdateMeta(ctx context.Context, formulaID, updatedBy string, updatedAt time.Time) error {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE formulas SET updated_by = $1, updated_at = $2 WHERE id = $3`,
+		updatedBy, updatedAt, formulaID,
+	)
+	if err != nil {
+		return fmt.Errorf("update formula meta: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (r *formulaRepo) Update(ctx context.Context, f *domain.Formula) error {
@@ -696,15 +752,38 @@ type scanner interface {
 
 func scanFormula(s scanner) (*domain.Formula, error) {
 	var f domain.Formula
-	err := s.Scan(&f.ID, &f.Name, &f.Domain, &f.Description, &f.CreatedBy, &f.CreatedAt, &f.UpdatedAt)
+	var updatedBy sql.NullString
+	err := s.Scan(&f.ID, &f.Name, &f.Domain, &f.Description, &f.CreatedBy, &updatedBy, &f.CreatedAt, &f.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("scan formula: %w", err)
+	}
+	if updatedBy.Valid {
+		f.UpdatedBy = updatedBy.String
 	}
 	return &f, nil
 }
 
 func scanFormulaRows(rows *sql.Rows) (*domain.Formula, error) {
 	return scanFormula(rows)
+}
+
+// scanFormulaListRow scans the wider List query that includes the
+// joined creator/updater usernames in addition to the base columns.
+func scanFormulaListRow(rows *sql.Rows) (*domain.Formula, error) {
+	var f domain.Formula
+	var updatedBy sql.NullString
+	err := rows.Scan(
+		&f.ID, &f.Name, &f.Domain, &f.Description,
+		&f.CreatedBy, &updatedBy, &f.CreatedAt, &f.UpdatedAt,
+		&f.CreatedByName, &f.UpdatedByName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("scan formula list row: %w", err)
+	}
+	if updatedBy.Valid {
+		f.UpdatedBy = updatedBy.String
+	}
+	return &f, nil
 }
 
 func scanVersion(s scanner) (*domain.FormulaVersion, error) {

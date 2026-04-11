@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
 )
@@ -21,6 +22,13 @@ type FormulaRepository interface {
 	List(ctx context.Context, filter domain.FormulaFilter) ([]*domain.Formula, int, error)
 	Update(ctx context.Context, f *domain.Formula) error
 	Delete(ctx context.Context, id string) error
+
+	// UpdateMeta sets the formula's updated_by and updated_at columns
+	// without touching name / domain / description. Called by the
+	// version handler after a successful version save so that the
+	// formula list's "Updater" column reflects whoever last changed
+	// the underlying graph (not whoever last edited the metadata).
+	UpdateMeta(ctx context.Context, formulaID, updatedBy string, updatedAt time.Time) error
 }
 
 // VersionRepository manages formula version persistence.

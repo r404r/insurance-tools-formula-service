@@ -174,9 +174,27 @@ export interface Formula {
   domain: InsuranceDomain
   description: string
   createdBy: string
+  // updatedBy may be empty for legacy rows that pre-date task #042
+  // (when the column was added). The list endpoint also fills the
+  // *Name fields by joining the users table; renderers should fall
+  // back to "—" when they are absent.
+  updatedBy?: string
+  createdByName?: string
+  updatedByName?: string
   createdAt: string
   updatedAt: string
 }
+
+// Whitelist of sortable columns; mirrors the backend whitelist in
+// formula_handler.go and the per-store SQL maps.
+export type FormulaSortField =
+  | 'name'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'createdBy'
+  | 'updatedBy'
+
+export type SortOrder = 'asc' | 'desc'
 
 export type Role = 'admin' | 'editor' | 'reviewer' | 'viewer'
 

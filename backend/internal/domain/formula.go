@@ -21,15 +21,28 @@ type Category struct {
 	UpdatedAt   time.Time `json:"updatedAt"`
 }
 
-// Formula represents a named calculation formula
+// Formula represents a named calculation formula.
+//
+// CreatedBy / UpdatedBy carry user UUIDs. The repository's List method
+// LEFT JOINs the users table and populates CreatedByName / UpdatedByName
+// with the human-readable usernames so that the UI does not need a
+// second round-trip. GetByID does NOT populate the *Name fields — they
+// are list-only transient fields.
+//
+// UpdatedBy and UpdatedByName may be empty for legacy rows that were
+// created before task #042 added the updated_by column. The frontend
+// renders them as "—" in that case.
 type Formula struct {
-	ID          string          `json:"id"`
-	Name        string          `json:"name"`
-	Domain      InsuranceDomain `json:"domain"`
-	Description string          `json:"description"`
-	CreatedBy   string          `json:"createdBy"`
-	CreatedAt   time.Time       `json:"createdAt"`
-	UpdatedAt   time.Time       `json:"updatedAt"`
+	ID            string          `json:"id"`
+	Name          string          `json:"name"`
+	Domain        InsuranceDomain `json:"domain"`
+	Description   string          `json:"description"`
+	CreatedBy     string          `json:"createdBy"`
+	UpdatedBy     string          `json:"updatedBy,omitempty"`
+	CreatedByName string          `json:"createdByName,omitempty"`
+	UpdatedByName string          `json:"updatedByName,omitempty"`
+	CreatedAt     time.Time       `json:"createdAt"`
+	UpdatedAt     time.Time       `json:"updatedAt"`
 }
 
 // FormulaGraph is the DAG representation of a formula
@@ -225,10 +238,18 @@ type LookupTable struct {
 	CreatedAt time.Time       `json:"createdAt"`
 }
 
-// FormulaFilter for listing formulas
+// FormulaFilter for listing formulas.
+//
+// SortBy / SortOrder are validated by the API handler against a strict
+// whitelist before being passed to the store, so the store layer can
+// translate them to SQL fragments without injection risk. Default
+// behavior (empty SortBy or invalid value) is "updatedAt desc" so that
+// pre-task-#042 callers see no behavior change.
 type FormulaFilter struct {
-	Domain *InsuranceDomain `json:"domain,omitempty"`
-	Search *string          `json:"search,omitempty"`
-	Limit  int              `json:"limit"`
-	Offset int              `json:"offset"`
+	Domain    *InsuranceDomain `json:"domain,omitempty"`
+	Search    *string          `json:"search,omitempty"`
+	Limit     int              `json:"limit"`
+	Offset    int              `json:"offset"`
+	SortBy    string           `json:"sortBy,omitempty"`    // name | createdAt | updatedAt | createdBy | updatedBy
+	SortOrder string           `json:"sortOrder,omitempty"` // asc | desc
 }

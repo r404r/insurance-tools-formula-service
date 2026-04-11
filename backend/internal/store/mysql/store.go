@@ -80,9 +80,11 @@ func (s *MySQLStore) Migrate(ctx context.Context) error {
 			domain      VARCHAR(255) NOT NULL,
 			description TEXT         NOT NULL,
 			created_by  VARCHAR(36)  NOT NULL,
+			updated_by  VARCHAR(36),
 			created_at  VARCHAR(35)  NOT NULL,
 			updated_at  VARCHAR(35)  NOT NULL,
-			FOREIGN KEY (created_by) REFERENCES users(id)
+			FOREIGN KEY (created_by) REFERENCES users(id),
+			FOREIGN KEY (updated_by) REFERENCES users(id)
 		)`,
 		`CREATE TABLE IF NOT EXISTS formula_versions (
 			id          VARCHAR(36)  PRIMARY KEY,
@@ -144,6 +146,28 @@ func (s *MySQLStore) Migrate(ctx context.Context) error {
 		}
 	}
 
+	// Idempotent column additions for old databases. MySQL 8 has no
+	// IF NOT EXISTS on ADD COLUMN, so we tolerate error 1060
+	// ("Duplicate column name") which means the column was added by
+	// a previous run.
+	alters := []string{
+		`ALTER TABLE formulas ADD COLUMN updated_by VARCHAR(36),
+		 ADD CONSTRAINT fk_formulas_updated_by FOREIGN KEY (updated_by) REFERENCES users(id)`,
+	}
+	for _, stmt := range alters {
+		if _, err := tx.ExecContext(ctx, stmt); err != nil {
+			var myErr *mysql.MySQLError
+			if errors.As(err, &myErr) && (myErr.Number == 1060 || myErr.Number == 1061 || myErr.Number == 1826) {
+				// 1060: duplicate column, 1061: duplicate key,
+				// 1826: duplicate foreign key constraint name —
+				// any of these means a prior migration already
+				// applied this change.
+				continue
+			}
+			return fmt.Errorf("migrate alter: %w", err)
+		}
+	}
+
 	return tx.Commit()
 }
 
@@ -171,9 +195,21 @@ func (r *formulaRepo) Create(ctx context.Context, f *domain.Formula) error {
 
 func (r *formulaRepo) GetByID(ctx context.Context, id string) (*domain.Formula, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, name, domain, description, created_by, created_at, updated_at
+		`SELECT id, name, domain, description, created_by, updated_by, created_at, updated_at
 		 FROM formulas WHERE id = ?`, id)
 	return scanFormula(row)
+}
+
+// formulaSortColumns mirrors the sqlite/postgres whitelists. The handler
+// validates the public sortBy field; this map is the only place that
+// translates it to a SQL column expression. Never concatenate raw user
+// input into the ORDER BY.
+var formulaSortColumns = map[string]string{
+	"name":      "f.name",
+	"createdAt": "f.created_at",
+	"updatedAt": "f.updated_at",
+	"createdBy": "u1.username",
+	"updatedBy": "u2.username",
 }
 
 func (r *formulaRepo) List(ctx context.Context, filter domain.FormulaFilter) ([]*domain.Formula, int, error) {
@@ -181,12 +217,12 @@ func (r *formulaRepo) List(ctx context.Context, filter domain.FormulaFilter) ([]
 	var args []interface{}
 
 	if filter.Domain != nil {
-		whereClauses = append(whereClauses, "domain = ?")
+		whereClauses = append(whereClauses, "f.domain = ?")
 		args = append(args, string(*filter.Domain))
 	}
 	if filter.Search != nil && *filter.Search != "" {
 		// MySQL LIKE is case-insensitive by default for utf8mb4_general_ci collation.
-		whereClauses = append(whereClauses, "(name LIKE ? OR description LIKE ?)")
+		whereClauses = append(whereClauses, "(f.name LIKE ? OR f.description LIKE ?)")
 		pattern := "%" + *filter.Search + "%"
 		args = append(args, pattern, pattern)
 	}
@@ -196,14 +232,31 @@ func (r *formulaRepo) List(ctx context.Context, filter domain.FormulaFilter) ([]
 		whereSQL = "WHERE " + strings.Join(whereClauses, " AND ")
 	}
 
-	countQuery := "SELECT COUNT(*) FROM formulas " + whereSQL
+	countQuery := "SELECT COUNT(*) FROM formulas f " + whereSQL
 	var total int
 	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count formulas: %w", err)
 	}
 
-	query := "SELECT id, name, domain, description, created_by, created_at, updated_at FROM formulas " +
-		whereSQL + " ORDER BY updated_at DESC"
+	sortCol, ok := formulaSortColumns[filter.SortBy]
+	if !ok {
+		sortCol = "f.updated_at"
+	}
+	sortDir := "DESC"
+	if strings.EqualFold(filter.SortOrder, "asc") {
+		sortDir = "ASC"
+	}
+
+	// MySQL has no NULLS LAST clause, so emulate it with the
+	// `(col IS NULL)` trick: NULL rows always sort to the end
+	// regardless of asc/desc on the actual column.
+	query := `SELECT f.id, f.name, f.domain, f.description,
+		f.created_by, f.updated_by, f.created_at, f.updated_at,
+		COALESCE(u1.username, ''), COALESCE(u2.username, '')
+		FROM formulas f
+		LEFT JOIN users u1 ON u1.id = f.created_by
+		LEFT JOIN users u2 ON u2.id = f.updated_by
+		` + whereSQL + ` ORDER BY (` + sortCol + ` IS NULL), ` + sortCol + ` ` + sortDir
 	pageArgs := append([]interface{}{}, args...)
 
 	if filter.Limit > 0 {
@@ -223,7 +276,7 @@ func (r *formulaRepo) List(ctx context.Context, filter domain.FormulaFilter) ([]
 
 	var result []*domain.Formula
 	for rows.Next() {
-		f, err := scanFormulaRows(rows)
+		f, err := scanFormulaListRow(rows)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -233,6 +286,23 @@ func (r *formulaRepo) List(ctx context.Context, filter domain.FormulaFilter) ([]
 		return nil, 0, fmt.Errorf("iterate formulas: %w", err)
 	}
 	return result, total, nil
+}
+
+// UpdateMeta sets only updated_by and updated_at; see the sqlite store's
+// equivalent for the design rationale.
+func (r *formulaRepo) UpdateMeta(ctx context.Context, formulaID, updatedBy string, updatedAt time.Time) error {
+	res, err := r.db.ExecContext(ctx,
+		`UPDATE formulas SET updated_by = ?, updated_at = ? WHERE id = ?`,
+		updatedBy, updatedAt.UTC().Format(time.RFC3339Nano), formulaID,
+	)
+	if err != nil {
+		return fmt.Errorf("update formula meta: %w", err)
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return sql.ErrNoRows
+	}
+	return nil
 }
 
 func (r *formulaRepo) Update(ctx context.Context, f *domain.Formula) error {
@@ -708,9 +778,13 @@ type scanner interface {
 func scanFormula(s scanner) (*domain.Formula, error) {
 	var f domain.Formula
 	var createdAt, updatedAt string
-	err := s.Scan(&f.ID, &f.Name, &f.Domain, &f.Description, &f.CreatedBy, &createdAt, &updatedAt)
+	var updatedBy sql.NullString
+	err := s.Scan(&f.ID, &f.Name, &f.Domain, &f.Description, &f.CreatedBy, &updatedBy, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("scan formula: %w", err)
+	}
+	if updatedBy.Valid {
+		f.UpdatedBy = updatedBy.String
 	}
 	f.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
 	f.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updatedAt)
@@ -719,6 +793,28 @@ func scanFormula(s scanner) (*domain.Formula, error) {
 
 func scanFormulaRows(rows *sql.Rows) (*domain.Formula, error) {
 	return scanFormula(rows)
+}
+
+// scanFormulaListRow scans the wider List query that includes the
+// joined creator/updater usernames in addition to the base columns.
+func scanFormulaListRow(rows *sql.Rows) (*domain.Formula, error) {
+	var f domain.Formula
+	var createdAt, updatedAt string
+	var updatedBy sql.NullString
+	err := rows.Scan(
+		&f.ID, &f.Name, &f.Domain, &f.Description,
+		&f.CreatedBy, &updatedBy, &createdAt, &updatedAt,
+		&f.CreatedByName, &f.UpdatedByName,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("scan formula list row: %w", err)
+	}
+	if updatedBy.Valid {
+		f.UpdatedBy = updatedBy.String
+	}
+	f.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
+	f.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updatedAt)
+	return &f, nil
 }
 
 func scanVersion(s scanner) (*domain.FormulaVersion, error) {

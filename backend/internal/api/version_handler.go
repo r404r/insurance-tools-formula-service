@@ -98,6 +98,16 @@ func (h *VersionHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Stamp the parent formula's updated_by / updated_at so the list
+	// page's "Updater" column reflects whoever last changed the graph
+	// (task #042). A failure here surfaces via a response header but
+	// does not roll back the version creation — the version is the
+	// source of truth, the formulas row is denormalized metadata for
+	// fast list rendering.
+	if err := h.Formulas.UpdateMeta(r.Context(), formulaID, claims.UserID, version.CreatedAt); err != nil {
+		w.Header().Set("X-Formula-Meta-Update-Warning", err.Error())
+	}
+
 	writeJSON(w, http.StatusCreated, version)
 }
 

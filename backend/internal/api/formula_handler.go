@@ -24,6 +24,19 @@ type FormulaHandler struct {
 
 // List returns formulas filtered by optional domain and search query parameters.
 // GET /api/v1/formulas
+// validFormulaSortFields whitelists the public sortBy values that the
+// list endpoint accepts. The store layer keeps an authoritative copy
+// for the SQL translation, but we re-check here so a bad value can be
+// rejected with a clean 400 instead of silently falling back to the
+// default at the store layer.
+var validFormulaSortFields = map[string]bool{
+	"name":      true,
+	"createdAt": true,
+	"updatedAt": true,
+	"createdBy": true,
+	"updatedBy": true,
+}
+
 func (h *FormulaHandler) List(w http.ResponseWriter, r *http.Request) {
 	filter := domain.FormulaFilter{
 		Limit:  50,
@@ -46,6 +59,28 @@ func (h *FormulaHandler) List(w http.ResponseWriter, r *http.Request) {
 		if v, err := strconv.Atoi(o); err == nil && v >= 0 {
 			filter.Offset = v
 		}
+	}
+	// Sort parameters: validate against the whitelist before passing
+	// to the store. Empty / missing → store-side default (updatedAt desc).
+	if sortBy := r.URL.Query().Get("sortBy"); sortBy != "" {
+		if !validFormulaSortFields[sortBy] {
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{
+				Error: "invalid sortBy: must be one of name, createdAt, updatedAt, createdBy, updatedBy",
+				Code:  http.StatusBadRequest,
+			})
+			return
+		}
+		filter.SortBy = sortBy
+	}
+	if sortOrder := r.URL.Query().Get("sortOrder"); sortOrder != "" {
+		if sortOrder != "asc" && sortOrder != "desc" {
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{
+				Error: "invalid sortOrder: must be asc or desc",
+				Code:  http.StatusBadRequest,
+			})
+			return
+		}
+		filter.SortOrder = sortOrder
 	}
 
 	formulas, total, err := h.Formulas.List(r.Context(), filter)
@@ -271,6 +306,14 @@ func (h *FormulaHandler) Copy(w http.ResponseWriter, r *http.Request) {
 		}
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create version", Code: http.StatusInternalServerError})
 		return
+	}
+
+	// Stamp updated_by/updated_at on the new formula so it shows up in
+	// the list page's "Updater" column with the copying user. Same
+	// best-effort pattern as the version handler — failure surfaces
+	// via a response header but does not unwind the copy.
+	if err := h.Formulas.UpdateMeta(r.Context(), newFormulaID, claims.UserID, now); err != nil {
+		w.Header().Set("X-Formula-Meta-Update-Warning", err.Error())
 	}
 
 	writeJSON(w, http.StatusCreated, newFormula)
@@ -508,6 +551,18 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 			}
 			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: errMsg})
 			continue
+		}
+
+		// Stamp updated_by/updated_at on the freshly imported formula so
+		// the list page's "Updater" column shows the importing user.
+		// Same best-effort policy as Copy: a failure here doesn't unwind
+		// the import, just gets logged via the import error array so the
+		// admin sees something went wrong without losing the data.
+		if err := h.Formulas.UpdateMeta(r.Context(), newFormulaID, claims.UserID, now); err != nil {
+			result.Errors = append(result.Errors, ImportError{
+				Index: i, Name: ef.Name,
+				Error: "imported but updater stamp failed: " + err.Error(),
+			})
 		}
 
 		result.Imported = append(result.Imported, ImportedItem{Index: i, ID: newFormulaID, Name: ef.Name})
