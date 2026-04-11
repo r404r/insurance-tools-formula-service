@@ -44,6 +44,13 @@ backend/bin/
 
 # Playwright
 test-results/
+# Playwright's scratch output inside our curated screenshot dirs
+tests/screenshots/*/playwright-output/
+
+# Prompt history — local-only record of user prompts, kept for the author
+# but not checked into version control (may contain context that is not
+# meaningful to other collaborators and grows every session)
+prompt_history/
 
 # Workflow marker
 .codex-review-done
