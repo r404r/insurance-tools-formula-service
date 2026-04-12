@@ -2,29 +2,10 @@
 
 ## 待规划
 
-### 🥇 引擎能力扩展（来自日本保险公式覆盖度调研，[specs/002-Japan-insurance-coverage-analysis.md](specs/002-Japan-insurance-coverage-analysis.md)）
-
-> 优先级 1（spec 003，task #039）和优先级 2（spec 004，task #040）已完成，
-> spec 002 的覆盖度从 17/20 升级到 19/20。剩余两条研究项目见下面的"未来研究"段。
-
-### 📋 公式管理 UX 强化
-
-> F1（spec 005，task #042）和 F2（spec 006，task #043）已完成。
-
-### 🔬 未来研究项目（来自 task #039 已知限制 + 引擎能力盘点）
-
-> 这些项目都不阻塞当前工作，记录在此供将来评估。每条都已经在
-> README.md § Known Limitations 中向用户公开。
-
-- [ ] **文本模式支持复合 Conditional**：扩展 `parser/lexer.go` + `parser.go` 加入 `and` / `or` / `not` 关键字，并更新 `serializer.go` 的 `dagToASTWalk` Conditional 分支以发出复合条件 AST。完成后 task #039 引入的 composite conditional 才能在文本模式编辑。预估 2-3 天。
-- [ ] **可视化编辑器支持复合 Conditional UI**：在 `NodePropertiesPanel` 加 "Add Condition" 按钮、combinator 切换、Negate 复选框，并自动管理 `condition_i` / `conditionRight_i` 端口名分配。当前只能通过手写 JSON / API 使用。预估 2 天。
-- [ ] **混合 AND/OR 在单 Conditional 内**：当前一个 Conditional 节点的 combinator 是 uniform 的，需要嵌套两层来表达 `A AND (B OR C)`。如果实务中经常出现混合规则，可以引入 boolean 表达式节点（`logic_and` / `logic_or` / `logic_not`）让 Conditional 的 if 输入接 boolean 节点。预估 3-5 天。
-- [ ] **统计分布函数**（`normal_cdf` / `normal_quantile` / `chi²` 等）：用 Abramowitz-Stegun 近似公式实现 normal 系列即可。解锁信用度理论的 `k` 分位数（公式 14）+ 未来 VaR/TVaR 风险测度。预估 1 天。
-- [ ] **日期/时间算术**：原生 `date` 类型 + 日数计算 + 月份按比例。当前 1/24 法、短期料率返还都靠预计算表绕。预估 3 天。
-- [ ] **第一公民的嵌套 Loop**：允许 Loop body 直接包含另一个 Loop 节点，不必经过 sub-formula。表达力不变，但消除人为切分。预估 2 天。
-- [ ] **跨 Calculate 调用的状态持久化**：让连续多次 Calculate 共享一个"会话"，避免客户端 orchestrate 准备金/链梯滚动。预估 5 天，需要存储层和 API 改造，影响面较大。
-
-### 其它
+> 历史子分组（🥇 引擎能力扩展 / 📋 公式管理 UX 强化）已经全部消化进
+> task #039 / #040 / #042 / #043，相关明细见「已完成」段。当前真正
+> 待选的任务集中在下面这一段。引擎层面已知限制不构成 backlog，独立
+> 列在文末「未来研究 / 已知限制」段。
 
 - [ ] Lookup Tables目前已经有基础的功能，请改造或者增加一种新功能，即能管理多种表，且能自定义每个表的表结构（比如有a，b，c，d四个字段，实际使用的时候通过a，b，c字段来定位d字段），并能批量通过csv或者Excel上传表的实际内容。
 - [ ] E2E 测试
@@ -83,3 +64,17 @@
 - [016-custom-node-components.md](tasks/016-custom-node-components.md) — 自定义 React Flow 节点组件（2026-04-08）
 - [017-latex-formula-input.md](tasks/017-latex-formula-input.md) — LaTeX 表达式输入创建公式（2026-04-08）
 - [018-latex-test-suite.md](tasks/018-latex-test-suite.md) — LaTeX 公式输入功能测试套件（2026-04-09）
+
+## 未来研究 / 已知限制（不构成 backlog）
+
+> 这些条目是引擎能力的明确缺口，不是 bug，**不进入「待规划」选择**。
+> 每条都已经在 [`README.md` § Known Limitations](../README.md#known-limitations)
+> 中向用户公开。如果实务用户报告需要某条，再单独立 task 进入「待规划」。
+
+- [ ] **文本模式支持复合 Conditional**：扩展 `parser/lexer.go` + `parser.go` 加入 `and` / `or` / `not` 关键字，并更新 `serializer.go` 的 `dagToASTWalk` Conditional 分支以发出复合条件 AST。完成后 task #039 引入的 composite conditional 才能在文本模式编辑。预估 2-3 天。
+- [ ] **可视化编辑器支持复合 Conditional UI**：在 `NodePropertiesPanel` 加 "Add Condition" 按钮、combinator 切换、Negate 复选框，并自动管理 `condition_i` / `conditionRight_i` 端口名分配。当前只能通过手写 JSON / API 使用。预估 2 天。
+- [ ] **混合 AND/OR 在单 Conditional 内**：当前一个 Conditional 节点的 combinator 是 uniform 的，需要嵌套两层来表达 `A AND (B OR C)`。如果实务中经常出现混合规则，可以引入 boolean 表达式节点（`logic_and` / `logic_or` / `logic_not`）让 Conditional 的 if 输入接 boolean 节点。预估 3-5 天。
+- [ ] **统计分布函数**（`normal_cdf` / `normal_quantile` / `chi²` 等）：用 Abramowitz-Stegun 近似公式实现 normal 系列即可。解锁信用度理论的 `k` 分位数（公式 14）+ 未来 VaR/TVaR 风险测度。预估 1 天。
+- [ ] **日期/时间算术**：原生 `date` 类型 + 日数计算 + 月份按比例。当前 1/24 法、短期料率返还都靠预计算表绕。预估 3 天。
+- [ ] **第一公民的嵌套 Loop**：允许 Loop body 直接包含另一个 Loop 节点，不必经过 sub-formula。表达力不变，但消除人为切分。预估 2 天。
+- [ ] **跨 Calculate 调用的状态持久化**：让连续多次 Calculate 共享一个"会话"，避免客户端 orchestrate 准备金/链梯滚动。预估 5 天，需要存储层和 API 改造，影响面较大。
