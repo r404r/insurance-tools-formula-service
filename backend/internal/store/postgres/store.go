@@ -141,6 +141,7 @@ func (s *PostgresStore) Migrate(ctx context.Context) error {
 	// IF NOT EXISTS support directly on ADD COLUMN since 9.6.
 	alters := []string{
 		`ALTER TABLE formulas ADD COLUMN IF NOT EXISTS updated_by TEXT REFERENCES users(id)`,
+		`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0`,
 	}
 	for _, stmt := range alters {
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
@@ -450,9 +451,9 @@ type userRepo struct {
 
 func (r *userRepo) Create(ctx context.Context, u *domain.User) error {
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO users (id, username, password, role, created_at)
-		 VALUES ($1, $2, $3, $4, $5)`,
-		u.ID, u.Username, u.Password, u.Role, u.CreatedAt,
+		`INSERT INTO users (id, username, password, role, token_version, created_at)
+		 VALUES ($1, $2, $3, $4, $5, $6)`,
+		u.ID, u.Username, u.Password, u.Role, u.TokenVersion, u.CreatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert user: %w", err)
@@ -462,19 +463,29 @@ func (r *userRepo) Create(ctx context.Context, u *domain.User) error {
 
 func (r *userRepo) GetByID(ctx context.Context, id string) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, username, password, role, created_at FROM users WHERE id = $1`, id)
+		`SELECT id, username, password, role, token_version, created_at FROM users WHERE id = $1`, id)
 	return scanUser(row)
 }
 
 func (r *userRepo) GetByUsername(ctx context.Context, username string) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, username, password, role, created_at FROM users WHERE username = $1`, username)
+		`SELECT id, username, password, role, token_version, created_at FROM users WHERE username = $1`, username)
 	return scanUser(row)
+}
+
+func (r *userRepo) GetTokenVersion(ctx context.Context, id string) (int, error) {
+	var v int
+	err := r.db.QueryRowContext(ctx,
+		`SELECT token_version FROM users WHERE id = $1`, id).Scan(&v)
+	if err != nil {
+		return 0, fmt.Errorf("get token version: %w", err)
+	}
+	return v, nil
 }
 
 func (r *userRepo) List(ctx context.Context) ([]*domain.User, error) {
 	rows, err := r.db.QueryContext(ctx,
-		`SELECT id, username, password, role, created_at FROM users ORDER BY created_at ASC`)
+		`SELECT id, username, password, role, token_version, created_at FROM users ORDER BY created_at ASC`)
 	if err != nil {
 		return nil, fmt.Errorf("list users: %w", err)
 	}
@@ -517,7 +528,7 @@ func (r *userRepo) UpdateRole(ctx context.Context, id string, role domain.Role) 
 	}
 
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE users SET role = $1 WHERE id = $2`, role, id)
+		`UPDATE users SET role = $1, token_version = token_version + 1 WHERE id = $2`, role, id)
 	if err != nil {
 		return fmt.Errorf("update role: %w", err)
 	}
@@ -810,7 +821,7 @@ func scanVersionRows(rows *sql.Rows) (*domain.FormulaVersion, error) {
 
 func scanUser(s scanner) (*domain.User, error) {
 	var u domain.User
-	err := s.Scan(&u.ID, &u.Username, &u.Password, &u.Role, &u.CreatedAt)
+	err := s.Scan(&u.ID, &u.Username, &u.Password, &u.Role, &u.TokenVersion, &u.CreatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("scan user: %w", err)
 	}

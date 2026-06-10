@@ -4,6 +4,8 @@ import (
 	"context"
 	"net/http"
 	"strings"
+
+	"github.com/r404r/insurance-tools/formula-service/backend/internal/store"
 )
 
 // contextKey is an unexported type used for context value keys, preventing
@@ -12,27 +14,45 @@ type contextKey struct{}
 
 var claimsKey = contextKey{}
 
-// AuthMiddleware returns HTTP middleware that extracts a Bearer token from the
-// Authorization header, verifies it, and stores the resulting Claims in the
+const AuthCookieName = "auth_token"
+
+// AuthMiddleware returns HTTP middleware that extracts a JWT from either the
+// "auth_token" httpOnly cookie (preferred) or the Authorization Bearer header
+// (fallback for API clients), verifies it, checks the token version against
+// the DB to catch invalidated tokens, and stores the resulting Claims in the
 // request context.
-func AuthMiddleware(jwtMgr *JWTManager) func(http.Handler) http.Handler {
+func AuthMiddleware(jwtMgr *JWTManager, users store.UserRepository) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			header := r.Header.Get("Authorization")
-			if header == "" {
-				http.Error(w, `{"error":"missing authorization header","code":401}`, http.StatusUnauthorized)
-				return
+			var tokenStr string
+
+			if cookie, err := r.Cookie(AuthCookieName); err == nil {
+				tokenStr = cookie.Value
+			} else {
+				header := r.Header.Get("Authorization")
+				if header == "" {
+					http.Error(w, `{"error":"missing authorization","code":401}`, http.StatusUnauthorized)
+					return
+				}
+				parts := strings.SplitN(header, " ", 2)
+				if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+					http.Error(w, `{"error":"invalid authorization format","code":401}`, http.StatusUnauthorized)
+					return
+				}
+				tokenStr = parts[1]
 			}
 
-			parts := strings.SplitN(header, " ", 2)
-			if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-				http.Error(w, `{"error":"invalid authorization format","code":401}`, http.StatusUnauthorized)
-				return
-			}
-
-			claims, err := jwtMgr.Verify(parts[1])
+			claims, err := jwtMgr.Verify(tokenStr)
 			if err != nil {
 				http.Error(w, `{"error":"invalid or expired token","code":401}`, http.StatusUnauthorized)
+				return
+			}
+
+			// Verify token_version against the DB to catch tokens that were
+			// invalidated by a role change after the token was issued.
+			dbVersion, err := users.GetTokenVersion(r.Context(), claims.UserID)
+			if err != nil || dbVersion != claims.TokenVersion {
+				http.Error(w, `{"error":"token has been invalidated","code":401}`, http.StatusUnauthorized)
 				return
 			}
 

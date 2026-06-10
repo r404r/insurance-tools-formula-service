@@ -98,8 +98,9 @@ func run(logger zerolog.Logger) error {
 
 	// Create handlers.
 	authHandler := &api.AuthHandler{
-		Users:  store.Users(),
-		JWTMgr: jwtMgr,
+		Users:        store.Users(),
+		JWTMgr:       jwtMgr,
+		CookieSecure: cfg.Auth.CookieSecure,
 	}
 	formulaHandler := &api.FormulaHandler{
 		Formulas:   store.Formulas(),
@@ -163,6 +164,7 @@ func run(logger zerolog.Logger) error {
 		TemplateHandler:  templateHandler,
 		SeedResetHandler: resetSeedHandler,
 		JWTManager:       jwtMgr,
+		UserStore:        store.Users(),
 		Logger:           logger,
 		CORSOrigins:      cfg.Server.CORSOrigins,
 		CalcLimiter:      calcLimiter,

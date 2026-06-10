@@ -41,8 +41,9 @@ type EngineConfig struct {
 
 // AuthConfig holds authentication settings.
 type AuthConfig struct {
-	JWTSecret   string
-	TokenExpiry time.Duration
+	JWTSecret    string
+	TokenExpiry  time.Duration
+	CookieSecure bool // set true in production (HTTPS); false for local HTTP dev
 }
 
 // Load reads configuration from environment variables, applying sensible defaults.
@@ -82,6 +83,7 @@ func Load() (*Config, error) {
 
 	jwtSecret := envString("AUTH_JWT_SECRET", "")
 	tokenExpiry := envDuration("AUTH_TOKEN_EXPIRY", 24*time.Hour)
+	cookieSecure := envBool("AUTH_COOKIE_SECURE", false)
 
 	cfg := &Config{
 		Server: ServerConfig{
@@ -101,8 +103,9 @@ func Load() (*Config, error) {
 			MaxConcurrentCalcs:    maxConcurrentCalcs,
 		},
 		Auth: AuthConfig{
-			JWTSecret:   jwtSecret,
-			TokenExpiry: tokenExpiry,
+			JWTSecret:    jwtSecret,
+			TokenExpiry:  tokenExpiry,
+			CookieSecure: cookieSecure,
 		},
 	}
 
@@ -138,6 +141,19 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return d
+}
+
+func envBool(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	switch v {
+	case "1", "true", "yes":
+		return true
+	default:
+		return false
+	}
 }
 
 func envStringSlice(key string, fallback []string) []string {

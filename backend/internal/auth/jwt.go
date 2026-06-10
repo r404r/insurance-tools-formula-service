@@ -25,19 +25,26 @@ func NewJWTManager(secret string, expiry time.Duration) *JWTManager {
 
 // Claims contains the custom payload embedded in each JWT.
 type Claims struct {
-	UserID   string      `json:"userId"`
-	Username string      `json:"username"`
-	Role     domain.Role `json:"role"`
+	UserID       string      `json:"userId"`
+	Username     string      `json:"username"`
+	Role         domain.Role `json:"role"`
+	TokenVersion int         `json:"tokenVersion"`
 	jwt.RegisteredClaims
+}
+
+// Expiry returns the configured token lifetime.
+func (m *JWTManager) Expiry() time.Duration {
+	return m.expiry
 }
 
 // Generate creates a signed JWT for the given user.
 func (m *JWTManager) Generate(user *domain.User) (string, error) {
 	now := time.Now()
 	claims := Claims{
-		UserID:   user.ID,
-		Username: user.Username,
-		Role:     user.Role,
+		UserID:       user.ID,
+		Username:     user.Username,
+		Role:         user.Role,
+		TokenVersion: user.TokenVersion,
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   user.ID,
 			IssuedAt:  jwt.NewNumericDate(now),

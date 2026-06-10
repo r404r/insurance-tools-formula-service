@@ -8,6 +8,7 @@ import (
 	"github.com/rs/zerolog"
 
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/auth"
+	"github.com/r404r/insurance-tools/formula-service/backend/internal/store"
 )
 
 // RouterConfig holds the dependencies needed to construct the API router.
@@ -25,6 +26,7 @@ type RouterConfig struct {
 	TemplateHandler    *TemplateHandler
 	SeedResetHandler   http.HandlerFunc // optional: POST /admin/reset-seed
 	JWTManager         *auth.JWTManager
+	UserStore          store.UserRepository // for token_version check in AuthMiddleware
 	Logger             zerolog.Logger
 	CORSOrigins        []string
 	CalcLimiter        *DynamicConcurrencyLimiter
@@ -42,19 +44,21 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 	r.Use(CORS(cfg.CORSOrigins))
 
 	r.Route("/api/v1", func(r chi.Router) {
-		// Public auth endpoints.
-		r.Post("/auth/login", cfg.AuthHandler.Login)
-		r.Post("/auth/register", cfg.AuthHandler.Register)
+		// Public auth endpoints with IP rate limiting.
+		// login: 5 req/min/IP; register: 3 req/min/IP; parse: 30 req/min/IP.
+		r.With(IPRateLimit(5, 5)).Post("/auth/login", cfg.AuthHandler.Login)
+		r.With(IPRateLimit(3, 3)).Post("/auth/register", cfg.AuthHandler.Register)
+		r.Post("/auth/logout", cfg.AuthHandler.Logout)
 
 		// Parse text formula to graph (stateless, no auth needed).
-		r.Post("/parse", cfg.ParseHandler.Parse)
+		r.With(IPRateLimit(30, 30)).Post("/parse", cfg.ParseHandler.Parse)
 
 		// Formula templates catalogue (public, no auth required).
 		r.Get("/templates", cfg.TemplateHandler.List)
 
 		// All remaining routes require authentication.
 		r.Group(func(r chi.Router) {
-			r.Use(auth.AuthMiddleware(cfg.JWTManager))
+			r.Use(auth.AuthMiddleware(cfg.JWTManager, cfg.UserStore))
 
 			// Current user.
 			r.Get("/auth/me", cfg.AuthHandler.Me)
