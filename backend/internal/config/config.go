@@ -21,6 +21,16 @@ type Config struct {
 type ServerConfig struct {
 	Port        int
 	CORSOrigins []string
+	// TrustProxy controls whether rate limiters read the client IP from
+	// X-Real-IP / X-Forwarded-For headers instead of the raw TCP RemoteAddr.
+	//
+	// DEPLOYMENT NOTE: set SERVER_TRUST_PROXY=true ONLY when the service runs
+	// behind a single trusted reverse proxy (e.g. nginx) that correctly sets
+	// X-Real-IP to the real client IP. Leaving it false (the default) is safe
+	// for direct-internet deployments and in development. Enabling it on a
+	// server that is directly internet-facing allows any client to forge their
+	// rate-limit identity by sending a spoofed X-Real-IP header.
+	TrustProxy bool
 }
 
 // DatabaseConfig holds database connection settings.
@@ -41,8 +51,9 @@ type EngineConfig struct {
 
 // AuthConfig holds authentication settings.
 type AuthConfig struct {
-	JWTSecret   string
-	TokenExpiry time.Duration
+	JWTSecret    string
+	TokenExpiry  time.Duration
+	CookieSecure bool // set true in production (HTTPS); false for local HTTP dev
 }
 
 // Load reads configuration from environment variables, applying sensible defaults.
@@ -53,6 +64,7 @@ func Load() (*Config, error) {
 	}
 
 	corsOrigins := envStringSlice("SERVER_CORS_ORIGINS", []string{"http://localhost:5173"})
+	trustProxy := envBool("SERVER_TRUST_PROXY", false)
 
 	driver := envString("DB_DRIVER", "sqlite")
 	switch driver {
@@ -82,11 +94,13 @@ func Load() (*Config, error) {
 
 	jwtSecret := envString("AUTH_JWT_SECRET", "")
 	tokenExpiry := envDuration("AUTH_TOKEN_EXPIRY", 24*time.Hour)
+	cookieSecure := envBool("AUTH_COOKIE_SECURE", false)
 
 	cfg := &Config{
 		Server: ServerConfig{
 			Port:        port,
 			CORSOrigins: corsOrigins,
+			TrustProxy:  trustProxy,
 		},
 		Database: DatabaseConfig{
 			Driver: driver,
@@ -101,8 +115,9 @@ func Load() (*Config, error) {
 			MaxConcurrentCalcs:    maxConcurrentCalcs,
 		},
 		Auth: AuthConfig{
-			JWTSecret:   jwtSecret,
-			TokenExpiry: tokenExpiry,
+			JWTSecret:    jwtSecret,
+			TokenExpiry:  tokenExpiry,
+			CookieSecure: cookieSecure,
 		},
 	}
 
@@ -138,6 +153,19 @@ func envDuration(key string, fallback time.Duration) time.Duration {
 		return fallback
 	}
 	return d
+}
+
+func envBool(key string, fallback bool) bool {
+	v := os.Getenv(key)
+	if v == "" {
+		return fallback
+	}
+	switch v {
+	case "1", "true", "yes":
+		return true
+	default:
+		return false
+	}
 }
 
 func envStringSlice(key string, fallback []string) []string {

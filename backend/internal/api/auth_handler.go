@@ -15,11 +15,36 @@ import (
 
 // AuthHandler implements authentication and user-related HTTP endpoints.
 type AuthHandler struct {
-	Users  store.UserRepository
-	JWTMgr *auth.JWTManager
+	Users        store.UserRepository
+	JWTMgr       *auth.JWTManager
+	CookieSecure bool
 }
 
-// Login authenticates a user and returns a JWT token.
+func (h *AuthHandler) setAuthCookie(w http.ResponseWriter, token string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.AuthCookieName,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   h.CookieSecure,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   int(h.JWTMgr.Expiry().Seconds()),
+	})
+}
+
+func (h *AuthHandler) clearAuthCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.AuthCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   h.CookieSecure,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+}
+
+// Login authenticates a user, sets an httpOnly auth cookie, and returns user info.
 // POST /api/v1/auth/login
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
@@ -50,11 +75,12 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.setAuthCookie(w, token)
 	writeJSON(w, http.StatusOK, LoginResponse{Token: token, User: *user})
 }
 
-// Register creates a new user account. The first registered user is granted
-// the admin role; subsequent users receive the viewer role.
+// Register creates a new user account, sets an httpOnly auth cookie, and returns user info.
+// The first registered user is granted the admin role; subsequent users receive the viewer role.
 // POST /api/v1/auth/register
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req RegisterRequest
@@ -118,7 +144,15 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	h.setAuthCookie(w, token)
 	writeJSON(w, http.StatusCreated, LoginResponse{Token: token, User: *user})
+}
+
+// Logout clears the auth cookie.
+// POST /api/v1/auth/logout
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	h.clearAuthCookie(w)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Me returns the currently authenticated user.

@@ -26,11 +26,12 @@ type FormulaVersion struct {
 
 // User represents a system user
 type User struct {
-	ID        string    `json:"id"`
-	Username  string    `json:"username"`
-	Password  string    `json:"-"` // never serialize
-	Role      Role      `json:"role"`
-	CreatedAt time.Time `json:"createdAt"`
+	ID           string    `json:"id"`
+	Username     string    `json:"username"`
+	Password     string    `json:"-"` // never serialize
+	Role         Role      `json:"role"`
+	TokenVersion int       `json:"-"` // incremented on role change to invalidate old tokens
+	CreatedAt    time.Time `json:"createdAt"`
 }
 
 // Role defines RBAC roles
