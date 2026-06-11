@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
-import { api, getToken } from '../../api/client'
+import { api } from '../../api/client'
 import { useAuthStore } from '../../store/authStore'
 import { listCategories } from '../../api/categories'
 import TemplateGallery from './TemplateGallery'
@@ -199,13 +199,12 @@ export default function FormulaList() {
   async function handleExport(ids: string[], filename: string) {
     if (ids.length === 0) return
     try {
-      const token = getToken()
       const res = await fetch('/api/v1/formulas/export', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
+        credentials: 'include',
         body: JSON.stringify({ ids }),
       })
       if (!res.ok) {

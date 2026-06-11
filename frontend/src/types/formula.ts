@@ -309,6 +309,8 @@ export interface RegisterRequest {
 }
 
 export interface AuthResponse {
-  token: string
+  // Browser clients authenticate through the httpOnly auth cookie; token is only
+  // for non-browser API clients that cannot rely on cookies.
+  token?: string
   user: User
 }

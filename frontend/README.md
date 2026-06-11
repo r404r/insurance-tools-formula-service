@@ -2,6 +2,14 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Auth Deployment
+
+Browser authentication uses the backend `auth_token` httpOnly cookie with `SameSite=Strict`.
+Deploy the frontend and API as same-site origins, for example the same registrable domain or
+the local Vite `/api` proxy. A frontend hosted on a different registrable domain will not send
+the Strict cookie on API fetches; that deployment is blocked unless the backend cookie policy is
+changed to `SameSite=None; Secure` and CORS is configured for credentialed cross-site requests.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
