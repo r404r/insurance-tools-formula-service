@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
+import { logout as logoutRequest } from '../../api/auth'
 import { useAuthStore } from '../../store/authStore'
 
 const LANGUAGES = [
@@ -26,9 +27,14 @@ export default function Navbar() {
     setLangOpen(false)
   }
 
-  function handleLogout() {
-    logout()
-    navigate('/login')
+  async function handleLogout() {
+    try {
+      await logoutRequest()
+    } finally {
+      logout()
+      setUserMenuOpen(false)
+      navigate('/login')
+    }
   }
 
   const currentLang = LANGUAGES.find((l) => l.code === i18n.language) ?? LANGUAGES[0]

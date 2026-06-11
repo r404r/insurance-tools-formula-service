@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
-import { api } from '../../api/client'
+import { login as loginRequest } from '../../api/auth'
 import { useAuthStore } from '../../store/authStore'
-import type { AuthResponse } from '../../types/formula'
 
 export default function LoginPage() {
   const { t } = useTranslation()
@@ -20,8 +19,8 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const res = await api.post<AuthResponse>('/auth/login', { username, password })
-      storeLogin(res.token, res.user)
+      const res = await loginRequest(username, password)
+      storeLogin(res.user)
       navigate('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Login failed')

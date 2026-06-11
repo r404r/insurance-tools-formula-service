@@ -25,25 +25,32 @@ const queryClient = new QueryClient({
 })
 
 function ProtectedRoute() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const { isAuthenticated, isAuthChecked } = useAuthStore()
+  if (!isAuthChecked) {
+    return <div className="py-12 text-center text-gray-500">Loading...</div>
+  }
   if (!isAuthenticated) return <Navigate to="/login" replace />
   return <Outlet />
 }
 
 function App() {
-  const { isAuthenticated, user, login, logout } = useAuthStore()
+  const { login, logout } = useAuthStore()
 
-  // Hydrate user from /auth/me on startup (token may survive page refresh but user object is lost).
   useEffect(() => {
-    if (isAuthenticated && !user) {
-      getMe()
-        .then((me) => {
-          const token = localStorage.getItem('token') ?? ''
-          login(token, me)
-        })
-        .catch(() => logout())
+    let cancelled = false
+
+    getMe()
+      .then((me) => {
+        if (!cancelled) login(me)
+      })
+      .catch(() => {
+        if (!cancelled) logout()
+      })
+
+    return () => {
+      cancelled = true
     }
-  }, [isAuthenticated, user, login, logout])
+  }, [login, logout])
 
   return (
     <QueryClientProvider client={queryClient}>

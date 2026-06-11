@@ -1,9 +1,8 @@
 import { useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useNavigate } from 'react-router-dom'
-import { api } from '../../api/client'
+import { register as registerRequest } from '../../api/auth'
 import { useAuthStore } from '../../store/authStore'
-import type { AuthResponse } from '../../types/formula'
 
 export default function RegisterPage() {
   const { t } = useTranslation()
@@ -27,8 +26,8 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      const res = await api.post<AuthResponse>('/auth/register', { username, password })
-      storeLogin(res.token, res.user)
+      const res = await registerRequest(username, password)
+      storeLogin(res.user)
       navigate('/')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Registration failed')

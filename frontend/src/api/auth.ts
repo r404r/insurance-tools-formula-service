@@ -12,3 +12,7 @@ export function register(username: string, password: string): Promise<AuthRespon
 export function getMe(): Promise<User> {
   return api.get<User>('/auth/me')
 }
+
+export function logout(): Promise<void> {
+  return api.post<void>('/auth/logout')
+}

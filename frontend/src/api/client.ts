@@ -1,23 +1,11 @@
 const BASE_URL = '/api/v1'
 
-let authToken: string | null = localStorage.getItem('token')
-
-export function setToken(token: string | null) {
-  authToken = token
-  if (token) localStorage.setItem('token', token)
-  else localStorage.removeItem('token')
-}
-
-export function getToken(): string | null {
-  return authToken
-}
-
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-  if (authToken) headers['Authorization'] = `Bearer ${authToken}`
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers,
+    credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
   })
   if (!res.ok) {
