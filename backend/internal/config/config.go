@@ -21,6 +21,16 @@ type Config struct {
 type ServerConfig struct {
 	Port        int
 	CORSOrigins []string
+	// TrustProxy controls whether rate limiters read the client IP from
+	// X-Real-IP / X-Forwarded-For headers instead of the raw TCP RemoteAddr.
+	//
+	// DEPLOYMENT NOTE: set SERVER_TRUST_PROXY=true ONLY when the service runs
+	// behind a single trusted reverse proxy (e.g. nginx) that correctly sets
+	// X-Real-IP to the real client IP. Leaving it false (the default) is safe
+	// for direct-internet deployments and in development. Enabling it on a
+	// server that is directly internet-facing allows any client to forge their
+	// rate-limit identity by sending a spoofed X-Real-IP header.
+	TrustProxy bool
 }
 
 // DatabaseConfig holds database connection settings.
@@ -54,6 +64,7 @@ func Load() (*Config, error) {
 	}
 
 	corsOrigins := envStringSlice("SERVER_CORS_ORIGINS", []string{"http://localhost:5173"})
+	trustProxy := envBool("SERVER_TRUST_PROXY", false)
 
 	driver := envString("DB_DRIVER", "sqlite")
 	switch driver {
@@ -89,6 +100,7 @@ func Load() (*Config, error) {
 		Server: ServerConfig{
 			Port:        port,
 			CORSOrigins: corsOrigins,
+			TrustProxy:  trustProxy,
 		},
 		Database: DatabaseConfig{
 			Driver: driver,

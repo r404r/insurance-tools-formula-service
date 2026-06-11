@@ -15,6 +15,9 @@ type LoginRequest struct {
 }
 
 // LoginResponse is returned after successful authentication.
+// The Token field is the raw JWT string. Browser-based frontends should rely
+// on the httpOnly auth_token cookie set by the server and ignore this field;
+// it is provided solely for non-browser API clients that cannot access cookies.
 type LoginResponse struct {
 	Token string      `json:"token"`
 	User  domain.User `json:"user"`

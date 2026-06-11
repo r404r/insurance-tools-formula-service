@@ -30,6 +30,9 @@ type RouterConfig struct {
 	Logger             zerolog.Logger
 	CORSOrigins        []string
 	CalcLimiter        *DynamicConcurrencyLimiter
+	// TrustProxy controls real-IP resolution for rate limiting.
+	// See config.ServerConfig.TrustProxy for the full deployment note.
+	TrustProxy bool
 }
 
 // NewRouter creates a chi.Mux with all API routes wired up.
@@ -37,6 +40,9 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 	r := chi.NewRouter()
 
 	// Global middleware stack.
+	// PreserveRawIP must run before RealIP so rate limiters can read the
+	// original TCP connection IP regardless of X-Forwarded-For headers.
+	r.Use(PreserveRawIP)
 	r.Use(chiMiddleware.RequestID)
 	r.Use(chiMiddleware.RealIP)
 	r.Use(Recovery())
@@ -46,12 +52,12 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public auth endpoints with IP rate limiting.
 		// login: 5 req/min/IP; register: 3 req/min/IP; parse: 30 req/min/IP.
-		r.With(IPRateLimit(5, 5)).Post("/auth/login", cfg.AuthHandler.Login)
-		r.With(IPRateLimit(3, 3)).Post("/auth/register", cfg.AuthHandler.Register)
+		r.With(IPRateLimit(5, 5, cfg.TrustProxy)).Post("/auth/login", cfg.AuthHandler.Login)
+		r.With(IPRateLimit(3, 3, cfg.TrustProxy)).Post("/auth/register", cfg.AuthHandler.Register)
 		r.Post("/auth/logout", cfg.AuthHandler.Logout)
 
 		// Parse text formula to graph (stateless, no auth needed).
-		r.With(IPRateLimit(30, 30)).Post("/parse", cfg.ParseHandler.Parse)
+		r.With(IPRateLimit(30, 30, cfg.TrustProxy)).Post("/parse", cfg.ParseHandler.Parse)
 
 		// Formula templates catalogue (public, no auth required).
 		r.Get("/templates", cfg.TemplateHandler.List)

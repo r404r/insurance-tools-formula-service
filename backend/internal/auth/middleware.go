@@ -2,6 +2,8 @@ package auth
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -21,6 +23,10 @@ const AuthCookieName = "auth_token"
 // (fallback for API clients), verifies it, checks the token version against
 // the DB to catch invalidated tokens, and stores the resulting Claims in the
 // request context.
+//
+// Error responses:
+//   - 401: missing/invalid token, version mismatch, or user deleted (ErrNoRows)
+//   - 500: transient DB error while checking token version
 func AuthMiddleware(jwtMgr *JWTManager, users store.UserRepository) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -48,10 +54,21 @@ func AuthMiddleware(jwtMgr *JWTManager, users store.UserRepository) func(http.Ha
 				return
 			}
 
-			// Verify token_version against the DB to catch tokens that were
-			// invalidated by a role change after the token was issued.
+			// Verify token_version against the DB to catch tokens invalidated by
+			// a role change. We distinguish three cases:
+			//   - user deleted (sql.ErrNoRows) → 401
+			//   - version mismatch               → 401
+			//   - transient DB error             → 500 (don't silently log everyone out)
 			dbVersion, err := users.GetTokenVersion(r.Context(), claims.UserID)
-			if err != nil || dbVersion != claims.TokenVersion {
+			if err != nil {
+				if errors.Is(err, sql.ErrNoRows) {
+					http.Error(w, `{"error":"token has been invalidated","code":401}`, http.StatusUnauthorized)
+				} else {
+					http.Error(w, `{"error":"authentication service unavailable","code":500}`, http.StatusInternalServerError)
+				}
+				return
+			}
+			if dbVersion != claims.TokenVersion {
 				http.Error(w, `{"error":"token has been invalidated","code":401}`, http.StatusUnauthorized)
 				return
 			}

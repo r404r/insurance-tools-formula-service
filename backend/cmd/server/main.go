@@ -168,6 +168,7 @@ func run(logger zerolog.Logger) error {
 		Logger:           logger,
 		CORSOrigins:      cfg.Server.CORSOrigins,
 		CalcLimiter:      calcLimiter,
+		TrustProxy:       cfg.Server.TrustProxy,
 	})
 
 	// Start HTTP server.
