@@ -65,6 +65,11 @@ func (s *SQLiteStore) Close() error {
 	return s.db.Close()
 }
 
+// Ping verifies the database connection is alive.
+func (s *SQLiteStore) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
+}
+
 // Migrate creates the schema tables if they do not exist.
 func (s *SQLiteStore) Migrate(ctx context.Context) error {
 	statements := []string{

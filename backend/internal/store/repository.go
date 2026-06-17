@@ -86,5 +86,8 @@ type Store interface {
 	Categories() CategoryRepository
 	Settings() SettingsRepository
 	Migrate(ctx context.Context) error
+	// Ping verifies the underlying database connection is alive. Used by the
+	// /healthz readiness probe (container orchestration + API regression suite).
+	Ping(ctx context.Context) error
 	Close() error
 }

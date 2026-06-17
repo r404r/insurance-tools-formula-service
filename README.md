@@ -111,11 +111,11 @@ Backend runs on `http://localhost:8080`, frontend on `http://localhost:5173` wit
 ### Docker
 
 The compose file uses **profiles** to pick the database backend. Pick
-exactly one profile (sqlite is the default for local development):
+exactly one profile (**PostgreSQL is the default**):
 
 ```bash
-# Easiest path: copy .env.example so COMPOSE_PROFILES=sqlite is set,
-# then `up -d` works without extra flags.
+# Easiest path: copy .env.example so COMPOSE_PROFILES=postgres is set,
+# then `up -d` brings up the backend wired to a PostgreSQL sidecar.
 cp .env.example .env
 docker compose up -d
 ```
@@ -123,10 +123,15 @@ docker compose up -d
 Or override on the command line for one-off runs:
 
 ```bash
-docker compose --profile sqlite up -d    # default
-docker compose --profile postgres up -d  # also boots postgres sidecar
+docker compose --profile postgres up -d  # default — also boots postgres sidecar
+docker compose --profile sqlite up -d    # embedded SQLite, no DB sidecar
 docker compose --profile mysql up -d     # also boots mysql sidecar
 ```
+
+Each backend container exposes an unauthenticated readiness probe at
+`GET /healthz` (returns `{"status":"ok","database":"<driver>"}`); compose
+healthchecks poll it so `docker compose ps` reports the backend `healthy`
+once migrations finish.
 
 Backend on port 8080, frontend on port 3000. See
 [`Database Configuration`](#database-configuration) below for the full
@@ -140,16 +145,22 @@ make build
 
 ## Database Configuration
 
-The backend supports three SQL backends — **SQLite** (default, embedded
-file), **PostgreSQL**, and **MySQL** — selected at startup via two
-environment variables. There is no compile-time switch; the same binary
-works with all three drivers.
+The backend supports three SQL backends — **PostgreSQL** (the project's
+shipped default), **SQLite** (embedded file, zero-dependency local dev),
+and **MySQL** — selected at startup via two environment variables. There
+is no compile-time switch; the same binary works with all three drivers.
+
+> **Default vs. fallback**: the *shipped* default — what `.env.example`
+> and `docker compose up` use — is PostgreSQL. The bare binary's built-in
+> *fallback* when no `DB_DRIVER` is set is SQLite, so a `go run`/unit-test
+> on a clean checkout needs no database server. Set `DB_DRIVER` explicitly
+> (or use `.env`) to choose the backend.
 
 ### Environment variables
 
-| Variable | Default | Notes |
+| Variable | Built-in fallback | Notes |
 |---|---|---|
-| `DB_DRIVER` | `sqlite` | One of `sqlite` / `postgres` / `mysql`. Validated at startup. |
+| `DB_DRIVER` | `sqlite` | One of `sqlite` / `postgres` / `mysql`. Validated at startup. `.env.example` ships `postgres`. |
 | `DB_DSN` | `file:formula.db?_journal=WAL&_foreign_keys=on` | Connection string for the chosen driver. |
 
 A complete list of every environment variable the backend reads is in
@@ -158,10 +169,10 @@ A complete list of every environment variable the backend reads is in
 ### Running the bare binary
 
 ```bash
-# SQLite (default)
+# SQLite (built-in fallback when DB_DRIVER is unset)
 ./backend/bin/server
 
-# PostgreSQL
+# PostgreSQL (shipped default — what .env.example selects)
 DB_DRIVER=postgres \
 DB_DSN="postgres://formula:formula_dev@localhost:5432/formula_service?sslmode=disable" \
 ./backend/bin/server
@@ -185,11 +196,11 @@ profile is selected with `--profile` on the command line or by setting
 `COMPOSE_PROFILES` in `.env`:
 
 ```bash
-# SQLite (default profile, no extra services)
-docker compose --profile sqlite up
-
-# PostgreSQL — also boots a postgres:16-alpine sidecar
+# PostgreSQL (default profile) — also boots a postgres:16-alpine sidecar
 docker compose --profile postgres up
+
+# SQLite — embedded file, no extra services
+docker compose --profile sqlite up
 
 # MySQL — also boots a mysql:8 sidecar
 docker compose --profile mysql up
@@ -605,12 +616,32 @@ Done          → Status: done, move to backlog 已完成
 
 ```
 tests/
+├── api-regression/           # Reusable black-box API regression suite (run.sh)
 ├── batch/{task-number}/      # Batch test JSON data (reusable)
 ├── reports/                  # Markdown test reports
 └── screenshots/{task-number}/ # Visual verification screenshots
 ```
 
 Test data files double as regression tests.
+
+### API Regression Suite
+
+A reusable, self-provisioning black-box suite exercises the core API
+surface (health, auth, parse, formula lifecycle, calculate / batch-test,
+tables, categories, templates, authorization boundaries) against a
+**running** backend, and writes a Markdown report after every run.
+
+```bash
+# Default: bring up the PostgreSQL stack, seed, run, and report
+tests/api-regression/run.sh
+
+# Point at an already-running backend (any driver) — skips Docker
+BASE_URL=http://localhost:8080 tests/api-regression/run.sh
+```
+
+Each run writes a timestamped report plus `tests/reports/api-regression-latest.md`.
+The runner exits non-zero on any failed check, so it gates CI / scripts.
+Implementation: `backend/cmd/api_regression`.
 
 ### Prompt History
 

@@ -16,6 +16,7 @@
 
 ## 已完成
 
+- [048-postgres-default-api-regression-suite.md](tasks/048-postgres-default-api-regression-suite.md) — 默认 DB 切到 PostgreSQL（compose/env/docs）+ `/healthz` 就绪探针 + 可复用黑盒 API 回归套件（`backend/cmd/api_regression` + `tests/api-regression/run.sh`，每次落盘 markdown）（GHO-64）（2026-06-17）
 - [047-seed-extraction.md](tasks/047-seed-extraction.md) — main.go seed 数据提取到 JSON bundle + seed-runner CLI + docker seed profile（main.go 1640→312 行）（2026-04-11）
 - [046-tableaggregate-text-mode-guard.md](tasks/046-tableaggregate-text-mode-guard.md) — TableAggregate 文本模式守卫（task #040 P2 follow-up，由 task #045 暴露）（2026-04-11）
 - [045-japan-insurance-builtin-formulas.md](tasks/045-japan-insurance-builtin-formulas.md) — 日本保険公式 17 个内置公式 + 17 个模版（spec 002 #1-#13/#15-#18/#20）（2026-04-11）
