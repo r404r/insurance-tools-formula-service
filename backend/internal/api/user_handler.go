@@ -70,6 +70,11 @@ func (h *UserHandler) UpdateRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !req.Role.IsValid() {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid role: must be one of admin, editor, reviewer, viewer", Code: http.StatusBadRequest})
+		return
+	}
+
 	if err := h.Users.UpdateRole(r.Context(), id, req.Role); err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
