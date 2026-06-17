@@ -377,6 +377,10 @@ func (r *versionRepo) CreateVersion(ctx context.Context, v *domain.FormulaVersio
 		formatTime(v.CreatedAt),
 	)
 	if err != nil {
+		var myErr *mysql.MySQLError
+		if errors.As(err, &myErr) && myErr.Number == 1062 {
+			return store.ErrConflict
+		}
 		return fmt.Errorf("insert version: %w", err)
 	}
 	return nil

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
@@ -108,6 +109,10 @@ func (h *VersionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Versions.CreateVersion(r.Context(), version); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			writeJSON(w, http.StatusConflict, ErrorResponse{Error: "version was created by another request; refresh and retry", Code: http.StatusConflict})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create version", Code: http.StatusInternalServerError})
 		return
 	}

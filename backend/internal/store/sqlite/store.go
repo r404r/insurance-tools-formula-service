@@ -388,6 +388,9 @@ func (r *versionRepo) CreateVersion(ctx context.Context, v *domain.FormulaVersio
 		formatTime(v.CreatedAt),
 	)
 	if err != nil {
+		if strings.Contains(err.Error(), "UNIQUE constraint failed") {
+			return store.ErrConflict
+		}
 		return fmt.Errorf("insert version: %w", err)
 	}
 	return nil

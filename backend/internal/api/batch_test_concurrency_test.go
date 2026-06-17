@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -38,6 +39,14 @@ func (stubEngine) Calculate(ctx context.Context, _ *domain.FormulaGraph, inputs 
 func (stubEngine) Validate(_ *domain.FormulaGraph) []engine.ValidationError { return nil }
 func (stubEngine) ClearCache()                                              {}
 func (stubEngine) CacheStats() (int, int)                                   { return 0, 0 }
+
+type panicEngine struct {
+	stubEngine
+}
+
+func (panicEngine) Calculate(context.Context, *domain.FormulaGraph, map[string]string) (*engine.CalculationResult, error) {
+	panic("boom")
+}
 
 // stubVersionRepo returns a fixed FormulaVersion regardless of the ID/version
 // requested, avoiding the need for a real store implementation. Only the
@@ -129,6 +138,28 @@ func TestBatchTestConcurrentRequestsRace(t *testing.T) {
 		}()
 	}
 	wg.Wait()
+}
+
+func TestCalculateRecoversEnginePanic(t *testing.T) {
+	body, err := json.Marshal(CalculateRequest{FormulaID: "test-formula"})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	h := &CalcHandler{
+		Engine:   panicEngine{},
+		Versions: stubVersionRepo{},
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/calculate", bytes.NewReader(body))
+	rr := httptest.NewRecorder()
+	h.Calculate(rr, req)
+
+	if rr.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d body = %s, want 422", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "calculation failed") {
+		t.Fatalf("body = %s, want calculation failed", rr.Body.String())
+	}
 }
 
 // TestBatchTestSetLimitMidFlightRace mutates the limiter cap while batch

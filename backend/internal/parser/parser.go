@@ -108,6 +108,8 @@ func (p *Parser) exitExpression() {
 // numbers, variables, function calls, parenthesized groups, unary minus, if.
 func (p *Parser) parsePrefix() (*ASTNode, error) {
 	switch p.cur.Type {
+	case TokenIllegal:
+		return nil, p.errorf("invalid token %s", p.cur)
 	case TokenNumber:
 		return p.parseNumber()
 	case TokenIdentifier:

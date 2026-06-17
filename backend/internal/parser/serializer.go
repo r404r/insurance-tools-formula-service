@@ -49,11 +49,17 @@ func nextID(counter *int) string {
 }
 
 func mustMarshal(v interface{}) json.RawMessage {
-	b, _ := json.Marshal(v)
+	b, err := json.Marshal(v)
+	if err != nil {
+		return json.RawMessage("{}")
+	}
 	return b
 }
 
 func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, error) {
+	if node == nil {
+		return "", fmt.Errorf("nil AST node")
+	}
 	id := nextID(counter)
 
 	switch node.Kind {
@@ -77,6 +83,9 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 		return id, nil
 
 	case KindBinaryOp:
+		if len(node.Children) < 2 {
+			return "", fmt.Errorf("binary operator %q expects 2 children but has %d", node.Op, len(node.Children))
+		}
 		opName := binaryOpName(node.Op)
 		g.Nodes = append(g.Nodes, domain.FormulaNode{
 			ID:     id,
@@ -98,6 +107,9 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 		return id, nil
 
 	case KindUnaryOp:
+		if len(node.Children) < 1 {
+			return "", fmt.Errorf("unary operator %q expects 1 child but has %d", node.Op, len(node.Children))
+		}
 		g.Nodes = append(g.Nodes, domain.FormulaNode{
 			ID:     id,
 			Type:   domain.NodeOperator,
@@ -113,6 +125,9 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 		return id, nil
 
 	case KindComparison:
+		if len(node.Children) < 2 {
+			return "", fmt.Errorf("comparison %q expects 2 children but has %d", node.Op, len(node.Children))
+		}
 		compName := comparatorName(node.Op)
 		g.Nodes = append(g.Nodes, domain.FormulaNode{
 			ID:     id,
@@ -134,6 +149,9 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 		return id, nil
 
 	case KindConditional:
+		if len(node.Children) < 3 {
+			return "", fmt.Errorf("conditional expects 3 children but has %d", len(node.Children))
+		}
 		// The engine and frontend expect a single conditional node with four
 		// inputs: condition, conditionRight, thenValue, elseValue and a
 		// comparator stored in config.
@@ -143,6 +161,9 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 		var condLeftNode, condRightNode *ASTNode
 
 		if cond.Kind == KindComparison {
+			if len(cond.Children) < 2 {
+				return "", fmt.Errorf("conditional comparison %q expects 2 children but has %d", cond.Op, len(cond.Children))
+			}
 			// "if X > Y then ..." — extract comparator and both sides.
 			comp = comparatorName(cond.Op)
 			condLeftNode = cond.Children[0]
@@ -198,9 +219,10 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 		args := make(map[string]string)
 		// For round/floor/ceil with a precision argument, store it.
 		if (fnLower == "round" || fnLower == "floor" || fnLower == "ceil") && len(node.Children) >= 2 {
-			if node.Children[1].Kind == KindLiteral {
-				args["places"] = node.Children[1].Value
+			if node.Children[1].Kind != KindLiteral {
+				return "", fmt.Errorf("%s precision must be a constant", fnLower)
 			}
+			args["places"] = node.Children[1].Value
 		}
 		g.Nodes = append(g.Nodes, domain.FormulaNode{
 			ID:   id,
@@ -787,6 +809,10 @@ func ASTToText(node *ASTNode) string {
 }
 
 func writeNode(sb *strings.Builder, node *ASTNode, parentPrec int) {
+	if node == nil {
+		sb.WriteString("<nil>")
+		return
+	}
 	switch node.Kind {
 	case KindLiteral:
 		sb.WriteString(node.Value)
@@ -801,6 +827,10 @@ func writeNode(sb *strings.Builder, node *ASTNode, parentPrec int) {
 		}
 
 	case KindBinaryOp:
+		if len(node.Children) < 2 {
+			sb.WriteString("<invalid binary>")
+			return
+		}
 		prec := opPrecedence(node.Op)
 		needParens := prec < parentPrec
 		if needParens {
@@ -828,6 +858,10 @@ func writeNode(sb *strings.Builder, node *ASTNode, parentPrec int) {
 		}
 
 	case KindComparison:
+		if len(node.Children) < 2 {
+			sb.WriteString("<invalid comparison>")
+			return
+		}
 		prec := precComparison
 		needParens := prec < parentPrec
 		if needParens {
@@ -843,6 +877,10 @@ func writeNode(sb *strings.Builder, node *ASTNode, parentPrec int) {
 		}
 
 	case KindUnaryOp:
+		if len(node.Children) < 1 {
+			sb.WriteString("<invalid unary>")
+			return
+		}
 		needParens := precUnary < parentPrec
 		if needParens {
 			sb.WriteByte('(')
@@ -865,6 +903,10 @@ func writeNode(sb *strings.Builder, node *ASTNode, parentPrec int) {
 		sb.WriteByte(')')
 
 	case KindConditional:
+		if len(node.Children) < 3 {
+			sb.WriteString("<invalid conditional>")
+			return
+		}
 		needParens := precConditional < parentPrec
 		if needParens {
 			sb.WriteByte('(')

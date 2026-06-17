@@ -71,6 +71,68 @@ func TestParserRejectsExcessiveUnaryDepth(t *testing.T) {
 	}
 }
 
+func TestParserRejectsIllegalTokens(t *testing.T) {
+	cases := []string{
+		"a = b",
+		"a ! b",
+		"a @ b",
+		`lookup("unterminated, x)`,
+	}
+	for _, input := range cases {
+		t.Run(input, func(t *testing.T) {
+			_, err := NewParser(input).Parse()
+			if err == nil {
+				t.Fatal("expected parse error, got nil")
+			}
+			if !strings.Contains(err.Error(), "invalid token") && !strings.Contains(err.Error(), "unexpected token") {
+				t.Fatalf("error = %q, want invalid/unexpected token", err.Error())
+			}
+		})
+	}
+}
+
+func TestASTToDAGRejectsMalformedASTArity(t *testing.T) {
+	cases := []struct {
+		name string
+		node *ASTNode
+		want string
+	}{
+		{
+			name: "binary missing right child",
+			node: &ASTNode{Kind: KindBinaryOp, Op: "+", Children: []*ASTNode{{Kind: KindLiteral, Value: "1"}}},
+			want: "expects 2 children",
+		},
+		{
+			name: "conditional missing else child",
+			node: &ASTNode{Kind: KindConditional, Children: []*ASTNode{{Kind: KindVariable, Value: "x"}, {Kind: KindLiteral, Value: "1"}}},
+			want: "conditional expects 3 children",
+		},
+		{
+			name: "round precision expression",
+			node: &ASTNode{
+				Kind:     KindFunctionCall,
+				FuncName: "round",
+				Children: []*ASTNode{
+					{Kind: KindVariable, Value: "x"},
+					{Kind: KindBinaryOp, Op: "+", Children: []*ASTNode{{Kind: KindLiteral, Value: "1"}, {Kind: KindLiteral, Value: "1"}}},
+				},
+			},
+			want: "precision must be a constant",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := ASTToDAG(tc.node)
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("error = %q, want %q", err.Error(), tc.want)
+			}
+		})
+	}
+}
+
 func TestLoopRoundTrip(t *testing.T) {
 	cases := []struct {
 		name  string

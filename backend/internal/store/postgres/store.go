@@ -358,6 +358,10 @@ func (r *versionRepo) CreateVersion(ctx context.Context, v *domain.FormulaVersio
 		nullableInt(v.ParentVer), v.ChangeNote, v.CreatedBy, v.CreatedAt,
 	)
 	if err != nil {
+		var pqErr *pq.Error
+		if errors.As(err, &pqErr) && pqErr.Code == "23505" {
+			return store.ErrConflict
+		}
 		return fmt.Errorf("insert version: %w", err)
 	}
 	return nil
