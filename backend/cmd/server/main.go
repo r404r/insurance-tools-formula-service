@@ -132,6 +132,7 @@ func run(logger zerolog.Logger) error {
 	parseHandler := &api.ParseHandler{}
 	cacheHandler := &api.CacheHandler{Engine: eng}
 	templateHandler := &api.TemplateHandler{}
+	healthHandler := &api.HealthHandler{Ping: store.Ping, Driver: cfg.Database.Driver}
 
 	// Load persisted settings and initialise dynamic concurrency limiter.
 	maxCalcs := cfg.Engine.MaxConcurrentCalcs
@@ -162,6 +163,7 @@ func run(logger zerolog.Logger) error {
 		CacheHandler:     cacheHandler,
 		SettingsHandler:  settingsHandler,
 		TemplateHandler:  templateHandler,
+		HealthHandler:    healthHandler,
 		SeedResetHandler: resetSeedHandler,
 		JWTManager:       jwtMgr,
 		UserStore:        store.Users(),

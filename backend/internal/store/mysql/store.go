@@ -64,6 +64,11 @@ func (s *MySQLStore) Close() error {
 	return s.db.Close()
 }
 
+// Ping verifies the database connection is alive.
+func (s *MySQLStore) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
+}
+
 // Migrate creates the schema tables if they do not exist.
 func (s *MySQLStore) Migrate(ctx context.Context) error {
 	statements := []string{

@@ -64,6 +64,11 @@ func (s *PostgresStore) Close() error {
 	return s.db.Close()
 }
 
+// Ping verifies the database connection is alive.
+func (s *PostgresStore) Ping(ctx context.Context) error {
+	return s.db.PingContext(ctx)
+}
+
 // Migrate creates the schema tables if they do not exist.
 func (s *PostgresStore) Migrate(ctx context.Context) error {
 	statements := []string{

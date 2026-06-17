@@ -1,12 +1,14 @@
 # This compose file uses three profiles to pick the database backend.
 # Exactly ONE backend variant should be active at a time. Pick via:
 #
-#   docker compose --profile sqlite up      # default (no extra services)
-#   docker compose --profile postgres up    # backend + postgres sidecar
+#   docker compose --profile postgres up    # default — backend + postgres sidecar
+#   docker compose --profile sqlite up      # embedded SQLite file, no DB sidecar
 #   docker compose --profile mysql up       # backend + mysql sidecar
 #
-# Or set COMPOSE_PROFILES in .env (see .env.example) so plain
-# `docker compose up` picks the right profile automatically.
+# The shipped default is PostgreSQL: `.env.example` sets
+# COMPOSE_PROFILES=postgres, so once you copy it to `.env` a plain
+# `docker compose up` brings up the backend wired to a PostgreSQL sidecar.
+# Override per-invocation with --profile (above) or by editing COMPOSE_PROFILES.
 #
 # Frontend has no profile and starts in every configuration. Volumes
 # are profile-specific so switching profiles does not corrupt the
@@ -44,6 +46,14 @@ services:
         # regardless of which profile is active. Each profile-specific
         # backend service uses the same alias.
         aliases: ["backend"]
+    healthcheck:
+      # busybox wget ships in the alpine runtime image; hit the
+      # unauthenticated /healthz readiness probe (see internal/api/health_handler.go).
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
 
   backend-postgres:
@@ -68,6 +78,12 @@ services:
     networks:
       default:
         aliases: ["backend"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
 
   backend-mysql:
@@ -92,6 +108,12 @@ services:
     networks:
       default:
         aliases: ["backend"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
     restart: unless-stopped
 
   # ─────────────────────────────────────────────────────────────────

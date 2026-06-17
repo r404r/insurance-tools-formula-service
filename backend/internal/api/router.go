@@ -24,6 +24,7 @@ type RouterConfig struct {
 	CacheHandler       *CacheHandler
 	SettingsHandler    *SettingsHandler
 	TemplateHandler    *TemplateHandler
+	HealthHandler      *HealthHandler
 	SeedResetHandler   http.HandlerFunc // optional: POST /admin/reset-seed
 	JWTManager         *auth.JWTManager
 	UserStore          store.UserRepository // for token_version check in AuthMiddleware
@@ -48,6 +49,13 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 	r.Use(Recovery())
 	r.Use(Logger(cfg.Logger))
 	r.Use(CORS(cfg.CORSOrigins))
+
+	// Unauthenticated readiness probe. Lives at the root (outside /api/v1) so
+	// container healthchecks and the API regression suite can hit a stable
+	// path without auth or rate limiting.
+	if cfg.HealthHandler != nil {
+		r.Get("/healthz", cfg.HealthHandler.Health)
+	}
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// Public auth endpoints with IP rate limiting.

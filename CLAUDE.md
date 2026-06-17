@@ -59,7 +59,7 @@ Key paths:
 Backend reads env vars:
 
 - `SERVER_PORT` (default 8080)
-- `DB_DRIVER` (sqlite/postgres/mysql)
+- `DB_DRIVER` (sqlite/postgres/mysql; binary fallback `sqlite`, shipped default `postgres` via `.env.example` / compose)
 - `DB_DSN` (connection string)
 - `AUTH_JWT_SECRET`
 - `ENGINE_INTERMEDIATE_PRECISION` (default 28)
@@ -163,6 +163,19 @@ tests/
 - 批量测试数据保存到 `tests/batch/{task-number}/`，JSON 格式，可重复执行
 - 测试报告保存到 `tests/reports/`，Markdown 格式
 - 批量测试数据同时作为回归测试 case 保留
+
+### API 回归套件
+
+可复用的黑盒 API 回归套件位于 `backend/cmd/api_regression`，包装脚本
+`tests/api-regression/run.sh`。默认对 PostgreSQL 容器化栈运行，覆盖核心 API
+（健康检查、认证、parse、formula 生命周期、calculate/batch-test、tables、
+categories、templates、权限边界），每次运行把结果汇总成 markdown 落盘到
+`tests/reports/api-regression-*.md`（含 `-latest.md`）。任一 check 失败则退出码非零。
+
+```bash
+tests/api-regression/run.sh                               # 拉起 postgres 栈→seed→跑
+BASE_URL=http://localhost:8080 tests/api-regression/run.sh # 直接打已运行后端
+```
 
 ## Prompt History
 
