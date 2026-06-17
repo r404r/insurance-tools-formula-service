@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"strings"
 
 	"github.com/shopspring/decimal"
@@ -118,7 +117,7 @@ func (ev *Evaluator) evalOperator(node *domain.FormulaNode, inputs map[string]De
 		}
 		return left.DivRound(right, ev.Precision.IntermediatePrecision), nil
 	case "power":
-		return decimalPow(left, right, ev.Precision.IntermediatePrecision), nil
+		return decimalPow(left, right, ev.Precision.IntermediatePrecision)
 	case "modulo":
 		if right.IsZero() {
 			return Zero, fmt.Errorf("node %s: modulo by zero", node.ID)
@@ -146,9 +145,10 @@ func (ev *Evaluator) evalFunction(node *domain.FormulaNode, inputs map[string]De
 		places := int32(0)
 		if p, ok := cfg.Args["places"]; ok {
 			pd, err := decimal.NewFromString(p)
-			if err == nil {
-				places = int32(pd.IntPart())
+			if err != nil || !pd.Equal(pd.Truncate(0)) {
+				return Zero, fmt.Errorf("node %s: invalid round places %q", node.ID, p)
 			}
+			places = int32(pd.IntPart())
 		}
 		return in.Round(places), nil
 
@@ -199,8 +199,11 @@ func (ev *Evaluator) evalFunction(node *domain.FormulaNode, inputs map[string]De
 		if in.IsNegative() {
 			return Zero, fmt.Errorf("node %s: sqrt of negative number", node.ID)
 		}
-		f, _ := in.Float64()
-		return decimal.NewFromFloat(math.Sqrt(f)), nil
+		out, err := in.PowWithPrecision(decimal.New(5, -1), ev.Precision.IntermediatePrecision)
+		if err != nil {
+			return Zero, fmt.Errorf("node %s: sqrt failed: %w", node.ID, err)
+		}
+		return out, nil
 
 	case "ln":
 		if !hasIn {
@@ -209,15 +212,21 @@ func (ev *Evaluator) evalFunction(node *domain.FormulaNode, inputs map[string]De
 		if !in.IsPositive() {
 			return Zero, fmt.Errorf("node %s: ln of non-positive number", node.ID)
 		}
-		f, _ := in.Float64()
-		return decimal.NewFromFloat(math.Log(f)), nil
+		out, err := in.Ln(ev.Precision.IntermediatePrecision)
+		if err != nil {
+			return Zero, fmt.Errorf("node %s: ln failed: %w", node.ID, err)
+		}
+		return out, nil
 
 	case "exp":
 		if !hasIn {
 			return Zero, fmt.Errorf("node %s: missing 'in' input for exp", node.ID)
 		}
-		f, _ := in.Float64()
-		return decimal.NewFromFloat(math.Exp(f)), nil
+		out, err := in.ExpTaylor(ev.Precision.IntermediatePrecision)
+		if err != nil {
+			return Zero, fmt.Errorf("node %s: exp failed: %w", node.ID, err)
+		}
+		return out, nil
 
 	default:
 		return Zero, fmt.Errorf("node %s: unknown function %q", node.ID, cfg.Fn)
@@ -689,40 +698,12 @@ func (ev *Evaluator) evalSubFormula(node *domain.FormulaNode, inputs map[string]
 	return val, nil
 }
 
-// decimalPow raises base to the power of exp. For integer exponents it uses
-// repeated multiplication; for fractional exponents it falls back to float64.
-func decimalPow(base, exp Decimal, precision int32) Decimal {
-	// Check for integer exponent.
-	if exp.Equal(exp.Truncate(0)) {
-		n := exp.IntPart()
-		if n == 0 {
-			return One
-		}
-		negative := n < 0
-		if negative {
-			n = -n
-		}
-		result := One
-		b := base
-		for n > 0 {
-			if n%2 == 1 {
-				result = result.Mul(b)
-			}
-			b = b.Mul(b)
-			n /= 2
-		}
-		if negative {
-			if result.IsZero() {
-				return Zero
-			}
-			return One.DivRound(result, precision)
-		}
-		return result
+// decimalPow raises base to the power of exp using decimal arithmetic and
+// propagates undefined/infinite/imaginary results as execution errors.
+func decimalPow(base, exp Decimal, precision int32) (Decimal, error) {
+	out, err := base.PowWithPrecision(exp, precision)
+	if err != nil {
+		return Zero, fmt.Errorf("power failed: %w", err)
 	}
-
-	// Fractional exponent: fall back to float64.
-	bf, _ := base.Float64()
-	ef, _ := exp.Float64()
-	return decimal.NewFromFloat(math.Pow(bf, ef))
+	return out, nil
 }
-

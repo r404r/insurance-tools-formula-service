@@ -90,12 +90,12 @@ const DefaultMaxLoopIterations = 1000
 
 // EngineConfig holds configuration for the default engine implementation.
 type EngineConfig struct {
-	Workers             int
-	Precision           PrecisionConfig
-	CacheSize           int
-	TableResolver       TableResolver
-	FormulaResolver     FormulaResolver
-	MaxLoopIterations   int // 0 means use DefaultMaxLoopIterations
+	Workers           int
+	Precision         PrecisionConfig
+	CacheSize         int
+	TableResolver     TableResolver
+	FormulaResolver   FormulaResolver
+	MaxLoopIterations int // 0 means use DefaultMaxLoopIterations
 }
 
 // DefaultEngineConfig returns a sensible default configuration.
@@ -110,10 +110,10 @@ func DefaultEngineConfig() EngineConfig {
 
 // defaultEngine is the production implementation of Engine.
 type defaultEngine struct {
-	executor      *Executor
-	cache         *ResultCache
-	config        EngineConfig
-	tableResolver TableResolver
+	executor        *Executor
+	cache           *ResultCache
+	config          EngineConfig
+	tableResolver   TableResolver
 	formulaResolver FormulaResolver
 }
 
@@ -132,13 +132,20 @@ func NewEngine(cfg EngineConfig) Engine {
 	return engine
 }
 
-// graphHash returns a short SHA-256 digest of the serialised graph, used as
+// graphHash returns a SHA-256 digest of the serialised graph, used as
 // the cache key's "formula" dimension so that two different graph versions
 // never share a cache entry.
-func graphHash(graph *domain.FormulaGraph) string {
-	b, _ := json.Marshal(graph)
+func graphHash(graph *domain.FormulaGraph) (string, error) {
+	b, err := json.Marshal(graph)
+	if err != nil {
+		return "", err
+	}
 	sum := sha256.Sum256(b)
-	return fmt.Sprintf("%x", sum[:8]) // 16 hex chars — enough for uniqueness
+	return fmt.Sprintf("%x", sum[:]), nil
+}
+
+func precisionCacheVersion(precision PrecisionConfig) string {
+	return fmt.Sprintf("precision:%d:%d:%d", precision.IntermediatePrecision, precision.OutputPrecision, precision.Rounding)
 }
 
 // Calculate implements Engine.Calculate.
@@ -152,9 +159,13 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 	}
 
 	// Check cache before executing the graph.
+	formulaID, err := graphHash(graph)
+	if err != nil {
+		return nil, fmt.Errorf("hash graph: %w", err)
+	}
 	cacheKey := CacheKey{
-		FormulaID: graphHash(graph),
-		Version:   "1",
+		FormulaID: formulaID,
+		Version:   precisionCacheVersion(e.config.Precision),
 		InputHash: ComputeInputHash(decInputs),
 	}
 	if cached, ok := e.cache.Get(cacheKey); ok {
@@ -449,9 +460,11 @@ func (e *defaultEngine) executeLoop(ctx context.Context, node *domain.FormulaNod
 			return Zero, fmt.Errorf("node %s: loop iteration %s=%s: %w", node.ID, cfg.Iterator, current.String(), err)
 		}
 
-		if v, ok := allResults[bodyOutputID]; ok {
-			iterResults = append(iterResults, v)
+		v, ok := allResults[bodyOutputID]
+		if !ok {
+			return Zero, fmt.Errorf("node %s: loop iteration %s=%s: body output %q was not produced", node.ID, cfg.Iterator, current.String(), bodyOutputID)
 		}
+		iterResults = append(iterResults, v)
 
 		current = current.Add(stepVal)
 	}
@@ -529,9 +542,11 @@ func (e *defaultEngine) executeFoldLoop(
 			return Zero, fmt.Errorf("node %s: fold iteration %s=%s: %w", node.ID, cfg.Iterator, current.String(), err)
 		}
 
-		if v, ok := allResults[bodyOutputID]; ok {
-			acc = v
+		v, ok := allResults[bodyOutputID]
+		if !ok {
+			return Zero, fmt.Errorf("node %s: fold iteration %s=%s: body output %q was not produced", node.ID, cfg.Iterator, current.String(), bodyOutputID)
 		}
+		acc = v
 
 		current = current.Add(stepVal)
 		iterCount++
@@ -635,16 +650,14 @@ func (e *defaultEngine) Validate(graph *domain.FormulaGraph) []ValidationError {
 	var errs []ValidationError
 
 	// 1. Cycle detection.
-	_, dagErr := BuildDAG(graph)
-	if dagErr != nil {
+	dag, err := BuildDAG(graph)
+	if err != nil {
 		errs = append(errs, ValidationError{
-			Message: dagErr.Error(),
+			Message: err.Error(),
 		})
 		// If we can't build the DAG, further validation is unreliable.
 		return errs
 	}
-
-	dag, _ := BuildDAG(graph)
 
 	// 2. Check that all declared outputs exist in the graph.
 	nodeIDs := make(map[string]bool, len(graph.Nodes))
