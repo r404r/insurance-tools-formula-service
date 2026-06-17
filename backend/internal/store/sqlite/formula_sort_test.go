@@ -2,10 +2,13 @@ package sqlite
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
+	storepkg "github.com/r404r/insurance-tools/formula-service/backend/internal/store"
 )
 
 // newTestStore opens an in-memory SQLite store with the schema applied.
@@ -84,6 +87,117 @@ func TestFormulaList_DefaultSortIsUpdatedAtDesc(t *testing.T) {
 		if f.Name != wantOrder[i] {
 			t.Errorf("position %d: got %q, want %q", i, f.Name, wantOrder[i])
 		}
+	}
+}
+
+func TestFormulaUpdateDetectsStaleExpectedUpdatedAt(t *testing.T) {
+	s := newTestStore(t)
+	seedUser(t, s, "u1", "alice")
+
+	now := time.Now().UTC()
+	seedFormula(t, s, "f1", "Original", "u1", now, "", now)
+
+	first, err := s.Formulas().GetByID(context.Background(), "f1")
+	if err != nil {
+		t.Fatalf("get first copy: %v", err)
+	}
+	second, err := s.Formulas().GetByID(context.Background(), "f1")
+	if err != nil {
+		t.Fatalf("get second copy: %v", err)
+	}
+
+	first.Name = "First"
+	first.ExpectedUpdatedAt = first.UpdatedAt
+	first.UpdatedAt = now.Add(time.Second)
+	if err := s.Formulas().Update(context.Background(), first); err != nil {
+		t.Fatalf("first update: %v", err)
+	}
+
+	second.Name = "Second"
+	second.ExpectedUpdatedAt = second.UpdatedAt
+	second.UpdatedAt = now.Add(2 * time.Second)
+	if err := s.Formulas().Update(context.Background(), second); !errors.Is(err, storepkg.ErrConflict) {
+		t.Fatalf("second update error = %v, want ErrConflict", err)
+	}
+}
+
+func TestLookupTableUpdateDetectsStaleExpectedUpdatedAt(t *testing.T) {
+	s := newTestStore(t)
+
+	now := time.Now().UTC()
+	table := &domain.LookupTable{
+		ID:        "t1",
+		Name:      "Original",
+		Domain:    domain.InsuranceDomain("life"),
+		TableType: "rating",
+		Data:      json.RawMessage(`[{"key":"a","value":"1"}]`),
+		CreatedAt: now,
+	}
+	if err := s.Tables().Create(context.Background(), table); err != nil {
+		t.Fatalf("create table: %v", err)
+	}
+
+	first, err := s.Tables().GetByID(context.Background(), "t1")
+	if err != nil {
+		t.Fatalf("get first copy: %v", err)
+	}
+	second, err := s.Tables().GetByID(context.Background(), "t1")
+	if err != nil {
+		t.Fatalf("get second copy: %v", err)
+	}
+
+	first.Name = "First"
+	first.ExpectedUpdatedAt = first.UpdatedAt
+	first.UpdatedAt = now.Add(time.Second)
+	if err := s.Tables().Update(context.Background(), first); err != nil {
+		t.Fatalf("first update: %v", err)
+	}
+
+	second.Name = "Second"
+	second.ExpectedUpdatedAt = second.UpdatedAt
+	second.UpdatedAt = now.Add(2 * time.Second)
+	if err := s.Tables().Update(context.Background(), second); !errors.Is(err, storepkg.ErrConflict) {
+		t.Fatalf("second update error = %v, want ErrConflict", err)
+	}
+}
+
+func TestLookupTableDeleteRejectsReferencedTable(t *testing.T) {
+	s := newTestStore(t)
+	seedUser(t, s, "u1", "alice")
+
+	now := time.Now().UTC()
+	table := &domain.LookupTable{
+		ID:        "t1",
+		Name:      "Rates",
+		Domain:    domain.InsuranceDomain("life"),
+		TableType: "rating",
+		Data:      json.RawMessage(`[{"key":"a","value":"1"}]`),
+		CreatedAt: now,
+	}
+	if err := s.Tables().Create(context.Background(), table); err != nil {
+		t.Fatalf("create table: %v", err)
+	}
+	seedFormula(t, s, "f1", "Formula", "u1", now, "", now)
+
+	version := &domain.FormulaVersion{
+		ID:        "v1",
+		FormulaID: "f1",
+		Version:   1,
+		State:     domain.StateDraft,
+		Graph: domain.FormulaGraph{Nodes: []domain.FormulaNode{{
+			ID:     "n1",
+			Type:   domain.NodeTableLookup,
+			Config: json.RawMessage(`{"tableId":"t1","column":"value"}`),
+		}}},
+		CreatedBy: "u1",
+		CreatedAt: now,
+	}
+	if err := s.Versions().CreateVersion(context.Background(), version); err != nil {
+		t.Fatalf("create version: %v", err)
+	}
+
+	if err := s.Tables().Delete(context.Background(), "t1"); !errors.Is(err, storepkg.ErrTableInUse) {
+		t.Fatalf("delete table error = %v, want ErrTableInUse", err)
 	}
 }
 

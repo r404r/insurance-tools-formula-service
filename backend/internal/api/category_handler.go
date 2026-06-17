@@ -142,9 +142,14 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.SortOrder != nil {
 		category.SortOrder = *req.SortOrder
 	}
+	category.ExpectedUpdatedAt = category.UpdatedAt
 	category.UpdatedAt = time.Now().UTC()
 
 	if err := h.Categories.Update(r.Context(), category); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			writeJSON(w, http.StatusConflict, ErrorResponse{Error: "category was modified by another request", Code: http.StatusConflict})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to update category", Code: http.StatusInternalServerError})
 		return
 	}

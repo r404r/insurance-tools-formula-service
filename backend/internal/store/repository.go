@@ -13,6 +13,7 @@ var (
 	ErrLastAdmin  = errors.New("cannot remove the last administrator")
 	ErrHasContent = errors.New("user has associated content and cannot be deleted")
 	ErrTableInUse = errors.New("table is referenced by one or more formula versions")
+	ErrConflict   = errors.New("record was modified by another request")
 )
 
 // FormulaRepository manages formula metadata persistence.

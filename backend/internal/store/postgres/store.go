@@ -107,7 +107,8 @@ func (s *PostgresStore) Migrate(ctx context.Context) error {
 			domain     TEXT NOT NULL,
 			table_type TEXT NOT NULL,
 			data_json  TEXT NOT NULL,
-			created_at TIMESTAMPTZ NOT NULL
+			created_at TIMESTAMPTZ NOT NULL,
+			updated_at TIMESTAMPTZ NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS categories (
 			id          TEXT PRIMARY KEY,
@@ -147,6 +148,8 @@ func (s *PostgresStore) Migrate(ctx context.Context) error {
 	alters := []string{
 		`ALTER TABLE formulas ADD COLUMN IF NOT EXISTS updated_by TEXT REFERENCES users(id)`,
 		`ALTER TABLE users ADD COLUMN IF NOT EXISTS token_version INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE lookup_tables ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
+		`UPDATE lookup_tables SET updated_at = created_at WHERE updated_at IS NULL`,
 	}
 	for _, stmt := range alters {
 		if _, err := tx.ExecContext(ctx, stmt); err != nil {
@@ -293,16 +296,31 @@ func (r *formulaRepo) UpdateMeta(ctx context.Context, formulaID, updatedBy strin
 }
 
 func (r *formulaRepo) Update(ctx context.Context, f *domain.Formula) error {
+	if f.ExpectedUpdatedAt.IsZero() {
+		res, err := r.db.ExecContext(ctx,
+			`UPDATE formulas SET name = $1, domain = $2, description = $3, updated_at = $4 WHERE id = $5`,
+			f.Name, f.Domain, f.Description, f.UpdatedAt, f.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("update formula: %w", err)
+		}
+		n, _ := res.RowsAffected()
+		if n == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	}
+	expected := f.ExpectedUpdatedAt
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE formulas SET name = $1, domain = $2, description = $3, updated_at = $4 WHERE id = $5`,
-		f.Name, f.Domain, f.Description, f.UpdatedAt, f.ID,
+		`UPDATE formulas SET name = $1, domain = $2, description = $3, updated_at = $4 WHERE id = $5 AND updated_at = $6`,
+		f.Name, f.Domain, f.Description, f.UpdatedAt, f.ID, expected,
 	)
 	if err != nil {
 		return fmt.Errorf("update formula: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return sql.ErrNoRows
+		return classifyConditionalUpdate(ctx, r.db, "formulas", f.ID)
 	}
 	return nil
 }
@@ -588,10 +606,13 @@ type tableRepo struct {
 }
 
 func (r *tableRepo) Create(ctx context.Context, t *domain.LookupTable) error {
+	if t.UpdatedAt.IsZero() {
+		t.UpdatedAt = t.CreatedAt
+	}
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO lookup_tables (id, name, domain, table_type, data_json, created_at)
-		 VALUES ($1, $2, $3, $4, $5, $6)`,
-		t.ID, t.Name, t.Domain, t.TableType, string(t.Data), t.CreatedAt,
+		`INSERT INTO lookup_tables (id, name, domain, table_type, data_json, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		t.ID, t.Name, t.Domain, t.TableType, string(t.Data), t.CreatedAt, t.UpdatedAt,
 	)
 	if err != nil {
 		return fmt.Errorf("insert lookup table: %w", err)
@@ -601,7 +622,7 @@ func (r *tableRepo) Create(ctx context.Context, t *domain.LookupTable) error {
 
 func (r *tableRepo) GetByID(ctx context.Context, id string) (*domain.LookupTable, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, name, domain, table_type, data_json, created_at FROM lookup_tables WHERE id = $1`, id)
+		`SELECT id, name, domain, table_type, data_json, created_at, COALESCE(updated_at, created_at) FROM lookup_tables WHERE id = $1`, id)
 	return scanLookupTable(row)
 }
 
@@ -610,10 +631,10 @@ func (r *tableRepo) List(ctx context.Context, domainFilter *domain.InsuranceDoma
 	var args []interface{}
 
 	if domainFilter != nil {
-		query = `SELECT id, name, domain, table_type, data_json, created_at FROM lookup_tables WHERE domain = $1 ORDER BY name ASC`
+		query = `SELECT id, name, domain, table_type, data_json, created_at, COALESCE(updated_at, created_at) FROM lookup_tables WHERE domain = $1 ORDER BY name ASC`
 		args = append(args, string(*domainFilter))
 	} else {
-		query = `SELECT id, name, domain, table_type, data_json, created_at FROM lookup_tables ORDER BY name ASC`
+		query = `SELECT id, name, domain, table_type, data_json, created_at, COALESCE(updated_at, created_at) FROM lookup_tables ORDER BY name ASC`
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -637,23 +658,44 @@ func (r *tableRepo) List(ctx context.Context, domainFilter *domain.InsuranceDoma
 }
 
 func (r *tableRepo) Update(ctx context.Context, t *domain.LookupTable) error {
+	if t.ExpectedUpdatedAt.IsZero() {
+		res, err := r.db.ExecContext(ctx,
+			`UPDATE lookup_tables SET name = $1, table_type = $2, data_json = $3, updated_at = $4 WHERE id = $5`,
+			t.Name, t.TableType, string(t.Data), t.UpdatedAt, t.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("update lookup table: %w", err)
+		}
+		n, _ := res.RowsAffected()
+		if n == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	}
+	expected := t.ExpectedUpdatedAt
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE lookup_tables SET name = $1, table_type = $2, data_json = $3 WHERE id = $4`,
-		t.Name, t.TableType, string(t.Data), t.ID,
+		`UPDATE lookup_tables SET name = $1, table_type = $2, data_json = $3, updated_at = $4 WHERE id = $5 AND updated_at = $6`,
+		t.Name, t.TableType, string(t.Data), t.UpdatedAt, t.ID, expected,
 	)
 	if err != nil {
 		return fmt.Errorf("update lookup table: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return sql.ErrNoRows
+		return classifyConditionalUpdate(ctx, r.db, "lookup_tables", t.ID)
 	}
 	return nil
 }
 
 func (r *tableRepo) Delete(ctx context.Context, id string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin delete lookup table tx: %w", err)
+	}
+	defer tx.Rollback()
+
 	var refCount int
-	if err := r.db.QueryRowContext(ctx,
+	if err := tx.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM formula_versions WHERE graph_json LIKE $1`,
 		`%"tableId":"`+id+`"%`,
 	).Scan(&refCount); err != nil {
@@ -663,7 +705,7 @@ func (r *tableRepo) Delete(ctx context.Context, id string) error {
 		return store.ErrTableInUse
 	}
 
-	res, err := r.db.ExecContext(ctx, `DELETE FROM lookup_tables WHERE id = $1`, id)
+	res, err := tx.ExecContext(ctx, `DELETE FROM lookup_tables WHERE id = $1`, id)
 	if err != nil {
 		return fmt.Errorf("delete lookup table: %w", err)
 	}
@@ -671,7 +713,7 @@ func (r *tableRepo) Delete(ctx context.Context, id string) error {
 	if n == 0 {
 		return sql.ErrNoRows
 	}
-	return nil
+	return tx.Commit()
 }
 
 // ---------------------------------------------------------------------------
@@ -732,16 +774,31 @@ func (r *categoryRepo) List(ctx context.Context) ([]*domain.Category, error) {
 }
 
 func (r *categoryRepo) Update(ctx context.Context, c *domain.Category) error {
+	if c.ExpectedUpdatedAt.IsZero() {
+		res, err := r.db.ExecContext(ctx,
+			`UPDATE categories SET name = $1, description = $2, color = $3, sort_order = $4, updated_at = $5 WHERE id = $6`,
+			c.Name, c.Description, c.Color, c.SortOrder, c.UpdatedAt, c.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("update category: %w", err)
+		}
+		n, _ := res.RowsAffected()
+		if n == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	}
+	expected := c.ExpectedUpdatedAt
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE categories SET name = $1, description = $2, color = $3, sort_order = $4, updated_at = $5 WHERE id = $6`,
-		c.Name, c.Description, c.Color, c.SortOrder, c.UpdatedAt, c.ID,
+		`UPDATE categories SET name = $1, description = $2, color = $3, sort_order = $4, updated_at = $5 WHERE id = $6 AND updated_at = $7`,
+		c.Name, c.Description, c.Color, c.SortOrder, c.UpdatedAt, c.ID, expected,
 	)
 	if err != nil {
 		return fmt.Errorf("update category: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return sql.ErrNoRows
+		return classifyConditionalUpdate(ctx, r.db, "categories", c.ID)
 	}
 	return nil
 }
@@ -840,7 +897,7 @@ func scanUserRows(rows *sql.Rows) (*domain.User, error) {
 func scanLookupTable(s scanner) (*domain.LookupTable, error) {
 	var t domain.LookupTable
 	var dataJSON string
-	err := s.Scan(&t.ID, &t.Name, &t.Domain, &t.TableType, &dataJSON, &t.CreatedAt)
+	err := s.Scan(&t.ID, &t.Name, &t.Domain, &t.TableType, &dataJSON, &t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("scan lookup table: %w", err)
 	}
@@ -870,4 +927,15 @@ func nullableInt(v *int) interface{} {
 		return nil
 	}
 	return *v
+}
+
+func classifyConditionalUpdate(ctx context.Context, db *sql.DB, table, id string) error {
+	var exists int
+	if err := db.QueryRowContext(ctx, "SELECT 1 FROM "+table+" WHERE id = $1", id).Scan(&exists); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return sql.ErrNoRows
+		}
+		return err
+	}
+	return store.ErrConflict
 }
