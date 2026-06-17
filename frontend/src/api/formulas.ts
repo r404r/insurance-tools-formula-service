@@ -29,8 +29,10 @@ export function listFormulas(params?: ListFormulasParams): Promise<ListFormulasR
   const query = new URLSearchParams()
   if (params?.domain) query.set('domain', params.domain)
   if (params?.search) query.set('search', params.search)
-  if (params?.page !== undefined) query.set('page', String(params.page))
-  if (params?.pageSize !== undefined) query.set('pageSize', String(params.pageSize))
+  if (params?.pageSize !== undefined) query.set('limit', String(params.pageSize))
+  if (params?.page !== undefined && params?.pageSize !== undefined) {
+    query.set('offset', String(Math.max(0, params.page - 1) * params.pageSize))
+  }
   const qs = query.toString()
   return api.get<ListFormulasResponse>(`/formulas${qs ? `?${qs}` : ''}`)
 }
