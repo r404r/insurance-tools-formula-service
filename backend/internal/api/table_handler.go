@@ -131,6 +131,8 @@ func (h *TableHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	existing.Name = req.Name
 	existing.TableType = req.TableType
+	existing.ExpectedUpdatedAt = existing.UpdatedAt
+	existing.UpdatedAt = time.Now().UTC()
 	if req.Data != nil {
 		if err := validateTableData(req.Data); err != nil {
 			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: err.Error(), Code: http.StatusBadRequest})
@@ -142,6 +144,10 @@ func (h *TableHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err := h.Tables.Update(r.Context(), existing); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "table not found", Code: http.StatusNotFound})
+			return
+		}
+		if errors.Is(err, store.ErrConflict) {
+			writeJSON(w, http.StatusConflict, ErrorResponse{Error: "table was modified by another request", Code: http.StatusConflict})
 			return
 		}
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to update table", Code: http.StatusInternalServerError})

@@ -11,14 +11,15 @@ type InsuranceDomain string
 
 // Category represents a user-defined formula category (replaces fixed InsuranceDomain constants).
 type Category struct {
-	ID          string    `json:"id"`
-	Slug        string    `json:"slug"` // URL-safe identifier, used as filter key
-	Name        string    `json:"name"` // Display name (user-editable)
-	Description string    `json:"description"`
-	Color       string    `json:"color"`     // Hex color for UI badge, e.g. "#6366f1"
-	SortOrder   int       `json:"sortOrder"` // Display order
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
+	ID                string    `json:"id"`
+	Slug              string    `json:"slug"` // URL-safe identifier, used as filter key
+	Name              string    `json:"name"` // Display name (user-editable)
+	Description       string    `json:"description"`
+	Color             string    `json:"color"`     // Hex color for UI badge, e.g. "#6366f1"
+	SortOrder         int       `json:"sortOrder"` // Display order
+	CreatedAt         time.Time `json:"createdAt"`
+	UpdatedAt         time.Time `json:"updatedAt"`
+	ExpectedUpdatedAt time.Time `json:"-"`
 }
 
 // Formula represents a named calculation formula.
@@ -33,16 +34,17 @@ type Category struct {
 // created before task #042 added the updated_by column. The frontend
 // renders them as "—" in that case.
 type Formula struct {
-	ID            string          `json:"id"`
-	Name          string          `json:"name"`
-	Domain        InsuranceDomain `json:"domain"`
-	Description   string          `json:"description"`
-	CreatedBy     string          `json:"createdBy"`
-	UpdatedBy     string          `json:"updatedBy,omitempty"`
-	CreatedByName string          `json:"createdByName,omitempty"`
-	UpdatedByName string          `json:"updatedByName,omitempty"`
-	CreatedAt     time.Time       `json:"createdAt"`
-	UpdatedAt     time.Time       `json:"updatedAt"`
+	ID                string          `json:"id"`
+	Name              string          `json:"name"`
+	Domain            InsuranceDomain `json:"domain"`
+	Description       string          `json:"description"`
+	CreatedBy         string          `json:"createdBy"`
+	UpdatedBy         string          `json:"updatedBy,omitempty"`
+	CreatedByName     string          `json:"createdByName,omitempty"`
+	UpdatedByName     string          `json:"updatedByName,omitempty"`
+	CreatedAt         time.Time       `json:"createdAt"`
+	UpdatedAt         time.Time       `json:"updatedAt"`
+	ExpectedUpdatedAt time.Time       `json:"-"`
 }
 
 // FormulaGraph is the DAG representation of a formula
@@ -65,11 +67,11 @@ type FormulaNode struct {
 type NodeType string
 
 const (
-	NodeVariable    NodeType = "variable"
-	NodeConstant    NodeType = "constant"
-	NodeOperator    NodeType = "operator"
-	NodeFunction    NodeType = "function"
-	NodeSubFormula  NodeType = "subFormula"
+	NodeVariable       NodeType = "variable"
+	NodeConstant       NodeType = "constant"
+	NodeOperator       NodeType = "operator"
+	NodeFunction       NodeType = "function"
+	NodeSubFormula     NodeType = "subFormula"
 	NodeTableLookup    NodeType = "tableLookup"
 	NodeTableAggregate NodeType = "tableAggregate"
 	NodeConditional    NodeType = "conditional"
@@ -162,8 +164,8 @@ type TableAggregateConfig struct {
 // side of the comparison is either a literal Value or a dynamic InputPort
 // (mutually exclusive). Negate inverts the term result.
 type TableFilter struct {
-	Column    string `json:"column"`
-	Op        string `json:"op"` // eq, ne, gt, ge, lt, le
+	Column string `json:"column"`
+	Op     string `json:"op"` // eq, ne, gt, ge, lt, le
 
 	Value     string `json:"value,omitempty"`     // literal right-hand side
 	InputPort string `json:"inputPort,omitempty"` // dynamic right-hand side from a connected node
@@ -217,25 +219,27 @@ type AggregateConfig struct {
 // LoopConfig configures a loop node that iterates over a bounded integer range,
 // calls a sub-formula for each iteration, and aggregates the results.
 type LoopConfig struct {
-	Mode          string `json:"mode"`                    // must be "range"
-	FormulaID     string `json:"formulaId"`               // required: body sub-formula ID
-	Version       *int   `json:"version,omitempty"`       // nil = use published version
-	Iterator      string `json:"iterator"`                // required: variable name injected each iteration, e.g. "t"
-	Aggregation    string `json:"aggregation"`                // sum/product/count/avg/min/max/last/fold
-	InclusiveEnd   *bool  `json:"inclusiveEnd,omitempty"`    // default true
-	MaxIterations  *int   `json:"maxIterations,omitempty"`   // node-level cap; falls back to engine default
-	AccumulatorVar string `json:"accumulatorVar,omitempty"`  // variable name for fold accumulator
-	InitValue      string `json:"initValue,omitempty"`       // initial accumulator value (decimal string)
+	Mode           string `json:"mode"`                     // must be "range"
+	FormulaID      string `json:"formulaId"`                // required: body sub-formula ID
+	Version        *int   `json:"version,omitempty"`        // nil = use published version
+	Iterator       string `json:"iterator"`                 // required: variable name injected each iteration, e.g. "t"
+	Aggregation    string `json:"aggregation"`              // sum/product/count/avg/min/max/last/fold
+	InclusiveEnd   *bool  `json:"inclusiveEnd,omitempty"`   // default true
+	MaxIterations  *int   `json:"maxIterations,omitempty"`  // node-level cap; falls back to engine default
+	AccumulatorVar string `json:"accumulatorVar,omitempty"` // variable name for fold accumulator
+	InitValue      string `json:"initValue,omitempty"`      // initial accumulator value (decimal string)
 }
 
 // LookupTable stores reference data (mortality tables, rating tables, etc.)
 type LookupTable struct {
-	ID        string          `json:"id"`
-	Name      string          `json:"name"`
-	Domain    InsuranceDomain `json:"domain"`
-	TableType string          `json:"tableType"` // mortality, rating, factor
-	Data      json.RawMessage `json:"data"`
-	CreatedAt time.Time       `json:"createdAt"`
+	ID                string          `json:"id"`
+	Name              string          `json:"name"`
+	Domain            InsuranceDomain `json:"domain"`
+	TableType         string          `json:"tableType"` // mortality, rating, factor
+	Data              json.RawMessage `json:"data"`
+	CreatedAt         time.Time       `json:"createdAt"`
+	UpdatedAt         time.Time       `json:"updatedAt"`
+	ExpectedUpdatedAt time.Time       `json:"-"`
 }
 
 // FormulaFilter for listing formulas.

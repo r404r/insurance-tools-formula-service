@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -108,7 +109,8 @@ func (s *SQLiteStore) Migrate(ctx context.Context) error {
 			domain     TEXT NOT NULL,
 			table_type TEXT NOT NULL,
 			data_json  TEXT NOT NULL,
-			created_at TEXT NOT NULL
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL
 		)`,
 		`CREATE TABLE IF NOT EXISTS categories (
 			id          TEXT PRIMARY KEY,
@@ -160,6 +162,10 @@ func (s *SQLiteStore) Migrate(ctx context.Context) error {
 			stmt: `ALTER TABLE users ADD COLUMN token_version INTEGER NOT NULL DEFAULT 0`,
 			desc: "add users.token_version for JWT invalidation on role change",
 		},
+		{
+			stmt: `ALTER TABLE lookup_tables ADD COLUMN updated_at TEXT`,
+			desc: "add lookup_tables.updated_at for optimistic locking",
+		},
 	}
 	for _, a := range alters {
 		if _, err := tx.ExecContext(ctx, a.stmt); err != nil {
@@ -167,6 +173,9 @@ func (s *SQLiteStore) Migrate(ctx context.Context) error {
 				return fmt.Errorf("migrate %s: %w", a.desc, err)
 			}
 		}
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE lookup_tables SET updated_at = created_at WHERE updated_at IS NULL`); err != nil {
+		return fmt.Errorf("backfill lookup_tables.updated_at: %w", err)
 	}
 
 	return tx.Commit()
@@ -185,8 +194,8 @@ func (r *formulaRepo) Create(ctx context.Context, f *domain.Formula) error {
 		`INSERT INTO formulas (id, name, domain, description, created_by, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		f.ID, f.Name, f.Domain, f.Description, f.CreatedBy,
-		f.CreatedAt.Format(time.RFC3339Nano),
-		f.UpdatedAt.Format(time.RFC3339Nano),
+		formatTime(f.CreatedAt),
+		formatTime(f.UpdatedAt),
 	)
 	if err != nil {
 		return fmt.Errorf("insert formula: %w", err)
@@ -303,7 +312,7 @@ func (r *formulaRepo) List(ctx context.Context, filter domain.FormulaFilter) ([]
 func (r *formulaRepo) UpdateMeta(ctx context.Context, formulaID, updatedBy string, updatedAt time.Time) error {
 	res, err := r.db.ExecContext(ctx,
 		`UPDATE formulas SET updated_by = ?, updated_at = ? WHERE id = ?`,
-		updatedBy, updatedAt.Format(time.RFC3339Nano), formulaID,
+		updatedBy, formatTime(updatedAt), formulaID,
 	)
 	if err != nil {
 		return fmt.Errorf("update formula meta: %w", err)
@@ -316,16 +325,31 @@ func (r *formulaRepo) UpdateMeta(ctx context.Context, formulaID, updatedBy strin
 }
 
 func (r *formulaRepo) Update(ctx context.Context, f *domain.Formula) error {
+	if f.ExpectedUpdatedAt.IsZero() {
+		res, err := r.db.ExecContext(ctx,
+			`UPDATE formulas SET name = ?, domain = ?, description = ?, updated_at = ? WHERE id = ?`,
+			f.Name, f.Domain, f.Description, formatTime(f.UpdatedAt), f.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("update formula: %w", err)
+		}
+		n, _ := res.RowsAffected()
+		if n == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	}
+	expected := f.ExpectedUpdatedAt
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE formulas SET name = ?, domain = ?, description = ?, updated_at = ? WHERE id = ?`,
-		f.Name, f.Domain, f.Description, f.UpdatedAt.Format(time.RFC3339Nano), f.ID,
+		`UPDATE formulas SET name = ?, domain = ?, description = ?, updated_at = ? WHERE id = ? AND updated_at = ?`,
+		f.Name, f.Domain, f.Description, formatTime(f.UpdatedAt), f.ID, formatTime(expected),
 	)
 	if err != nil {
 		return fmt.Errorf("update formula: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return sql.ErrNoRows
+		return classifyConditionalUpdate(ctx, r.db, "formulas", f.ID)
 	}
 	return nil
 }
@@ -361,7 +385,7 @@ func (r *versionRepo) CreateVersion(ctx context.Context, v *domain.FormulaVersio
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		v.ID, v.FormulaID, v.Version, v.State, string(graphJSON),
 		nullableInt(v.ParentVer), v.ChangeNote, v.CreatedBy,
-		v.CreatedAt.Format(time.RFC3339Nano),
+		formatTime(v.CreatedAt),
 	)
 	if err != nil {
 		return fmt.Errorf("insert version: %w", err)
@@ -415,6 +439,10 @@ func (r *versionRepo) UpdateState(ctx context.Context, formulaID string, version
 		return fmt.Errorf("begin tx: %w", err)
 	}
 	defer tx.Rollback()
+
+	if _, err := tx.ExecContext(ctx, `UPDATE formula_versions SET state = state WHERE formula_id = ?`, formulaID); err != nil {
+		return fmt.Errorf("lock formula versions: %w", err)
+	}
 
 	// Validate the target version exists and read its current state.
 	var currentState string
@@ -484,7 +512,7 @@ func (r *userRepo) Create(ctx context.Context, u *domain.User) error {
 		`INSERT INTO users (id, username, password, role, token_version, created_at)
 		 VALUES (?, ?, ?, ?, ?, ?)`,
 		u.ID, u.Username, u.Password, u.Role, u.TokenVersion,
-		u.CreatedAt.Format(time.RFC3339Nano),
+		formatTime(u.CreatedAt),
 	)
 	if err != nil {
 		return fmt.Errorf("insert user: %w", err)
@@ -605,12 +633,15 @@ type tableRepo struct {
 }
 
 func (r *tableRepo) Create(ctx context.Context, t *domain.LookupTable) error {
+	if t.UpdatedAt.IsZero() {
+		t.UpdatedAt = t.CreatedAt
+	}
 	dataJSON := string(t.Data)
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO lookup_tables (id, name, domain, table_type, data_json, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO lookup_tables (id, name, domain, table_type, data_json, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		t.ID, t.Name, t.Domain, t.TableType, dataJSON,
-		t.CreatedAt.Format(time.RFC3339Nano),
+		formatTime(t.CreatedAt), formatTime(t.UpdatedAt),
 	)
 	if err != nil {
 		return fmt.Errorf("insert lookup table: %w", err)
@@ -620,7 +651,7 @@ func (r *tableRepo) Create(ctx context.Context, t *domain.LookupTable) error {
 
 func (r *tableRepo) GetByID(ctx context.Context, id string) (*domain.LookupTable, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, name, domain, table_type, data_json, created_at FROM lookup_tables WHERE id = ?`, id)
+		`SELECT id, name, domain, table_type, data_json, created_at, COALESCE(updated_at, created_at) FROM lookup_tables WHERE id = ?`, id)
 	return scanLookupTable(row)
 }
 
@@ -629,10 +660,10 @@ func (r *tableRepo) List(ctx context.Context, domainFilter *domain.InsuranceDoma
 	var args []interface{}
 
 	if domainFilter != nil {
-		query = `SELECT id, name, domain, table_type, data_json, created_at FROM lookup_tables WHERE domain = ? ORDER BY name ASC`
+		query = `SELECT id, name, domain, table_type, data_json, created_at, COALESCE(updated_at, created_at) FROM lookup_tables WHERE domain = ? ORDER BY name ASC`
 		args = append(args, string(*domainFilter))
 	} else {
-		query = `SELECT id, name, domain, table_type, data_json, created_at FROM lookup_tables ORDER BY name ASC`
+		query = `SELECT id, name, domain, table_type, data_json, created_at, COALESCE(updated_at, created_at) FROM lookup_tables ORDER BY name ASC`
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -656,32 +687,54 @@ func (r *tableRepo) List(ctx context.Context, domainFilter *domain.InsuranceDoma
 }
 
 func (r *tableRepo) Update(ctx context.Context, t *domain.LookupTable) error {
+	if t.ExpectedUpdatedAt.IsZero() {
+		res, err := r.db.ExecContext(ctx,
+			`UPDATE lookup_tables SET name = ?, table_type = ?, data_json = ?, updated_at = ? WHERE id = ?`,
+			t.Name, t.TableType, string(t.Data), formatTime(t.UpdatedAt), t.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("update lookup table: %w", err)
+		}
+		n, _ := res.RowsAffected()
+		if n == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	}
+	expected := t.ExpectedUpdatedAt
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE lookup_tables SET name = ?, table_type = ?, data_json = ? WHERE id = ?`,
-		t.Name, t.TableType, string(t.Data), t.ID,
+		`UPDATE lookup_tables SET name = ?, table_type = ?, data_json = ?, updated_at = ? WHERE id = ? AND updated_at = ?`,
+		t.Name, t.TableType, string(t.Data), formatTime(t.UpdatedAt), t.ID, formatTime(expected),
 	)
 	if err != nil {
 		return fmt.Errorf("update lookup table: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return sql.ErrNoRows
+		return classifyConditionalUpdate(ctx, r.db, "lookup_tables", t.ID)
 	}
 	return nil
 }
 
 func (r *tableRepo) Delete(ctx context.Context, id string) error {
-	// Prevent deletion if any formula version references this table.
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin delete lookup table tx: %w", err)
+	}
+	defer tx.Rollback()
+
 	var refCount int
-	_ = r.db.QueryRowContext(ctx,
+	if err := tx.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM formula_versions WHERE graph_json LIKE ?`,
 		"%\"tableId\":\""+id+"\"%",
-	).Scan(&refCount)
+	).Scan(&refCount); err != nil {
+		return fmt.Errorf("check table references: %w", err)
+	}
 	if refCount > 0 {
 		return store.ErrTableInUse
 	}
 
-	res, err := r.db.ExecContext(ctx, `DELETE FROM lookup_tables WHERE id = ?`, id)
+	res, err := tx.ExecContext(ctx, `DELETE FROM lookup_tables WHERE id = ?`, id)
 	if err != nil {
 		return fmt.Errorf("delete lookup table: %w", err)
 	}
@@ -689,7 +742,7 @@ func (r *tableRepo) Delete(ctx context.Context, id string) error {
 	if n == 0 {
 		return sql.ErrNoRows
 	}
-	return nil
+	return tx.Commit()
 }
 
 // ---------------------------------------------------------------------------
@@ -784,13 +837,14 @@ func scanUserRows(rows *sql.Rows) (*domain.User, error) {
 func scanLookupTable(s scanner) (*domain.LookupTable, error) {
 	var t domain.LookupTable
 	var dataJSON string
-	var createdAt string
-	err := s.Scan(&t.ID, &t.Name, &t.Domain, &t.TableType, &dataJSON, &createdAt)
+	var createdAt, updatedAt string
+	err := s.Scan(&t.ID, &t.Name, &t.Domain, &t.TableType, &dataJSON, &createdAt, &updatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("scan lookup table: %w", err)
 	}
 	t.Data = json.RawMessage(dataJSON)
 	t.CreatedAt, _ = time.Parse(time.RFC3339Nano, createdAt)
+	t.UpdatedAt, _ = time.Parse(time.RFC3339Nano, updatedAt)
 	return &t, nil
 }
 
@@ -803,6 +857,23 @@ func nullableInt(v *int) interface{} {
 		return nil
 	}
 	return *v
+}
+
+const textTimeFormat = "2006-01-02T15:04:05.000000000Z"
+
+func formatTime(t time.Time) string {
+	return t.UTC().Format(textTimeFormat)
+}
+
+func classifyConditionalUpdate(ctx context.Context, db *sql.DB, table, id string) error {
+	var exists int
+	if err := db.QueryRowContext(ctx, "SELECT 1 FROM "+table+" WHERE id = ?", id).Scan(&exists); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return sql.ErrNoRows
+		}
+		return err
+	}
+	return store.ErrConflict
 }
 
 // ---------------------------------------------------------------------------
@@ -818,8 +889,8 @@ func (r *categoryRepo) Create(ctx context.Context, c *domain.Category) error {
 		`INSERT INTO categories (id, slug, name, description, color, sort_order, created_at, updated_at)
 		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		c.ID, c.Slug, c.Name, c.Description, c.Color, c.SortOrder,
-		c.CreatedAt.Format(time.RFC3339Nano),
-		c.UpdatedAt.Format(time.RFC3339Nano),
+		formatTime(c.CreatedAt),
+		formatTime(c.UpdatedAt),
 	)
 	if err != nil {
 		return fmt.Errorf("insert category: %w", err)
@@ -865,16 +936,31 @@ func (r *categoryRepo) List(ctx context.Context) ([]*domain.Category, error) {
 }
 
 func (r *categoryRepo) Update(ctx context.Context, c *domain.Category) error {
+	if c.ExpectedUpdatedAt.IsZero() {
+		res, err := r.db.ExecContext(ctx,
+			`UPDATE categories SET name = ?, description = ?, color = ?, sort_order = ?, updated_at = ? WHERE id = ?`,
+			c.Name, c.Description, c.Color, c.SortOrder, formatTime(c.UpdatedAt), c.ID,
+		)
+		if err != nil {
+			return fmt.Errorf("update category: %w", err)
+		}
+		n, _ := res.RowsAffected()
+		if n == 0 {
+			return sql.ErrNoRows
+		}
+		return nil
+	}
+	expected := c.ExpectedUpdatedAt
 	res, err := r.db.ExecContext(ctx,
-		`UPDATE categories SET name = ?, description = ?, color = ?, sort_order = ?, updated_at = ? WHERE id = ?`,
-		c.Name, c.Description, c.Color, c.SortOrder, c.UpdatedAt.Format(time.RFC3339Nano), c.ID,
+		`UPDATE categories SET name = ?, description = ?, color = ?, sort_order = ?, updated_at = ? WHERE id = ? AND updated_at = ?`,
+		c.Name, c.Description, c.Color, c.SortOrder, formatTime(c.UpdatedAt), c.ID, formatTime(expected),
 	)
 	if err != nil {
 		return fmt.Errorf("update category: %w", err)
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return sql.ErrNoRows
+		return classifyConditionalUpdate(ctx, r.db, "categories", c.ID)
 	}
 	return nil
 }

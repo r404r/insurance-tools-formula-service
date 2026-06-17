@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -187,9 +188,14 @@ func (h *FormulaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.Description != nil {
 		formula.Description = *req.Description
 	}
+	formula.ExpectedUpdatedAt = formula.UpdatedAt
 	formula.UpdatedAt = time.Now().UTC()
 
 	if err := h.Formulas.Update(r.Context(), formula); err != nil {
+		if errors.Is(err, store.ErrConflict) {
+			writeJSON(w, http.StatusConflict, ErrorResponse{Error: "formula was modified by another request", Code: http.StatusConflict})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to update formula", Code: http.StatusInternalServerError})
 		return
 	}
