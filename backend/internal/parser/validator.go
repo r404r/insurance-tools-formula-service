@@ -96,6 +96,7 @@ func ValidateGraph(graph *domain.FormulaGraph) []ValidationError {
 	outDegree := make(map[string]int, len(graph.Nodes))
 	children := make(map[string][]string, len(graph.Nodes))
 	targetPorts := make(map[string]map[string]bool)
+	distinctInputPorts := make(map[string]map[string]bool)
 	for _, e := range graph.Edges {
 		if !nodeIDs[e.Source] {
 			errs = append(errs, ValidationError{
@@ -110,6 +111,12 @@ func ValidateGraph(graph *domain.FormulaGraph) []ValidationError {
 		inDegree[e.Target]++
 		outDegree[e.Source]++
 		children[e.Target] = append(children[e.Target], e.Source)
+		if nodeIDs[e.Target] {
+			if distinctInputPorts[e.Target] == nil {
+				distinctInputPorts[e.Target] = make(map[string]bool)
+			}
+			distinctInputPorts[e.Target][e.TargetPort] = true
+		}
 
 		// Check for duplicate target ports on the same node.
 		if targetPorts[e.Target] == nil {
@@ -132,11 +139,11 @@ func ValidateGraph(graph *domain.FormulaGraph) []ValidationError {
 		case domain.NodeConstant:
 			errs = append(errs, validateConstant(n)...)
 		case domain.NodeOperator:
-			errs = append(errs, validateOperator(n, inDegree[n.ID])...)
+			errs = append(errs, validateOperator(n, len(distinctInputPorts[n.ID]))...)
 		case domain.NodeFunction:
 			errs = append(errs, validateFunction(n)...)
 		case domain.NodeConditional:
-			errs = append(errs, validateConditional(n, inDegree[n.ID])...)
+			errs = append(errs, validateConditional(n, len(distinctInputPorts[n.ID]))...)
 		case domain.NodeTableLookup:
 			errs = append(errs, validateTableLookup(n)...)
 		case domain.NodeTableAggregate:

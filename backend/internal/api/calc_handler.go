@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
@@ -50,7 +51,7 @@ func (h *CalcHandler) Calculate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.Engine.Calculate(r.Context(), &version.Graph, req.Inputs)
+	result, err := safeCalculate(r.Context(), h.Engine, &version.Graph, req.Inputs)
 	if err != nil {
 		writeJSON(w, http.StatusUnprocessableEntity, ErrorResponse{Error: "calculation failed: " + err.Error(), Code: http.StatusUnprocessableEntity})
 		return
@@ -95,7 +96,7 @@ func (h *CalcHandler) BatchCalculate(w http.ResponseWriter, r *http.Request) {
 
 	results := make([]CalculateResponse, 0, len(req.InputSets))
 	for _, inputs := range req.InputSets {
-		result, err := h.Engine.Calculate(r.Context(), &version.Graph, inputs)
+		result, err := safeCalculate(r.Context(), h.Engine, &version.Graph, inputs)
 		if err != nil {
 			writeJSON(w, http.StatusUnprocessableEntity, ErrorResponse{
 				Error: "calculation failed: " + err.Error(),
@@ -114,6 +115,15 @@ func (h *CalcHandler) BatchCalculate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, BatchCalculateResponse{Results: results})
+}
+
+func safeCalculate(ctx context.Context, engine CalculationEngine, graph *domain.FormulaGraph, inputs map[string]string) (result *engine.CalculationResult, err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = errors.New("calculation failed unexpectedly")
+		}
+	}()
+	return engine.Calculate(ctx, graph, inputs)
 }
 
 // Validate checks a formula graph for errors without executing it.

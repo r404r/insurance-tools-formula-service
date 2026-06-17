@@ -131,6 +131,39 @@ func TestValidateGraph_RejectsCompositeWithWrongPortCount(t *testing.T) {
 	}
 }
 
+func TestValidateGraph_CountsDistinctTargetPortsForArity(t *testing.T) {
+	cfgJSON, err := json.Marshal(domain.OperatorConfig{Op: "add"})
+	if err != nil {
+		t.Fatalf("marshal cfg: %v", err)
+	}
+	graph := &domain.FormulaGraph{
+		Nodes: []domain.FormulaNode{
+			{ID: "leftA", Type: domain.NodeVariable, Config: mustMarshalVar(t, "leftA")},
+			{ID: "leftB", Type: domain.NodeVariable, Config: mustMarshalVar(t, "leftB")},
+			{ID: "op", Type: domain.NodeOperator, Config: cfgJSON},
+		},
+		Edges: []domain.FormulaEdge{
+			{Source: "leftA", Target: "op", SourcePort: "out", TargetPort: "left"},
+			{Source: "leftB", Target: "op", SourcePort: "out", TargetPort: "left"},
+		},
+		Outputs: []string{"op"},
+	}
+
+	errs := ValidateGraph(graph)
+	var duplicatePort, wrongArity bool
+	for _, err := range errs {
+		if strings.Contains(err.Message, "duplicate edge on target port") {
+			duplicatePort = true
+		}
+		if strings.Contains(err.Message, `binary operator "add" expects 2 inputs but has 1`) {
+			wrongArity = true
+		}
+	}
+	if !duplicatePort || !wrongArity {
+		t.Fatalf("expected duplicate-port and distinct-arity errors, got: %v", errs)
+	}
+}
+
 func TestValidateGraph_RejectsCompositeWithUnknownCombinator(t *testing.T) {
 	graph := buildCompositeConditionalGraph(t, []domain.ConditionTerm{{Op: "eq"}, {Op: "eq"}}, "xor")
 	errs := ValidateGraph(graph)

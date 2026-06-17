@@ -51,7 +51,7 @@ func (h *SettingsHandler) Update(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := h.Settings.Set(r.Context(), SettingMaxConcurrentCalcs, strconv.Itoa(v)); err != nil {
-			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: fmt.Sprintf("save setting: %s", err), Code: http.StatusInternalServerError})
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to save setting", Code: http.StatusInternalServerError})
 			return
 		}
 		h.Limiter.SetLimit(v)

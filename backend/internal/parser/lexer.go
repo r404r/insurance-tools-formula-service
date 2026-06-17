@@ -10,7 +10,8 @@ import (
 type TokenType int
 
 const (
-	TokenNumber     TokenType = iota // integer or decimal literal
+	TokenIllegal    TokenType = iota // invalid or unsupported input
+	TokenNumber                      // integer or decimal literal
 	TokenIdentifier                  // variable or function name
 	TokenPlus                        // +
 	TokenMinus                       // -
@@ -35,6 +36,7 @@ const (
 )
 
 var tokenNames = map[TokenType]string{
+	TokenIllegal:    "Illegal",
 	TokenNumber:     "Number",
 	TokenIdentifier: "Identifier",
 	TokenPlus:       "+",
@@ -72,7 +74,7 @@ func (t Token) String() string {
 	if !ok {
 		name = "?"
 	}
-	if t.Type == TokenNumber || t.Type == TokenIdentifier || t.Type == TokenString {
+	if t.Type == TokenIllegal || t.Type == TokenNumber || t.Type == TokenIdentifier || t.Type == TokenString {
 		return fmt.Sprintf("%s(%s)@%d", name, t.Text, t.Pos)
 	}
 	return fmt.Sprintf("%s@%d", name, t.Pos)
@@ -152,12 +154,16 @@ func (l *Lexer) NextToken() Token {
 			l.advance()
 			return Token{Type: TokenEQ, Text: "==", Pos: startPos}
 		}
+		l.advance()
+		return Token{Type: TokenIllegal, Text: "=", Pos: startPos}
 	case '!':
 		if l.peek() == '=' {
 			l.advance()
 			l.advance()
 			return Token{Type: TokenNE, Text: "!=", Pos: startPos}
 		}
+		l.advance()
+		return Token{Type: TokenIllegal, Text: "!", Pos: startPos}
 	}
 
 	// Single-character operators
@@ -209,7 +215,7 @@ func (l *Lexer) NextToken() Token {
 	// Unknown character
 	ch := l.ch
 	l.advance()
-	return Token{Type: TokenEOF, Text: string(ch), Pos: startPos}
+	return Token{Type: TokenIllegal, Text: string(ch), Pos: startPos}
 }
 
 func (l *Lexer) readNumber(startPos int) Token {
@@ -236,9 +242,10 @@ func (l *Lexer) readString(startPos int) Token {
 		sb.WriteRune(l.ch)
 		l.advance()
 	}
-	if l.ch == '"' {
-		l.advance() // consume closing '"'
+	if l.ch != '"' {
+		return Token{Type: TokenIllegal, Text: "unterminated string literal", Pos: startPos}
 	}
+	l.advance() // consume closing '"'
 	return Token{Type: TokenString, Text: sb.String(), Pos: startPos}
 }
 

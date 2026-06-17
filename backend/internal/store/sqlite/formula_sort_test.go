@@ -65,6 +65,39 @@ func seedFormula(t *testing.T, s *SQLiteStore, id, name, createdBy string, creat
 	}
 }
 
+func TestCreateVersionDuplicateReturnsConflict(t *testing.T) {
+	s := newTestStore(t)
+	seedUser(t, s, "u1", "alice")
+	now := time.Now().UTC()
+	seedFormula(t, s, "f1", "Formula", "u1", now, "", now)
+
+	constantConfig, err := json.Marshal(domain.ConstantConfig{Value: "1"})
+	if err != nil {
+		t.Fatalf("marshal constant config: %v", err)
+	}
+	version := &domain.FormulaVersion{
+		ID:        "v1",
+		FormulaID: "f1",
+		Version:   1,
+		State:     domain.StateDraft,
+		Graph: domain.FormulaGraph{
+			Nodes:   []domain.FormulaNode{{ID: "n1", Type: domain.NodeConstant, Config: constantConfig}},
+			Outputs: []string{"n1"},
+		},
+		CreatedBy: "u1",
+		CreatedAt: now,
+	}
+	if err := s.Versions().CreateVersion(context.Background(), version); err != nil {
+		t.Fatalf("first CreateVersion: %v", err)
+	}
+
+	duplicate := *version
+	duplicate.ID = "v2"
+	if err := s.Versions().CreateVersion(context.Background(), &duplicate); !errors.Is(err, storepkg.ErrConflict) {
+		t.Fatalf("duplicate CreateVersion error = %v, want ErrConflict", err)
+	}
+}
+
 func TestFormulaList_DefaultSortIsUpdatedAtDesc(t *testing.T) {
 	s := newTestStore(t)
 	seedUser(t, s, "u1", "alice")

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
@@ -247,10 +248,9 @@ func (h *FormulaHandler) Copy(w http.ResponseWriter, r *http.Request) {
 
 	// Decode optional overrides.
 	var req CopyFormulaRequest
-	if r.ContentLength > 0 {
-		if !decodeJSON(w, r, &req) {
-			return
-		}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil && !errors.Is(err, io.EOF) {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+		return
 	}
 
 	name := source.Name + " (Copy)"
@@ -529,7 +529,7 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt:   now,
 		}
 		if err := h.Formulas.Create(r.Context(), newFormula); err != nil {
-			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "create formula: " + err.Error()})
+			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "failed to create formula"})
 			continue
 		}
 
@@ -545,10 +545,10 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:  now,
 		}
 		if err := h.Versions.CreateVersion(r.Context(), newVersion); err != nil {
-			errMsg := "create version: " + err.Error()
+			errMsg := "failed to create version"
 			// Best-effort rollback of the formula shell; surface rollback failure.
 			if delErr := h.Formulas.Delete(r.Context(), newFormulaID); delErr != nil {
-				errMsg += "; rollback failed: " + delErr.Error()
+				errMsg += "; rollback failed"
 			}
 			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: errMsg})
 			continue
@@ -562,7 +562,7 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 		if err := h.Formulas.UpdateMeta(r.Context(), newFormulaID, claims.UserID, now); err != nil {
 			result.Errors = append(result.Errors, ImportError{
 				Index: i, Name: ef.Name,
-				Error: "imported but updater stamp failed: " + err.Error(),
+				Error: "imported but updater stamp failed",
 			})
 		}
 
