@@ -2,7 +2,6 @@ package api
 
 import (
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"regexp"
@@ -55,8 +54,7 @@ func (h *CategoryHandler) List(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/categories
 func (h *CategoryHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req CreateCategoryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -123,8 +121,7 @@ func (h *CategoryHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateCategoryRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 

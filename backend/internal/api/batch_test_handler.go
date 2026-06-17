@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -17,36 +16,9 @@ import (
 // but reasonable default for the "no configured cap" case.
 const batchWorkerUnlimitedDefault = 8
 
-// computeBatchWorkers returns the number of parallel workers used by
-// BatchTest, given the current global concurrency limit.
-//
-// Rule: when globalLimit > 0, workers = floor(globalLimit / 5), with a
-// floor of 1 so very small limits still get one worker. There is no
-// fixed upper cap — larger global limits produce proportionally more
-// batch workers. This is safe and intentional:
-//
-//  1. The shared DynamicConcurrencyLimiter gates every per-case
-//     Calculate via Acquire/Release, so actual concurrent calculations
-//     never exceed globalLimit regardless of how many workers exist.
-//  2. The handler uses a fixed-size worker pool reading from a jobs
-//     channel, so goroutine count is bounded by `workers`, not by
-//     the number of cases in the upload (a 10k-case upload still
-//     creates at most `workers` goroutines).
-//  3. `workers` is proportional to the admin's configured global cap:
-//     if the admin sets maxConcurrentCalcs=1000 they are signalling
-//     "this server can handle 1000 concurrent calculations", so
-//     letting one batch request spawn 200 (= 1000/5) worker
-//     goroutines is consistent with that capacity. Each goroutine
-//     stack is ~2KB, so even 200 idle workers is ~400KB — small
-//     relative to the resources the admin has already budgeted for.
-//
-// The 1/5 ratio reserves at least 4/5 of the global budget for
-// concurrent non-batch (interactive) requests, so a large batch run
-// cannot starve single /calculate calls.
-//
-// When globalLimit <= 0 (unlimited), fall back to
-// batchWorkerUnlimitedDefault — there's no admin-configured ceiling
-// to scale against, so pick a conservative default.
+// computeBatchWorkers returns the number of parallel workers used by BatchTest,
+// given the current global concurrency limit. Admin-configured limits are
+// bounded at update time, so this proportional worker count cannot explode.
 func computeBatchWorkers(globalLimit int) int {
 	if globalLimit <= 0 {
 		return batchWorkerUnlimitedDefault
@@ -63,8 +35,7 @@ func computeBatchWorkers(globalLimit int) int {
 // POST /api/v1/calculate/batch-test
 func (h *CalcHandler) BatchTest(w http.ResponseWriter, r *http.Request) {
 	var req BatchTestRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if req.FormulaID == "" {
@@ -73,6 +44,10 @@ func (h *CalcHandler) BatchTest(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.Cases) == 0 {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "at least one test case is required", Code: http.StatusBadRequest})
+		return
+	}
+	if len(req.Cases) > MaxBatchTestCases {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "too many test cases", Code: http.StatusBadRequest})
 		return
 	}
 

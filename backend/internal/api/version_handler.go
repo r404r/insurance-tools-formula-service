@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"sort"
@@ -62,8 +61,7 @@ func (h *VersionHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateVersionRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -163,8 +161,7 @@ func (h *VersionHandler) UpdateState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateVersionStateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 

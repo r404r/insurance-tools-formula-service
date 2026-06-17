@@ -13,24 +13,24 @@ import (
 
 // RouterConfig holds the dependencies needed to construct the API router.
 type RouterConfig struct {
-	AuthHandler        *AuthHandler
-	FormulaHandler     *FormulaHandler
-	VersionHandler     *VersionHandler
-	CalcHandler        *CalcHandler
-	TableHandler       *TableHandler
-	UserHandler        *UserHandler
-	CategoryHandler    *CategoryHandler
-	ParseHandler       *ParseHandler
-	CacheHandler       *CacheHandler
-	SettingsHandler    *SettingsHandler
-	TemplateHandler    *TemplateHandler
-	HealthHandler      *HealthHandler
-	SeedResetHandler   http.HandlerFunc // optional: POST /admin/reset-seed
-	JWTManager         *auth.JWTManager
-	UserStore          store.UserRepository // for token_version check in AuthMiddleware
-	Logger             zerolog.Logger
-	CORSOrigins        []string
-	CalcLimiter        *DynamicConcurrencyLimiter
+	AuthHandler      *AuthHandler
+	FormulaHandler   *FormulaHandler
+	VersionHandler   *VersionHandler
+	CalcHandler      *CalcHandler
+	TableHandler     *TableHandler
+	UserHandler      *UserHandler
+	CategoryHandler  *CategoryHandler
+	ParseHandler     *ParseHandler
+	CacheHandler     *CacheHandler
+	SettingsHandler  *SettingsHandler
+	TemplateHandler  *TemplateHandler
+	HealthHandler    *HealthHandler
+	SeedResetHandler http.HandlerFunc // optional: POST /admin/reset-seed
+	JWTManager       *auth.JWTManager
+	UserStore        store.UserRepository // for token_version check in AuthMiddleware
+	Logger           zerolog.Logger
+	CORSOrigins      []string
+	CalcLimiter      *DynamicConcurrencyLimiter
 	// TrustProxy controls real-IP resolution for rate limiting.
 	// See config.ServerConfig.TrustProxy for the full deployment note.
 	TrustProxy bool
@@ -49,6 +49,7 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 	r.Use(Recovery())
 	r.Use(Logger(cfg.Logger))
 	r.Use(CORS(cfg.CORSOrigins))
+	r.Use(MaxRequestBody(MaxRequestBodyBytes))
 
 	// Unauthenticated readiness probe. Lives at the root (outside /api/v1) so
 	// container healthchecks and the API regression suite can hit a stable

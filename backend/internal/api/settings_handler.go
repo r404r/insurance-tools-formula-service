@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -37,8 +36,7 @@ func (h *SettingsHandler) Get(w http.ResponseWriter, r *http.Request) {
 // PUT /api/v1/settings
 func (h *SettingsHandler) Update(w http.ResponseWriter, r *http.Request) {
 	var req UpdateSettingsRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -46,6 +44,10 @@ func (h *SettingsHandler) Update(w http.ResponseWriter, r *http.Request) {
 		v := *req.MaxConcurrentCalcs
 		if v < 0 {
 			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "maxConcurrentCalcs must be >= 0 (0 = unlimited)", Code: http.StatusBadRequest})
+			return
+		}
+		if v > MaxConcurrentCalcsLimit {
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: fmt.Sprintf("maxConcurrentCalcs must be <= %d", MaxConcurrentCalcsLimit), Code: http.StatusBadRequest})
 			return
 		}
 		if err := h.Settings.Set(r.Context(), SettingMaxConcurrentCalcs, strconv.Itoa(v)); err != nil {
@@ -71,7 +73,7 @@ func settingsToResponse(all map[string]string, liveLimit int) SettingsResponse {
 	maxCalcs := liveLimit
 	if v, ok := all[SettingMaxConcurrentCalcs]; ok {
 		if n, err := strconv.Atoi(v); err == nil {
-			maxCalcs = n
+			maxCalcs = normalizeConcurrencyLimit(n)
 		}
 	}
 	return SettingsResponse{MaxConcurrentCalcs: maxCalcs}
