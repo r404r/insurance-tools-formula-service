@@ -44,12 +44,6 @@ func run(logger zerolog.Logger) error {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	// Set a default JWT secret for development.
-	if cfg.Auth.JWTSecret == "" {
-		cfg.Auth.JWTSecret = "dev-secret-change-in-production"
-		logger.Warn().Msg("AUTH_JWT_SECRET not set, using insecure default (development only)")
-	}
-
 	// Open database — driver selected by DB_DRIVER env var.
 	var st store.Store
 	switch cfg.Database.Driver {
@@ -221,7 +215,14 @@ func bootstrap(ctx context.Context, s store.Store, logger zerolog.Logger) error 
 	// --- Default admin account ---
 	adminID := "00000000-0000-0000-0000-000000000001"
 	if _, err := s.Users().GetByUsername(ctx, "admin"); err != nil {
-		hashed, err := bcrypt.GenerateFromPassword([]byte("admin99999"), bcrypt.DefaultCost)
+		adminPwd := os.Getenv("ADMIN_INITIAL_PASSWORD")
+		if adminPwd == "" {
+			return fmt.Errorf("ADMIN_INITIAL_PASSWORD must be set to create the initial admin account; set it to a strong password (min 12 chars) before first run")
+		}
+		if len(adminPwd) < 12 {
+			return fmt.Errorf("ADMIN_INITIAL_PASSWORD must be at least 12 characters, got %d", len(adminPwd))
+		}
+		hashed, err := bcrypt.GenerateFromPassword([]byte(adminPwd), bcrypt.DefaultCost)
 		if err != nil {
 			return fmt.Errorf("hash admin password: %w", err)
 		}
@@ -235,7 +236,7 @@ func bootstrap(ctx context.Context, s store.Store, logger zerolog.Logger) error 
 		if err := s.Users().Create(ctx, admin); err != nil {
 			return fmt.Errorf("create admin: %w", err)
 		}
-		logger.Info().Msg("default admin account created (admin / admin99999)")
+		logger.Info().Msg("default admin account created from ADMIN_INITIAL_PASSWORD")
 	} else {
 		logger.Info().Msg("admin account already exists, skipping seed")
 	}

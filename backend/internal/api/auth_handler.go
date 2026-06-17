@@ -13,6 +13,13 @@ import (
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store"
 )
 
+// loginDummyHash is used for timing equalization when a username is not found,
+// preventing user enumeration via response-time differences.
+var loginDummyHash = func() []byte {
+	h, _ := bcrypt.GenerateFromPassword([]byte("dummy-timing-equalization-never-matches"), bcrypt.DefaultCost)
+	return h
+}()
+
 // AuthHandler implements authentication and user-related HTTP endpoints.
 type AuthHandler struct {
 	Users        store.UserRepository
@@ -60,6 +67,8 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.Users.GetByUsername(r.Context(), req.Username)
 	if err != nil {
+		// Run a dummy comparison to equalize timing and prevent user enumeration.
+		_ = bcrypt.CompareHashAndPassword(loginDummyHash, []byte(req.Password))
 		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "invalid credentials", Code: http.StatusUnauthorized})
 		return
 	}
@@ -94,8 +103,18 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if len(req.Username) > 64 {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "username must not exceed 64 characters", Code: http.StatusBadRequest})
+		return
+	}
+
 	if len(req.Password) < 8 {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "password must be at least 8 characters", Code: http.StatusBadRequest})
+		return
+	}
+
+	if len(req.Password) > 72 {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "password must not exceed 72 characters", Code: http.StatusBadRequest})
 		return
 	}
 

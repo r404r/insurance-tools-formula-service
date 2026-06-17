@@ -44,6 +44,11 @@ const (
 	RoleViewer   Role = "viewer"
 )
 
+// IsValid returns whether the role is one of the four defined values.
+func (r Role) IsValid() bool {
+	return r == RoleAdmin || r == RoleEditor || r == RoleReviewer || r == RoleViewer
+}
+
 // CanEdit returns whether the role can create/edit formulas
 func (r Role) CanEdit() bool {
 	return r == RoleAdmin || r == RoleEditor

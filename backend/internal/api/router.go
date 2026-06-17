@@ -65,6 +65,7 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 		// All remaining routes require authentication.
 		r.Group(func(r chi.Router) {
 			r.Use(auth.AuthMiddleware(cfg.JWTManager, cfg.UserStore))
+			r.Use(CSRFProtect(cfg.CORSOrigins))
 
 			// Current user.
 			r.Get("/auth/me", cfg.AuthHandler.Me)

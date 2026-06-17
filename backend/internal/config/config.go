@@ -64,6 +64,11 @@ func Load() (*Config, error) {
 	}
 
 	corsOrigins := envStringSlice("SERVER_CORS_ORIGINS", []string{"http://localhost:5173"})
+	for _, origin := range corsOrigins {
+		if origin == "*" || origin == "" {
+			return nil, fmt.Errorf("SERVER_CORS_ORIGINS must not contain wildcard (*) or empty values when credentials are enabled; got %q", origin)
+		}
+	}
 	trustProxy := envBool("SERVER_TRUST_PROXY", false)
 
 	driver := envString("DB_DRIVER", "sqlite")
@@ -93,8 +98,14 @@ func Load() (*Config, error) {
 	}
 
 	jwtSecret := envString("AUTH_JWT_SECRET", "")
+	if jwtSecret == "" {
+		return nil, fmt.Errorf("AUTH_JWT_SECRET must be set (minimum 32 bytes); refusing to start with an insecure default")
+	}
+	if len(jwtSecret) < 32 {
+		return nil, fmt.Errorf("AUTH_JWT_SECRET must be at least 32 bytes, got %d", len(jwtSecret))
+	}
 	tokenExpiry := envDuration("AUTH_TOKEN_EXPIRY", 24*time.Hour)
-	cookieSecure := envBool("AUTH_COOKIE_SECURE", false)
+	cookieSecure := envBool("AUTH_COOKIE_SECURE", true)
 
 	cfg := &Config{
 		Server: ServerConfig{

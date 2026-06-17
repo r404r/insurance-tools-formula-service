@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"runtime/debug"
 	"sync"
 	"sync/atomic"
@@ -199,6 +200,44 @@ func (d *DynamicConcurrencyLimiter) Middleware() func(http.Handler) http.Handler
 					Code:  http.StatusServiceUnavailable,
 				})
 			}
+		})
+	}
+}
+
+// CSRFProtect returns middleware that validates Origin or Referer for unsafe
+// HTTP methods (POST, PUT, PATCH, DELETE) to defend against CSRF attacks.
+// Apply only to routes that accept cookie-based authentication.
+// Safe methods (GET, HEAD, OPTIONS) pass through without checking.
+func CSRFProtect(allowedOrigins []string) func(http.Handler) http.Handler {
+	originSet := make(map[string]bool, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		originSet[o] = true
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			switch r.Method {
+			case http.MethodGet, http.MethodHead, http.MethodOptions, http.MethodTrace:
+				next.ServeHTTP(w, r)
+				return
+			}
+			if origin := r.Header.Get("Origin"); origin != "" {
+				if !originSet[origin] {
+					http.Error(w, `{"error":"forbidden: invalid origin","code":403}`, http.StatusForbidden)
+					return
+				}
+				next.ServeHTTP(w, r)
+				return
+			}
+			if referer := r.Referer(); referer != "" {
+				parsed, err := url.Parse(referer)
+				if err != nil || !originSet[parsed.Scheme+"://"+parsed.Host] {
+					http.Error(w, `{"error":"forbidden: invalid referer","code":403}`, http.StatusForbidden)
+					return
+				}
+				next.ServeHTTP(w, r)
+				return
+			}
+			http.Error(w, `{"error":"forbidden: missing origin or referer","code":403}`, http.StatusForbidden)
 		})
 	}
 }
