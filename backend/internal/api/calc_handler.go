@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
@@ -36,8 +35,7 @@ type CalcHandler struct {
 // POST /api/v1/calculate
 func (h *CalcHandler) Calculate(w http.ResponseWriter, r *http.Request) {
 	var req CalculateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -72,8 +70,7 @@ func (h *CalcHandler) Calculate(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/calculate/batch
 func (h *CalcHandler) BatchCalculate(w http.ResponseWriter, r *http.Request) {
 	var req BatchCalculateRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -83,6 +80,10 @@ func (h *CalcHandler) BatchCalculate(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(req.InputSets) == 0 {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "at least one input set is required", Code: http.StatusBadRequest})
+		return
+	}
+	if len(req.InputSets) > MaxBatchCalculateInputSets {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "too many input sets", Code: http.StatusBadRequest})
 		return
 	}
 
@@ -119,8 +120,7 @@ func (h *CalcHandler) BatchCalculate(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/calculate/validate
 func (h *CalcHandler) Validate(w http.ResponseWriter, r *http.Request) {
 	var graph domain.FormulaGraph
-	if err := json.NewDecoder(r.Body).Decode(&graph); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &graph) {
 		return
 	}
 

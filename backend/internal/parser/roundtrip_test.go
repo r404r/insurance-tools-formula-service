@@ -2,6 +2,7 @@ package parser
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
@@ -45,6 +46,28 @@ func TestMultiArgRoundTrip(t *testing.T) {
 		if got != c.want {
 			t.Errorf("round-trip mismatch:\n  input: %s\n  want:  %s\n  got:   %s", c.input, c.want, got)
 		}
+	}
+}
+
+func TestParserRejectsExcessiveNestingDepth(t *testing.T) {
+	input := strings.Repeat("(", maxParseDepth+1) + "1" + strings.Repeat(")", maxParseDepth+1)
+	_, err := NewParser(input).Parse()
+	if err == nil {
+		t.Fatal("expected depth error, got nil")
+	}
+	if !strings.Contains(err.Error(), "maximum depth") {
+		t.Fatalf("error = %q, want maximum depth", err.Error())
+	}
+}
+
+func TestParserRejectsExcessiveUnaryDepth(t *testing.T) {
+	input := strings.Repeat("-", maxParseDepth+1) + "1"
+	_, err := NewParser(input).Parse()
+	if err == nil {
+		t.Fatal("expected depth error, got nil")
+	}
+	if !strings.Contains(err.Error(), "maximum depth") {
+		t.Fatalf("error = %q, want maximum depth", err.Error())
 	}
 }
 

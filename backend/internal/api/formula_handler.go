@@ -110,8 +110,7 @@ func (h *FormulaHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req CreateFormulaRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -171,8 +170,7 @@ func (h *FormulaHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req UpdateFormulaRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -244,8 +242,7 @@ func (h *FormulaHandler) Copy(w http.ResponseWriter, r *http.Request) {
 	// Decode optional overrides.
 	var req CopyFormulaRequest
 	if r.ContentLength > 0 {
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+		if !decodeJSON(w, r, &req) {
 			return
 		}
 	}
@@ -281,11 +278,11 @@ func (h *FormulaHandler) Copy(w http.ResponseWriter, r *http.Request) {
 	copiedGraph := deepCopyGraph(latest.Graph)
 
 	newVersion := &domain.FormulaVersion{
-		ID:         uuid.New().String(),
-		FormulaID:  newFormulaID,
-		Version:    1,
-		State:      domain.StateDraft,
-		Graph:      copiedGraph,
+		ID:        uuid.New().String(),
+		FormulaID: newFormulaID,
+		Version:   1,
+		State:     domain.StateDraft,
+		Graph:     copiedGraph,
 		// Change note is written by the backend and shown in the versions UI.
 		// Keep it simple and neutral; the source name is the only dynamic part.
 		ChangeNote: "copy:" + source.ID,
@@ -356,12 +353,12 @@ type ExportRequest struct {
 
 // ExportedFormula is a single formula entry in an export file.
 type ExportedFormula struct {
-	SourceID      string              `json:"sourceId"`
-	SourceVersion int                 `json:"sourceVersion"`
-	Name          string              `json:"name"`
+	SourceID      string                 `json:"sourceId"`
+	SourceVersion int                    `json:"sourceVersion"`
+	Name          string                 `json:"name"`
 	Domain        domain.InsuranceDomain `json:"domain"`
-	Description   string              `json:"description"`
-	Graph         domain.FormulaGraph `json:"graph"`
+	Description   string                 `json:"description"`
+	Graph         domain.FormulaGraph    `json:"graph"`
 }
 
 // ExportBundle is the top-level shape of an export file.
@@ -375,8 +372,7 @@ type ExportBundle struct {
 // POST /api/v1/formulas/export
 func (h *FormulaHandler) Export(w http.ResponseWriter, r *http.Request) {
 	var req ExportRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if len(req.IDs) == 0 {
@@ -465,8 +461,7 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var bundle ExportBundle
-	if err := json.NewDecoder(r.Body).Decode(&bundle); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid import body: " + err.Error(), Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &bundle) {
 		return
 	}
 	if bundle.Version != "" && bundle.Version != ExportFormat {

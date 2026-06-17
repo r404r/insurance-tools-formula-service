@@ -63,6 +63,18 @@ func Recovery() func(http.Handler) http.Handler {
 	}
 }
 
+// MaxRequestBody limits inbound request bodies before handlers decode JSON.
+func MaxRequestBody(limit int64) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Body != nil {
+				r.Body = http.MaxBytesReader(w, r.Body, limit)
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // DynamicConcurrencyLimiter is a semaphore-based concurrency cap whose limit
 // can be updated at runtime without restarting the server.
 //
@@ -90,6 +102,7 @@ type DynamicConcurrencyLimiter struct {
 // NewDynamicConcurrencyLimiter creates a limiter with an initial cap of n.
 // n ≤ 0 means unlimited.
 func NewDynamicConcurrencyLimiter(n int) *DynamicConcurrencyLimiter {
+	n = normalizeConcurrencyLimit(n)
 	d := &DynamicConcurrencyLimiter{limit: n, genDone: make(chan struct{})}
 	if n > 0 {
 		d.sem = make(chan struct{}, n)
@@ -104,6 +117,7 @@ func NewDynamicConcurrencyLimiter(n int) *DynamicConcurrencyLimiter {
 // eventually-consistent shrink semantics.
 // n ≤ 0 disables the limit.
 func (d *DynamicConcurrencyLimiter) SetLimit(n int) {
+	n = normalizeConcurrencyLimit(n)
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	d.limit = n
@@ -116,6 +130,13 @@ func (d *DynamicConcurrencyLimiter) SetLimit(n int) {
 		return
 	}
 	d.sem = make(chan struct{}, n)
+}
+
+func normalizeConcurrencyLimit(n int) int {
+	if n > MaxConcurrentCalcsLimit {
+		return MaxConcurrentCalcsLimit
+	}
+	return n
 }
 
 // Limit returns the current cap (0 means unlimited).

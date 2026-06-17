@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -15,14 +14,17 @@ type ParseHandler struct{}
 // POST /api/v1/parse
 func (h *ParseHandler) Parse(w http.ResponseWriter, r *http.Request) {
 	var req ParseRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
 	text := strings.TrimSpace(req.Text)
 	if text == "" {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "text is required", Code: http.StatusBadRequest})
+		return
+	}
+	if len(text) > MaxParseTextBytes {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "text is too long", Code: http.StatusBadRequest})
 		return
 	}
 

@@ -63,8 +63,7 @@ func (h *TableHandler) List(w http.ResponseWriter, r *http.Request) {
 // POST /api/v1/tables
 func (h *TableHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req CreateTableRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 
@@ -116,8 +115,7 @@ func (h *TableHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
 	var req UpdateTableRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid request body", Code: http.StatusBadRequest})
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if req.Name == "" || req.TableType == "" {

@@ -6,14 +6,15 @@ import (
 
 // precedence levels for operator-precedence (Pratt) parsing
 const (
-	precNone       = 0
+	precNone        = 0
 	precConditional = 1 // if/then/else
-	precComparison = 2  // >, <, >=, <=, ==, !=
-	precAddSub     = 3  // + -
-	precMulDiv     = 4  // * / %
-	precPower      = 5  // ^ (right-associative)
-	precUnary      = 6  // unary -
-	precCall       = 7  // function calls, grouped expressions
+	precComparison  = 2 // >, <, >=, <=, ==, !=
+	precAddSub      = 3 // + -
+	precMulDiv      = 4 // * / %
+	precPower       = 5 // ^ (right-associative)
+	precUnary       = 6 // unary -
+	precCall        = 7 // function calls, grouped expressions
+	maxParseDepth   = 256
 )
 
 // Parser implements a Pratt (operator-precedence) recursive descent parser
@@ -22,6 +23,7 @@ type Parser struct {
 	lexer *Lexer
 	cur   Token // current token
 	peek  Token // lookahead token
+	depth int
 }
 
 // NewParser creates a new Parser for the given formula text.
@@ -66,6 +68,11 @@ func (p *Parser) Parse() (*ASTNode, error) {
 // parseExpression is the core Pratt parsing loop. It parses everything at
 // the given minimum precedence level or higher.
 func (p *Parser) parseExpression(minPrec int) (*ASTNode, error) {
+	if err := p.enterExpression(); err != nil {
+		return nil, err
+	}
+	defer p.exitExpression()
+
 	left, err := p.parsePrefix()
 	if err != nil {
 		return nil, err
@@ -83,6 +90,18 @@ func (p *Parser) parseExpression(minPrec int) (*ASTNode, error) {
 	}
 
 	return left, nil
+}
+
+func (p *Parser) enterExpression() error {
+	p.depth++
+	if p.depth > maxParseDepth {
+		return p.errorf("expression nesting exceeds maximum depth %d", maxParseDepth)
+	}
+	return nil
+}
+
+func (p *Parser) exitExpression() {
+	p.depth--
 }
 
 // parsePrefix handles tokens that appear at the start of an expression:

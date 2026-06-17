@@ -1,6 +1,18 @@
 package api
 
-import "testing"
+import (
+	"encoding/json"
+	"testing"
+)
+
+func marshalTestJSON(t *testing.T, v any) string {
+	t.Helper()
+	b, err := json.Marshal(v)
+	if err != nil {
+		t.Fatalf("marshal test json: %v", err)
+	}
+	return string(b)
+}
 
 func TestComputeBatchWorkers(t *testing.T) {
 	tests := []struct {
