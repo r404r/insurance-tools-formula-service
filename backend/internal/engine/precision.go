@@ -72,10 +72,18 @@ func (pc PrecisionConfig) RoundOutput(d Decimal) Decimal {
 	case RoundBankers:
 		return d.RoundBank(pc.OutputPrecision)
 	case RoundHalfDown:
-		// shopspring/decimal does not have a native half-down; use banker's
-		// as the closest built-in behaviour.
-		return d.RoundBank(pc.OutputPrecision)
+		return roundHalfDown(d, pc.OutputPrecision)
 	default: // RoundHalfUp
 		return d.Round(pc.OutputPrecision)
 	}
+}
+
+func roundHalfDown(d Decimal, places int32) Decimal {
+	unit := decimal.New(1, -places)
+	scaled := d.Div(unit)
+	fraction := scaled.Sub(scaled.Truncate(0)).Abs()
+	if fraction.Equal(decimal.New(5, -1)) {
+		return d.Truncate(places)
+	}
+	return d.Round(places)
 }
