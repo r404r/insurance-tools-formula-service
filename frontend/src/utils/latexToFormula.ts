@@ -45,7 +45,7 @@ function extractBraced(s: string, pos: number): { content: string; end: number }
  * `pos` points to the character right after \left<openDelim>.
  * Returns inner content and the index after \right<closeDelim>.
  */
-function extractLeftRight(s: string, pos: number, _closeDelim: string): { content: string; end: number } {
+function extractLeftRight(s: string, pos: number, closeDelim: string): { content: string; end: number } {
   let depth = 1
   let content = ''
   let i = pos
@@ -60,8 +60,7 @@ function extractLeftRight(s: string, pos: number, _closeDelim: string): { conten
     if (s.slice(i, i + 6) === '\\right') {
       depth--
       if (depth === 0) {
-        // Consumed \right + closeDelim (7 chars total)
-        return { content, end: i + 7 }
+        return { content, end: i + 6 + closeDelim.length }
       }
       content += '\\right'
       i += 6

@@ -104,7 +104,7 @@ export default function FormulaEditorPage() {
     queryKey: ['formulas', 'editor-options'],
     queryFn: () =>
       api
-        .get<{ formulas: Formula[]; total: number }>('/formulas')
+        .get<{ formulas: Formula[]; total: number }>('/formulas?limit=500')
         .then((response) => response.formulas ?? []),
     enabled: !!id,
   })
@@ -327,6 +327,10 @@ export default function FormulaEditorPage() {
 
   const handleSave = async () => {
     if (!id) return
+    if (!isEditor) {
+      setSaveMessage(t('common.error'))
+      return
+    }
     // Cancel any pending "clear highlights" timeout from a prior save
     if (saveMessageTimeoutRef.current !== null) {
       clearTimeout(saveMessageTimeoutRef.current)
@@ -418,7 +422,7 @@ export default function FormulaEditorPage() {
   }
 
   const handleNameSave = useCallback(async () => {
-    if (!id || !formula) return
+    if (!id || !formula || !isEditor) return
 
     const trimmedName = nameDraft.trim()
     if (!trimmedName) {
@@ -454,7 +458,7 @@ export default function FormulaEditorPage() {
     } finally {
       setIsRenaming(false)
     }
-  }, [formula, id, nameDraft, queryClient, setCurrentFormula, t])
+  }, [formula, id, isEditor, nameDraft, queryClient, setCurrentFormula, t])
 
   const handleDescSave = useCallback(async () => {
     if (!id || !formula) return
@@ -553,7 +557,7 @@ export default function FormulaEditorPage() {
         <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <Link to="/" className="text-gray-400 hover:text-gray-600">&larr;</Link>
-          {isEditingName ? (
+          {isEditor && isEditingName ? (
             <input
               autoFocus
               value={nameDraft}
@@ -578,9 +582,11 @@ export default function FormulaEditorPage() {
             <button
               type="button"
               onClick={() => {
+                if (!isEditor) return
                 setNameDraft(formula?.name ?? '')
                 setIsEditingName(true)
               }}
+              disabled={!isEditor}
               className="min-w-0 truncate rounded px-1 text-left text-lg font-semibold text-slate-900 hover:bg-slate-100"
               title={formula?.name ?? ''}
             >
@@ -658,7 +664,7 @@ export default function FormulaEditorPage() {
           )}
           <button
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isSaving || !isEditor}
             className="bg-blue-600 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-700 disabled:opacity-50"
           >
             {isSaving ? t('common.loading') : t('editor.save')}

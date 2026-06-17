@@ -33,6 +33,7 @@ export default function NodePropertiesPanel({
   const [idError, setIdError] = useState<string | null>(null)
   // Reset draft whenever the selected node changes (or its id is renamed).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIdDraft(node?.id ?? '')
     setIdError(null)
   }, [node?.id])

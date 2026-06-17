@@ -100,6 +100,7 @@ export default function FormulaList() {
 
   // Clamp page when total shrinks (e.g. after delete or narrowed search).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (page > totalPages) setPage(totalPages)
   }, [totalPages, page])
 
@@ -300,6 +301,7 @@ export default function FormulaList() {
 
   useEffect(() => {
     if (categories.length === 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setNewDomain('')
       if (domainFilter !== 'all') setDomainFilter('all')
       return
