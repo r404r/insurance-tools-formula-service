@@ -56,7 +56,7 @@ Key paths:
 
 Backend reads env vars:
 - `SERVER_PORT` (default 8080)
-- `DB_DRIVER` (sqlite/postgres/mysql)
+- `DB_DRIVER` (sqlite/postgres/mysql; binary fallback `sqlite`, shipped default `postgres` via `.env.example` / compose)
 - `DB_DSN` (connection string)
 - `AUTH_JWT_SECRET`
 - `ENGINE_INTERMEDIATE_PRECISION` (default 28)
