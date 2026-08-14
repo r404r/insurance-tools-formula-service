@@ -136,6 +136,14 @@ export default function NodePropertiesPanel({
     })
   }
 
+  const tableAggregateFilters = Array.isArray(config.filters)
+    ? config.filters.map((filter) => (filter as Record<string, unknown>))
+    : []
+
+  const updateTableAggregateFilters = (filters: Record<string, unknown>[]) => {
+    updateConfig('filters', filters)
+  }
+
   return (
     <div className="w-64 border-l border-gray-200 bg-gray-50 p-4 overflow-y-auto">
       <h3 className="text-sm font-semibold text-gray-600 mb-3">{t('editor.properties')}</h3>
@@ -316,6 +324,131 @@ export default function NodePropertiesPanel({
                 value={(config.column as string) ?? ''}
                 onChange={(e) => updateConfig('column', e.target.value)}
               />
+            </div>
+          </>
+        )}
+
+        {nodeType === 'tableAggregate' && (
+          <>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">{t('table.title')}</label>
+              <select
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                value={(config.tableId as string) ?? ''}
+                onChange={(e) => updateConfig('tableId', e.target.value)}
+              >
+                <option value="">— {t('table.selectTable')} —</option>
+                {tables.map((tbl) => (
+                  <option key={tbl.id} value={tbl.id}>
+                    {tbl.name} ({tbl.tableType})
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Aggregation</label>
+              <select
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                value={(config.aggregate as string) ?? 'avg'}
+                onChange={(e) => updateConfig('aggregate', e.target.value)}
+              >
+                {['sum', 'avg', 'count', 'min', 'max', 'product'].map((aggregate) => (
+                  <option key={aggregate} value={aggregate}>{aggregate}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Expression column</label>
+              <input
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                value={(config.expression as string) ?? ''}
+                onChange={(e) => updateConfig('expression', e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Filter combinator</label>
+              <select
+                className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                value={(config.filterCombinator as string) ?? 'and'}
+                onChange={(e) => updateConfig('filterCombinator', e.target.value)}
+              >
+                <option value="and">AND</option>
+                <option value="or">OR</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Filters</label>
+              {tableAggregateFilters.map((filter, index) => {
+                const isDynamic = String(filter.inputPort ?? '').trim() !== ''
+                const replaceFilter = (next: Record<string, unknown>) => {
+                  const filters = [...tableAggregateFilters]
+                  filters[index] = next
+                  updateTableAggregateFilters(filters)
+                }
+                return (
+                  <div key={index} className="mb-2 rounded border border-gray-200 p-2">
+                    <div className="mb-1 flex gap-1">
+                      <input
+                        aria-label={`Filter ${index + 1} column`}
+                        className="min-w-0 flex-1 text-xs border border-gray-300 rounded px-2 py-1"
+                        placeholder="column"
+                        value={String(filter.column ?? '')}
+                        onChange={(e) => replaceFilter({ ...filter, column: e.target.value })}
+                      />
+                      <select
+                        aria-label={`Filter ${index + 1} operator`}
+                        className="w-14 text-xs border border-gray-300 rounded px-1 py-1"
+                        value={String(filter.op ?? 'eq')}
+                        onChange={(e) => replaceFilter({ ...filter, op: e.target.value })}
+                      >
+                        {['eq', 'ne', 'gt', 'ge', 'lt', 'le'].map((op) => <option key={op} value={op}>{op}</option>)}
+                      </select>
+                    </div>
+                    <select
+                      aria-label={`Filter ${index + 1} value source`}
+                      className="mb-1 w-full text-xs border border-gray-300 rounded px-2 py-1"
+                      value={isDynamic ? 'input' : 'value'}
+                      onChange={(e) => {
+                        const base = { ...filter }
+                        delete base.inputPort
+                        delete base.value
+                        replaceFilter(e.target.value === 'input'
+                          ? { ...base, inputPort: 'filter' }
+                          : { ...base, value: '' })
+                      }}
+                    >
+                      <option value="input">Connected input</option>
+                      <option value="value">Literal value</option>
+                    </select>
+                    <input
+                      aria-label={`Filter ${index + 1} ${isDynamic ? 'input port' : 'literal value'}`}
+                      className="w-full text-xs border border-gray-300 rounded px-2 py-1"
+                      placeholder={isDynamic ? 'input port' : 'literal value'}
+                      value={String(isDynamic ? filter.inputPort ?? '' : filter.value ?? '')}
+                      onChange={(e) => replaceFilter(isDynamic
+                        ? { ...filter, inputPort: e.target.value, value: undefined }
+                        : { ...filter, value: e.target.value, inputPort: undefined })}
+                    />
+                    <button
+                      type="button"
+                      className="mt-1 text-xs text-red-500 hover:text-red-700"
+                      onClick={() => updateTableAggregateFilters(tableAggregateFilters.filter((_, i) => i !== index))}
+                    >
+                      Remove filter
+                    </button>
+                  </div>
+                )
+              })}
+              <button
+                type="button"
+                className="text-xs text-indigo-600 hover:text-indigo-800"
+                onClick={() => updateTableAggregateFilters([
+                  ...tableAggregateFilters,
+                  { column: '', op: 'eq', inputPort: `filter${tableAggregateFilters.length + 1}` },
+                ])}
+              >
+                + Add filter
+              </button>
             </div>
           </>
         )}

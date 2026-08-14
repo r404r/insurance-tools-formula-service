@@ -18,6 +18,7 @@ export type NodeType =
   | 'function'
   | 'subFormula'
   | 'tableLookup'
+  | 'tableAggregate'
   | 'conditional'
   | 'aggregate'
   | 'loop'
@@ -31,7 +32,7 @@ export type FunctionKind =
   | 'abs'
   | 'min'
   | 'max'
-  | 'log'
+  | 'ln'
   | 'exp'
   | 'sqrt'
 
@@ -67,6 +68,23 @@ export interface TableLookupConfig {
   column: string
 }
 
+/** Configuration accepted by the backend's SQL-style table aggregate node. */
+export interface TableAggregateFilter {
+  column: string
+  op: 'eq' | 'ne' | 'gt' | 'ge' | 'lt' | 'le'
+  value?: string
+  inputPort?: string
+  negate?: boolean
+}
+
+export interface TableAggregateConfig {
+  tableId: string
+  aggregate: 'sum' | 'avg' | 'count' | 'min' | 'max' | 'product'
+  expression: string
+  filters?: TableAggregateFilter[]
+  filterCombinator?: 'and' | 'or'
+}
+
 export interface ConditionalConfig {
   comparator: 'eq' | 'ne' | 'gt' | 'ge' | 'lt' | 'le'
 }
@@ -98,6 +116,7 @@ export type NodeConfig =
   | FunctionConfig
   | SubFormulaConfig
   | TableLookupConfig
+  | TableAggregateConfig
   | ConditionalConfig
   | AggregateConfig
   | LoopConfig

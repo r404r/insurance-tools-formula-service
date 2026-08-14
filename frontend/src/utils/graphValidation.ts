@@ -175,6 +175,20 @@ export function validateGraph(nodes: Node[], edges: Edge[]): ValidationIssue[] {
         }
         break
       }
+      case 'tableAggregate': {
+        const filters = Array.isArray(config.filters) ? config.filters : []
+        for (const filter of filters) {
+          const inputPort = String((filter as Record<string, unknown>).inputPort ?? '').trim()
+          if (inputPort && !ports.has(inputPort)) {
+            issues.push({
+              message: `Table aggregate filter must have "${inputPort}" input connected`,
+              nodeIds: [node.id],
+              severity: 'error',
+            })
+          }
+        }
+        break
+      }
       case 'conditional':
         for (const port of ['condition', 'conditionRight', 'thenValue', 'elseValue']) {
           if (!ports.has(port))

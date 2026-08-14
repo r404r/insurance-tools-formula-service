@@ -65,6 +65,7 @@ export default function FormulaEditorPage() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [textValue, setTextValue] = useState('')
   const [testInputs, setTestInputs] = useState<Record<string, string>>({})
+  const [testInputError, setTestInputError] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<Record<string, string> | null>(null)
   const [isTestPanelCollapsed, setIsTestPanelCollapsed] = useState(false)
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
@@ -88,6 +89,7 @@ export default function FormulaEditorPage() {
   const [isSavingDesc, setIsSavingDesc] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
+  const loadedVersionIdRef = useRef<string | null>(null)
   const autoLayout = useAutoLayout()
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null
   const nodeIdSet = useMemo(() => new Set(nodes.map((n) => n.id)), [nodes])
@@ -168,12 +170,13 @@ export default function FormulaEditorPage() {
 
       let changed = false
       const result = inputNodes.map((node) => {
-        const nodeType = String(node.data.nodeType ?? node.type)
+        const nodeData = (node.data ?? {}) as Record<string, unknown>
+        const nodeType = String(nodeData.nodeType ?? node.type)
         if (nodeType !== 'subFormula' && nodeType !== 'loop') {
           return node
         }
 
-        const config = (node.data.config as Record<string, unknown>) ?? {}
+        const config = (nodeData.config as Record<string, unknown>) ?? {}
         const formulaId = String(config.formulaId ?? '')
         const matchedFormula = allFormulas.find((item) => item.id === formulaId)
         const formulaName = matchedFormula?.name ?? String(config.formulaName ?? '').trim()
@@ -188,7 +191,7 @@ export default function FormulaEditorPage() {
           data: createNodeData(nodeType as NodeType, {
             ...config,
             formulaName,
-          }, String(node.data.description ?? '')),
+          }, String(nodeData.description ?? '')),
         }
       })
       return changed ? result : inputNodes
@@ -218,6 +221,13 @@ export default function FormulaEditorPage() {
       return
     }
 
+    // Auxiliary query results can recreate `enrichSubFormulaNodes`, but they
+    // must not reload a version the user is already editing locally.
+    if (loadedVersionIdRef.current === latestVersion.id) {
+      return
+    }
+    loadedVersionIdRef.current = latestVersion.id
+
     const { nodes: n, edges: e } = apiToReactFlow(latestVersion.graph)
     const hydratedNodes = enrichSubFormulaNodes(n)
     setNodes(hydratedNodes)
@@ -228,7 +238,10 @@ export default function FormulaEditorPage() {
       setTextValue(`// ${(err as Error).message}`)
     }
     setSelectedNodeId(null)
-  }, [enrichSubFormulaNodes, latestVersion?.id, latestVersion?.graph])
+  // A version identity change is the only event that may replace the canvas.
+  // Formula-name enrichment is applied separately below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestVersion?.id])
 
   useEffect(() => {
     if (allFormulas.length === 0) {
@@ -521,6 +534,10 @@ export default function FormulaEditorPage() {
 
   const handleTest = async () => {
     if (!id) return
+    if (testInputError) {
+      setTestResult({ error: testInputError })
+      return
+    }
     try {
       const res = await api.post<{ result: Record<string, string> }>('/calculate', {
         formulaId: id,
@@ -755,8 +772,22 @@ export default function FormulaEditorPage() {
                 <input
                   className="min-w-[320px] flex-1 text-sm border border-gray-300 rounded px-2 py-1"
                   placeholder={`${t('calc.inputs')} (JSON): {"age": "35", "sumAssured": "1000000"}`}
+                  aria-invalid={testInputError ? 'true' : undefined}
                   onChange={(e) => {
-                    try { setTestInputs(JSON.parse(e.target.value)) } catch { /* ignore */ }
+                    try {
+                      const parsed: unknown = JSON.parse(e.target.value)
+                      if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+                        throw new Error('Test inputs must be a JSON object')
+                      }
+                      setTestInputs(parsed as Record<string, string>)
+                      setTestInputError(null)
+                    } catch (err) {
+                      // Clear the executable value as well as displaying the
+                      // error: a malformed current input must never submit a
+                      // previous valid input object.
+                      setTestInputs({})
+                      setTestInputError((err as Error).message)
+                    }
                   }}
                 />
                 <button
@@ -766,6 +797,9 @@ export default function FormulaEditorPage() {
                   {t('calc.calculate')}
                 </button>
               </div>
+              {testInputError && (
+                <p className="mt-1 text-xs text-red-600" role="alert">{testInputError}</p>
+              )}
               {testResult && (
                 <div className="mt-3 overflow-auto rounded border bg-white p-2 text-xs font-mono text-gray-700">
                   {JSON.stringify(testResult)}

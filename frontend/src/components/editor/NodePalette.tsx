@@ -9,6 +9,7 @@ const nodeTypes: { type: NodeType; icon: string }[] = [
   { type: 'function', icon: 'f(x)' },
   { type: 'subFormula', icon: '{}' },
   { type: 'tableLookup', icon: '[]' },
+  { type: 'tableAggregate', icon: 'Σ▤' },
   { type: 'conditional', icon: '?' },
   { type: 'aggregate', icon: 'E' },
   { type: 'loop', icon: '↺' },

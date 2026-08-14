@@ -7,6 +7,7 @@ export const NODE_COLORS: Record<string, { bg: string; border: string }> = {
   function: { bg: '#d1fae5', border: '#10b981' },
   subFormula: { bg: '#e0e7ff', border: '#6366f1' },
   tableLookup: { bg: '#fae8ff', border: '#a855f7' },
+  tableAggregate: { bg: '#ecfdf5', border: '#059669' },
   conditional: { bg: '#ffedd5', border: '#f97316' },
   aggregate: { bg: '#ccfbf1', border: '#14b8a6' },
   loop: { bg: '#fef9c3', border: '#ca8a04' },
@@ -70,6 +71,8 @@ export function nodeLabel(type: string, config: Record<string, unknown>): string
       return `sub:${shortenIdentifier(config.formulaId)}`
     case 'tableLookup':
       return `lookup(${config.column ?? '?'})`
+    case 'tableAggregate':
+      return `table ${config.aggregate ?? '?'}`
     case 'conditional':
       return `if ${config.comparator ?? '?'}`
     case 'aggregate':
@@ -120,6 +123,19 @@ export function getInputPorts(nodeType: string, config: Record<string, unknown>)
         label: col,
       }))
     }
+    case 'tableAggregate': {
+      const filters = Array.isArray(config.filters) ? config.filters : []
+      const inputPorts = filters
+        .map((filter) => String((filter as Record<string, unknown>).inputPort ?? '').trim())
+        .filter(Boolean)
+        .filter((port, index, all) => all.indexOf(port) === index)
+      const count = inputPorts.length
+      return inputPorts.map((port, index) => ({
+        id: port,
+        top: `${Math.round(((index + 1) / (count + 1)) * 100)}%`,
+        label: port,
+      }))
+    }
     case 'conditional':
       return [
         { id: 'condition', top: '18%', label: 'If' },
@@ -154,6 +170,14 @@ export function defaultNodeConfig(type: NodeType): Record<string, unknown> {
       return { formulaId: '' }
     case 'tableLookup':
       return { tableId: '', keyColumns: ['key'], column: '' }
+    case 'tableAggregate':
+      return {
+        tableId: '',
+        aggregate: 'avg',
+        expression: '',
+        filters: [{ column: '', op: 'eq', inputPort: 'filter' }],
+        filterCombinator: 'and',
+      }
     case 'conditional':
       return { comparator: 'gt' }
     case 'aggregate':

@@ -9,15 +9,14 @@ import type { BatchTestCase, BatchTestResponse, FormulaVersion } from '../../typ
 // ── CSV parser ────────────────────────────────────────────────────────────────
 
 function parseCsv(text: string): BatchTestCase[] {
-  const lines = text.trim().split('\n').filter((l) => l.trim())
-  if (lines.length < 2) throw new Error('CSV must have a header row and at least one data row')
+  const rows = parseRfc4180(text)
+  if (rows.length < 2) throw new Error('CSV must have a header row and at least one data row')
 
-  const headers = lines[0].split(',').map((h) => h.trim())
+  const headers = rows[0].map((header) => header.trim())
   const expectedKeys = headers.filter((h) => h.startsWith('expected_'))
   const inputKeys = headers.filter((h) => h !== 'label' && !h.startsWith('expected_'))
 
-  return lines.slice(1).map((line, i) => {
-    const values = line.split(',').map((v) => v.trim())
+  return rows.slice(1).map((values, i) => {
     const row: Record<string, string> = {}
     headers.forEach((h, idx) => { row[h] = values[idx] ?? '' })
 
@@ -29,6 +28,80 @@ function parseCsv(text: string): BatchTestCase[] {
 
     return { label: row['label'] || `Row ${i + 2}`, inputs, expected }
   })
+}
+
+/**
+ * Small RFC 4180 reader for batch imports. It keeps field values exactly as
+ * supplied (including CRLF inside quoted fields), handles Excel's UTF-8 BOM,
+ * and rejects malformed quoted fields rather than corrupting a test case.
+ */
+function parseRfc4180(source: string): string[][] {
+  const text = source.startsWith('\ufeff') ? source.slice(1) : source
+  const rows: string[][] = []
+  let row: string[] = []
+  let field = ''
+  let inQuotes = false
+  let afterQuote = false
+
+  const endRow = () => {
+    row.push(field)
+    // Empty lines are ignored, as they were by the former line-oriented UI.
+    if (row.some((value) => value !== '')) rows.push(row)
+    row = []
+    field = ''
+  }
+
+  for (let index = 0; index < text.length; index++) {
+    const char = text[index]
+
+    if (inQuotes) {
+      if (char === '"') {
+        if (text[index + 1] === '"') {
+          field += '"'
+          index++
+        } else {
+          inQuotes = false
+          afterQuote = true
+        }
+      } else {
+        field += char
+      }
+      continue
+    }
+
+    if (afterQuote) {
+      if (char === ',') {
+        row.push(field)
+        field = ''
+        afterQuote = false
+        continue
+      }
+      if (char === '\r' || char === '\n') {
+        if (char === '\r' && text[index + 1] === '\n') index++
+        endRow()
+        afterQuote = false
+        continue
+      }
+      throw new Error('Invalid character after closing quoted CSV field')
+    }
+
+    if (char === ',') {
+      row.push(field)
+      field = ''
+    } else if (char === '\r' || char === '\n') {
+      if (char === '\r' && text[index + 1] === '\n') index++
+      endRow()
+    } else if (char === '"') {
+      if (field !== '') throw new Error('Unexpected quote in unquoted CSV field')
+      inQuotes = true
+    } else {
+      field += char
+    }
+  }
+
+  if (inQuotes) throw new Error('Unterminated quoted CSV field')
+  if (afterQuote || row.length > 0 || field !== '') endRow()
+  return rows
 }
 
 // ── component ─────────────────────────────────────────────────────────────────
