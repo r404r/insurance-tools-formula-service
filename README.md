@@ -137,6 +137,13 @@ Backend on port 8080, frontend on port 3000. See
 [`Database Configuration`](#database-configuration) below for the full
 profile / DSN reference.
 
+For local Compose, the three backend profiles share one browser-auth
+contract: `http://localhost:3000` and `http://localhost:5173` are allowed
+origins, the cookie is non-Secure for local HTTP, and the bootstrap password
+is `formula-service-local-admin`. These are development defaults only; set
+unique `AUTH_JWT_SECRET`, `ADMIN_INITIAL_PASSWORD`, and HTTPS cookie settings
+for a deployed environment.
+
 ### Build
 
 ```bash
@@ -273,7 +280,7 @@ that small fixes to seed data no longer require rebuilding `cmd/server`.
 | Field | Value |
 |-------|-------|
 | Username | `admin` |
-| Password | `admin99999` |
+| Password | `formula-service-local-admin` (local development default) |
 | Role | Admin |
 
 ### Seed Formulas
@@ -308,7 +315,7 @@ Built on the Loop node with the Japanese Standard Life Table 2007 (simplified):
 # Login
 TOKEN=$(curl -s http://localhost:8080/api/v1/auth/login \
   -H 'Content-Type: application/json' \
-  -d '{"username":"admin","password":"admin99999"}' | jq -r .token)
+  -d '{"username":"admin","password":"formula-service-local-admin"}' | jq -r .token)
 
 # Calculate pure premium with the actuarial loop formula
 curl -s -X POST http://localhost:8080/api/v1/calculate \

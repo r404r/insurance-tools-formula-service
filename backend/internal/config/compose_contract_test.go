@@ -15,7 +15,7 @@ func TestComposeBackendProfilesShareLocalAuthBrowserContract(t *testing.T) {
 	}
 
 	const (
-		adminPassword = "${ADMIN_INITIAL_PASSWORD:-admin99999}"
+		adminPassword = "${ADMIN_INITIAL_PASSWORD:-formula-service-local-admin}"
 		localCORS     = "http://localhost:3000,http://localhost:5173"
 	)
 

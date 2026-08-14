@@ -131,7 +131,7 @@ cd ..
 # inside the container, not the host path.
 SEED_BASE_URL=http://backend:8080 \
 SEED_ADMIN_USER=admin \
-SEED_ADMIN_PASS=admin99999 \
+SEED_ADMIN_PASS=formula-service-local-admin \
 /tmp/seed-runner --seed-dir /seed
 ```
 
@@ -141,7 +141,7 @@ Flags:
 |---|---|---|
 | `--base-url` | `http://localhost:8080` | `SEED_BASE_URL` |
 | `--admin-user` | `admin` | `SEED_ADMIN_USER` |
-| `--admin-pass` | `admin99999` | `SEED_ADMIN_PASS` |
+| `--admin-pass` | `formula-service-local-admin` | `SEED_ADMIN_PASS` |
 | `--seed-dir` | `backend/seed` | `SEED_DIR` |
 | `--dry-run` | off | — |
 | `--only NAME` | off | — |

@@ -25,7 +25,7 @@
 // not run it concurrently with normal user traffic.
 //
 // Authentication: the runner logs in as the bootstrap admin (default
-// admin/admin99999, overridable via flags or env). The bootstrap admin is
+// admin/formula-service-local-admin, overridable via flags or env). The bootstrap admin is
 // still created by backend/cmd/server/main.go because the API has no
 // chicken-and-egg admin endpoint.
 package main
@@ -62,7 +62,7 @@ func main() {
 	cfg := config{
 		BaseURL:   envOr("SEED_BASE_URL", "http://localhost:8080"),
 		AdminUser: envOr("SEED_ADMIN_USER", "admin"),
-		AdminPass: envOr("SEED_ADMIN_PASS", "admin99999"),
+		AdminPass: envOr("SEED_ADMIN_PASS", "formula-service-local-admin"),
 		SeedDir:   envOr("SEED_DIR", "backend/seed"),
 	}
 	flag.StringVar(&cfg.BaseURL, "base-url", cfg.BaseURL, "formula-service base URL")

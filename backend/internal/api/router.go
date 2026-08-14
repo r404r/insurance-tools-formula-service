@@ -63,7 +63,10 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 		// login: 5 req/min/IP; register: 3 req/min/IP; parse: 30 req/min/IP.
 		r.With(IPRateLimit(5, 5, cfg.TrustProxy)).Post("/auth/login", cfg.AuthHandler.Login)
 		r.With(IPRateLimit(3, 3, cfg.TrustProxy)).Post("/auth/register", cfg.AuthHandler.Register)
-		r.Post("/auth/logout", cfg.AuthHandler.Logout)
+		// Logout clears an ambient browser cookie, so it needs the same CSRF
+		// protection as authenticated cookie requests even though no valid
+		// session is required to make logout idempotent.
+		r.With(CSRFProtect(cfg.CORSOrigins)).Post("/auth/logout", cfg.AuthHandler.Logout)
 
 		// Parse text formula to graph (stateless, no auth needed).
 		r.With(IPRateLimit(30, 30, cfg.TrustProxy)).Post("/parse", cfg.ParseHandler.Parse)

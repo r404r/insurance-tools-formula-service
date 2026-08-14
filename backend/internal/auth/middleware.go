@@ -16,6 +16,19 @@ type contextKey struct{}
 
 var claimsKey = contextKey{}
 
+// credentialSourceKey identifies the credential that AuthMiddleware actually
+// accepted. It is deliberately distinct from mere credential presence: a
+// malformed cookie must never be treated as an authenticated Bearer request.
+type credentialSourceKey struct{}
+
+// CredentialSource describes the credential verified by AuthMiddleware.
+type CredentialSource string
+
+const (
+	CredentialSourceCookie CredentialSource = "cookie"
+	CredentialSourceBearer CredentialSource = "bearer"
+)
+
 const AuthCookieName = "auth_token"
 
 // AuthMiddleware returns HTTP middleware that extracts a JWT from either the
@@ -31,9 +44,11 @@ func AuthMiddleware(jwtMgr *JWTManager, users store.UserRepository) func(http.Ha
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			var tokenStr string
+			var source CredentialSource
 
 			if cookie, err := r.Cookie(AuthCookieName); err == nil {
 				tokenStr = cookie.Value
+				source = CredentialSourceCookie
 			} else {
 				header := r.Header.Get("Authorization")
 				if header == "" {
@@ -46,6 +61,7 @@ func AuthMiddleware(jwtMgr *JWTManager, users store.UserRepository) func(http.Ha
 					return
 				}
 				tokenStr = parts[1]
+				source = CredentialSourceBearer
 			}
 
 			claims, err := jwtMgr.Verify(tokenStr)
@@ -74,6 +90,7 @@ func AuthMiddleware(jwtMgr *JWTManager, users store.UserRepository) func(http.Ha
 			}
 
 			ctx := context.WithValue(r.Context(), claimsKey, claims)
+			ctx = context.WithValue(ctx, credentialSourceKey{}, source)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -103,6 +120,14 @@ func RequirePermission(perm Permission) func(http.Handler) http.Handler {
 func GetClaims(ctx context.Context) *Claims {
 	claims, _ := ctx.Value(claimsKey).(*Claims)
 	return claims
+}
+
+// GetCredentialSource reports the credential AuthMiddleware successfully
+// verified for this request. The empty value means authentication middleware
+// did not accept a credential (for example, on a public route).
+func GetCredentialSource(ctx context.Context) CredentialSource {
+	source, _ := ctx.Value(credentialSourceKey{}).(CredentialSource)
+	return source
 }
 
 // WithClaims returns a new context with the given Claims attached. Used by

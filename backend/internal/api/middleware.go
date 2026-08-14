@@ -12,6 +12,8 @@ import (
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
+	"github.com/r404r/insurance-tools/formula-service/backend/internal/auth"
 )
 
 // Logger returns middleware that logs each request's method, path, status code,
@@ -227,8 +229,15 @@ func (d *DynamicConcurrencyLimiter) Middleware() func(http.Handler) http.Handler
 
 // CSRFProtect returns middleware that validates Origin or Referer for unsafe
 // HTTP methods (POST, PUT, PATCH, DELETE) to defend against CSRF attacks.
-// Apply only to routes that accept cookie-based authentication.
-// Safe methods (GET, HEAD, OPTIONS) pass through without checking.
+// It applies only when a cookie credential is in use: API clients that present
+// a Bearer token without a cookie are not vulnerable to browser CSRF and do
+// not need an Origin/Referer header. AuthMiddleware records the credential it
+// actually verified, retaining cookie priority when both are supplied.
+//
+// The same middleware can wrap public logout. There is no authenticated
+// context there, so merely carrying an auth cookie is enough to require the
+// check: this prevents a cross-site request from logging a browser user out.
+// Safe methods (GET, HEAD, OPTIONS, TRACE) pass through without checking.
 func CSRFProtect(allowedOrigins []string) func(http.Handler) http.Handler {
 	originSet := make(map[string]bool, len(allowedOrigins))
 	for _, o := range allowedOrigins {
@@ -240,6 +249,21 @@ func CSRFProtect(allowedOrigins []string) func(http.Handler) http.Handler {
 			case http.MethodGet, http.MethodHead, http.MethodOptions, http.MethodTrace:
 				next.ServeHTTP(w, r)
 				return
+			}
+
+			switch auth.GetCredentialSource(r.Context()) {
+			case auth.CredentialSourceBearer:
+				next.ServeHTTP(w, r)
+				return
+			case auth.CredentialSourceCookie:
+				// The verified cookie identity needs CSRF protection below.
+			default:
+				if _, err := r.Cookie(auth.AuthCookieName); err != nil {
+					// Public routes with no auth cookie, including Bearer-only
+					// logout, cannot be driven by ambient browser credentials.
+					next.ServeHTTP(w, r)
+					return
+				}
 			}
 			if origin := r.Header.Get("Origin"); origin != "" {
 				if !originSet[origin] {
