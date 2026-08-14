@@ -143,8 +143,8 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 			return "", err
 		}
 		g.Edges = append(g.Edges,
-			domain.FormulaEdge{Source: leftID, Target: id, SourcePort: "out", TargetPort: "left"},
-			domain.FormulaEdge{Source: rightID, Target: id, SourcePort: "out", TargetPort: "right"},
+			domain.FormulaEdge{Source: leftID, Target: id, SourcePort: "out", TargetPort: "condition"},
+			domain.FormulaEdge{Source: rightID, Target: id, SourcePort: "out", TargetPort: "conditionRight"},
 		)
 		return id, nil
 
@@ -216,6 +216,12 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 		if agg, ok := parseLoopFuncName(fnLower); ok {
 			return astToDAGLoop(id, node, g, counter, agg)
 		}
+		if isVariadicAggregate(fnLower) {
+			return astToDAGAggregate(id, node, g, counter, fnLower)
+		}
+		if (fnLower == "min" || fnLower == "max") && len(node.Children) != 2 {
+			return "", fmt.Errorf("%s expects exactly 2 arguments but has %d", fnLower, len(node.Children))
+		}
 		args := make(map[string]string)
 		// For round/floor/ceil with a precision argument, store it.
 		if (fnLower == "round" || fnLower == "floor" || fnLower == "ceil") && len(node.Children) >= 2 {
@@ -260,6 +266,38 @@ func astToDAGWalk(node *ASTNode, g *domain.FormulaGraph, counter *int) (string, 
 	default:
 		return "", fmt.Errorf("unknown AST node kind: %d", node.Kind)
 	}
+}
+
+func isVariadicAggregate(fn string) bool {
+	switch fn {
+	case "sum", "avg", "product", "count":
+		return true
+	default:
+		return false
+	}
+}
+
+// astToDAGAggregate is the canonical representation for numeric reductions.
+// Port names retain argument order so text <-> graph round trips are stable.
+func astToDAGAggregate(id string, node *ASTNode, g *domain.FormulaGraph, counter *int, fn string) (string, error) {
+	if len(node.Children) == 0 {
+		return "", fmt.Errorf("%s expects at least 1 argument", fn)
+	}
+	g.Nodes = append(g.Nodes, domain.FormulaNode{
+		ID:     id,
+		Type:   domain.NodeAggregate,
+		Config: mustMarshal(domain.AggregateConfig{Fn: fn}),
+	})
+	for i, child := range node.Children {
+		childID, err := astToDAGWalk(child, g, counter)
+		if err != nil {
+			return "", err
+		}
+		g.Edges = append(g.Edges, domain.FormulaEdge{
+			Source: childID, Target: id, SourcePort: "out", TargetPort: fmt.Sprintf("items:%d", i),
+		})
+	}
+	return id, nil
 }
 
 func astToDAGLookup(id string, node *ASTNode, g *domain.FormulaGraph, counter *int) (string, error) {
@@ -695,8 +733,8 @@ func dagToASTWalk(
 		condRightID := findEdgeSource(edges, "conditionRight")
 		thenID := findEdgeSource(edges, "thenValue")
 		elseID := findEdgeSource(edges, "elseValue")
-		if condLeftID == "" || condRightID == "" || thenID == "" || elseID == "" {
-			return nil, fmt.Errorf("node %s: conditional missing condition/conditionRight/thenValue/elseValue", nodeID)
+		if condLeftID == "" || condRightID == "" {
+			return nil, fmt.Errorf("node %s: conditional missing condition/conditionRight", nodeID)
 		}
 
 		condLeft, err := dagToASTWalk(condLeftID, nodeMap, inEdges)
@@ -707,6 +745,17 @@ func dagToASTWalk(
 		if err != nil {
 			return nil, err
 		}
+		comparison := &ASTNode{
+			Kind:     KindComparison,
+			Op:       comparatorSymbol(cfg.Comparator),
+			Children: []*ASTNode{condLeft, condRight},
+		}
+		if thenID == "" && elseID == "" {
+			return comparison, nil
+		}
+		if thenID == "" || elseID == "" {
+			return nil, fmt.Errorf("node %s: conditional missing thenValue/elseValue", nodeID)
+		}
 		thenNode, err := dagToASTWalk(thenID, nodeMap, inEdges)
 		if err != nil {
 			return nil, err
@@ -715,16 +764,28 @@ func dagToASTWalk(
 		if err != nil {
 			return nil, err
 		}
-
-		comparison := &ASTNode{
-			Kind:     KindComparison,
-			Op:       comparatorSymbol(cfg.Comparator),
-			Children: []*ASTNode{condLeft, condRight},
-		}
 		return &ASTNode{
 			Kind:     KindConditional,
 			Children: []*ASTNode{comparison, thenNode, elseNode},
 		}, nil
+
+	case domain.NodeAggregate:
+		var cfg domain.AggregateConfig
+		if err := json.Unmarshal(fn.Config, &cfg); err != nil {
+			return nil, fmt.Errorf("node %s: bad aggregate config: %w", nodeID, err)
+		}
+		node := &ASTNode{Kind: KindFunctionCall, FuncName: cfg.Fn}
+		for _, edge := range sortItemEdges(inEdges[nodeID]) {
+			child, err := dagToASTWalk(edge.Source, nodeMap, inEdges)
+			if err != nil {
+				return nil, err
+			}
+			node.Children = append(node.Children, child)
+		}
+		if len(node.Children) == 0 {
+			return nil, fmt.Errorf("node %s: aggregate has no item inputs", nodeID)
+		}
+		return node, nil
 
 	case domain.NodeTableAggregate:
 		// Same UX pattern as the composite-conditional and loop limitations
@@ -789,6 +850,25 @@ func sortArgEdges(edges []domain.FormulaEdge) []domain.FormulaEdge {
 		for _, e := range edges {
 			if e.TargetPort == port {
 				result = append(result, e)
+				found = true
+				break
+			}
+		}
+		if !found {
+			break
+		}
+	}
+	return result
+}
+
+func sortItemEdges(edges []domain.FormulaEdge) []domain.FormulaEdge {
+	var result []domain.FormulaEdge
+	for i := 0; ; i++ {
+		port := fmt.Sprintf("items:%d", i)
+		found := false
+		for _, edge := range edges {
+			if edge.TargetPort == port {
+				result = append(result, edge)
 				found = true
 				break
 			}
