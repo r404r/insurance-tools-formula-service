@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef, type SetStateAction } from 'react'
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -17,6 +17,7 @@ import NodePropertiesPanel from './NodePropertiesPanel'
 import type { Formula, FormulaVersion, InsuranceDomain, NodeType } from '../../types/formula'
 import { createNodeData } from './nodePresentation'
 import { useAutoLayout } from './hooks/useAutoLayout'
+import { useUnsavedChangesGuard } from './hooks/useUnsavedChangesGuard'
 import { validateGraph, type ValidationIssue } from '../../utils/graphValidation'
 export type { ValidationIssue } from '../../utils/graphValidation'
 
@@ -89,11 +90,13 @@ export default function FormulaEditorPage() {
   const [isSavingDesc, setIsSavingDesc] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
+  const [isDirty, setIsDirty] = useState(false)
   const loadedVersionIdRef = useRef<string | null>(null)
   const autoLayout = useAutoLayout()
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null
   const nodeIdSet = useMemo(() => new Set(nodes.map((n) => n.id)), [nodes])
   const isEditor = user?.role === 'editor' || user?.role === 'admin'
+  useUnsavedChangesGuard(isDirty, t('editor.unsavedChangesPrompt'))
 
   const { data: formula } = useQuery({
     queryKey: ['formula', id],
@@ -238,6 +241,7 @@ export default function FormulaEditorPage() {
       setTextValue(`// ${(err as Error).message}`)
     }
     setSelectedNodeId(null)
+    setIsDirty(false)
   // A version identity change is the only event that may replace the canvas.
   // Formula-name enrichment is applied separately below.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -284,6 +288,16 @@ export default function FormulaEditorPage() {
     }
   }, [effectiveMode, nodes, edges])
 
+  const handleNodesChange = useCallback((nextNodes: SetStateAction<Node[]>) => {
+    setNodes(nextNodes)
+    setIsDirty(true)
+  }, [])
+
+  const handleEdgesChange = useCallback((nextEdges: SetStateAction<Edge[]>) => {
+    setEdges(nextEdges)
+    setIsDirty(true)
+  }, [])
+
   const handleNodeDataChange = useCallback(
     (nodeId: string, data: Record<string, unknown>) => {
       setNodes((prev) =>
@@ -294,6 +308,7 @@ export default function FormulaEditorPage() {
           return { ...n, data: createNodeData(nodeType, config, String(data.description ?? n.data.description ?? '')) }
         })
       )
+      setIsDirty(true)
     },
     []
   )
@@ -315,6 +330,7 @@ export default function FormulaEditorPage() {
       })
     )
     setSelectedNodeId((cur) => (cur === oldId ? newId : cur))
+    setIsDirty(true)
   }, [])
 
   const handleApplyText = useCallback(async (text: string) => {
@@ -329,6 +345,7 @@ export default function FormulaEditorPage() {
       setNodes(layoutNodes)
       setEdges(newEdges)
       setSelectedNodeId(null)
+      setIsDirty(true)
       setSaveMessage(t('editor.textApplied'))
       setTimeout(() => setSaveMessage(null), 3000)
     } catch (err) {
@@ -408,6 +425,7 @@ export default function FormulaEditorPage() {
       const savedVersion = await api.post<FormulaVersion>(`/formulas/${id}/versions`, saveBody)
       setCurrentVersion(savedVersion)
       setActiveVersionNumber(savedVersion.version)
+      setIsDirty(false)
       await queryClient.invalidateQueries({ queryKey: ['versions', id] })
       // Drop the baseVersion query param after EVERY successful save,
       // even when we are not currently in fork mode. Reason: if the
@@ -728,8 +746,8 @@ export default function FormulaEditorPage() {
             <FormulaCanvas
               nodes={nodes}
               edges={edges}
-              onNodesChange={setNodes}
-              onEdgesChange={setEdges}
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
               onNodeSelect={(node) => setSelectedNodeId(node?.id ?? null)}
               validation={validationState}
             />

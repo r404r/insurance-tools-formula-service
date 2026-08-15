@@ -118,7 +118,8 @@
     "tableAggregateNoTextMode": "当前公式包含 TableAggregate 节点，暂不支持切换到文本模式，请使用可视化编辑器。",
     "idEmpty": "ID 不能为空",
     "idInvalid": "ID 必须以字母或下划线开头，后续字符只能是字母、数字或下划线（最长 64）",
-    "idConflict": "ID 与另一个节点冲突"
+    "idConflict": "ID 与另一个节点冲突",
+    "unsavedChangesPrompt": "您有未保存的更改。确定不保存就离开吗？"
   },
   "node": {
     "variable": "变量",

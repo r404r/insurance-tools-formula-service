@@ -30,6 +30,7 @@ vi.mock('react-router-dom', () => ({
   useNavigate: () => mocks.navigate,
   useParams: () => ({ id: 'formula-1' }),
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  useBeforeUnload: vi.fn(),
 }))
 
 vi.mock('react-i18next', () => ({
