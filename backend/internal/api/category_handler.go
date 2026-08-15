@@ -198,6 +198,10 @@ func (h *CategoryHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Categories.Delete(r.Context(), id); err != nil {
+		if errors.Is(err, store.ErrHasContent) {
+			writeJSON(w, http.StatusConflict, ErrorResponse{Error: "category is still in use", Code: http.StatusConflict})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to delete category", Code: http.StatusInternalServerError})
 		return
 	}

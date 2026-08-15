@@ -2,7 +2,10 @@ package store
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
@@ -41,6 +44,93 @@ type FormulaVersionAtomicCreator interface {
 
 type SeedResetter interface {
 	ResetSeedData(ctx context.Context) (formulasDeleted, tablesDeleted int64, err error)
+}
+
+// EnsureSeedLookupTablesUnreferenced rejects a seed reset if any persisted
+// formula-version graph still names a seed-owned lookup table. Callers must
+// invoke it from the same transaction that performs the deletes so a rejected
+// reset leaves every seed record untouched.
+func EnsureSeedLookupTablesUnreferenced(ctx context.Context, tx *sql.Tx) error {
+	seedTableRows, err := tx.QueryContext(ctx, `SELECT id FROM lookup_tables WHERE seed_key != ''`)
+	if err != nil {
+		return fmt.Errorf("list seed lookup tables: %w", err)
+	}
+	defer seedTableRows.Close()
+
+	seedTableIDs := make(map[string]struct{})
+	for seedTableRows.Next() {
+		var id string
+		if err := seedTableRows.Scan(&id); err != nil {
+			return fmt.Errorf("scan seed lookup table: %w", err)
+		}
+		seedTableIDs[id] = struct{}{}
+	}
+	if err := seedTableRows.Err(); err != nil {
+		return fmt.Errorf("iterate seed lookup tables: %w", err)
+	}
+	if len(seedTableIDs) == 0 {
+		return nil
+	}
+
+	versionRows, err := tx.QueryContext(ctx, `SELECT formula_versions.graph_json
+		FROM formula_versions
+		JOIN formulas ON formulas.id = formula_versions.formula_id
+		WHERE formulas.seed_key = ''`)
+	if err != nil {
+		return fmt.Errorf("list formula version graphs: %w", err)
+	}
+	defer versionRows.Close()
+	for versionRows.Next() {
+		var graphJSON string
+		if err := versionRows.Scan(&graphJSON); err != nil {
+			return fmt.Errorf("scan formula version graph: %w", err)
+		}
+		referenced, err := GraphReferencesAnyTableID(graphJSON, seedTableIDs)
+		if err != nil {
+			return fmt.Errorf("inspect formula version graph: %w", err)
+		}
+		if referenced {
+			return ErrHasContent
+		}
+	}
+	if err := versionRows.Err(); err != nil {
+		return fmt.Errorf("iterate formula version graphs: %w", err)
+	}
+	return nil
+}
+
+// GraphReferencesAnyTableID walks the persisted graph JSON rather than
+// relying on whitespace-sensitive SQL LIKE patterns. It finds tableLookup
+// and tableAggregate configs as well as future nodes that use a tableId key.
+func GraphReferencesAnyTableID(graphJSON string, tableIDs map[string]struct{}) (bool, error) {
+	var graph any
+	if err := json.Unmarshal([]byte(graphJSON), &graph); err != nil {
+		return false, err
+	}
+	return valueReferencesAnyTableID(graph, tableIDs), nil
+}
+
+func valueReferencesAnyTableID(value any, tableIDs map[string]struct{}) bool {
+	switch typed := value.(type) {
+	case map[string]any:
+		if tableID, ok := typed["tableId"].(string); ok {
+			if _, referenced := tableIDs[tableID]; referenced {
+				return true
+			}
+		}
+		for _, child := range typed {
+			if valueReferencesAnyTableID(child, tableIDs) {
+				return true
+			}
+		}
+	case []any:
+		for _, child := range typed {
+			if valueReferencesAnyTableID(child, tableIDs) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // VersionRepository manages formula version persistence.

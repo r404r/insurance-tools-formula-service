@@ -77,6 +77,9 @@ func (s *SQLiteStore) ResetSeedData(ctx context.Context) (int64, int64, error) {
 		return 0, 0, fmt.Errorf("begin seed reset tx: %w", err)
 	}
 	defer tx.Rollback()
+	if err := store.EnsureSeedLookupTablesUnreferenced(ctx, tx); err != nil {
+		return 0, 0, err
+	}
 	formulaResult, err := tx.ExecContext(ctx, `DELETE FROM formulas WHERE seed_key != ''`)
 	if err != nil {
 		return 0, 0, fmt.Errorf("delete seed formulas: %w", err)

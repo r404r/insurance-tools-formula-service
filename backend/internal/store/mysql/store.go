@@ -75,6 +75,9 @@ func (s *MySQLStore) ResetSeedData(ctx context.Context) (int64, int64, error) {
 		return 0, 0, fmt.Errorf("begin seed reset tx: %w", err)
 	}
 	defer tx.Rollback()
+	if err := store.EnsureSeedLookupTablesUnreferenced(ctx, tx); err != nil {
+		return 0, 0, err
+	}
 	fr, err := tx.ExecContext(ctx, `DELETE FROM formulas WHERE seed_key != ''`)
 	if err != nil {
 		return 0, 0, fmt.Errorf("delete seed formulas: %w", err)
@@ -191,8 +194,6 @@ func (s *MySQLStore) Migrate(ctx context.Context) error {
 		`ALTER TABLE lookup_tables ADD COLUMN updated_at VARCHAR(35)`,
 		`ALTER TABLE formulas ADD COLUMN seed_key VARCHAR(255) NOT NULL DEFAULT ''`,
 		`ALTER TABLE lookup_tables ADD COLUMN seed_key VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE formulas ADD CONSTRAINT fk_formulas_domain_category FOREIGN KEY (domain) REFERENCES categories(slug) ON UPDATE RESTRICT ON DELETE RESTRICT`,
-		`ALTER TABLE lookup_tables ADD CONSTRAINT fk_lookup_tables_domain_category FOREIGN KEY (domain) REFERENCES categories(slug) ON UPDATE RESTRICT ON DELETE RESTRICT`,
 	}
 	for _, stmt := range alters {
 		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
@@ -209,6 +210,30 @@ func (s *MySQLStore) Migrate(ctx context.Context) error {
 	}
 	if _, err := s.db.ExecContext(ctx, `UPDATE lookup_tables SET updated_at = created_at WHERE updated_at IS NULL`); err != nil {
 		return fmt.Errorf("backfill lookup_tables.updated_at: %w", err)
+	}
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO categories (id, slug, name, description, color, sort_order, created_at, updated_at)
+		SELECT CONCAT('lc-', MD5(domains.domain)), domains.domain, domains.domain, '', '#6366f1', 0,
+			DATE_FORMAT(UTC_TIMESTAMP(6), '%Y-%m-%dT%H:%i:%s.%fZ'), DATE_FORMAT(UTC_TIMESTAMP(6), '%Y-%m-%dT%H:%i:%s.%fZ')
+		FROM (
+			SELECT DISTINCT domain FROM formulas
+			UNION
+			SELECT DISTINCT domain FROM lookup_tables
+		) AS domains
+		LEFT JOIN categories existing ON existing.slug = domains.domain
+		WHERE existing.slug IS NULL`); err != nil {
+		return fmt.Errorf("migrate orphan category domains: %w", err)
+	}
+	for _, stmt := range []string{
+		`ALTER TABLE formulas ADD CONSTRAINT fk_formulas_domain_category FOREIGN KEY (domain) REFERENCES categories(slug) ON UPDATE RESTRICT ON DELETE RESTRICT`,
+		`ALTER TABLE lookup_tables ADD CONSTRAINT fk_lookup_tables_domain_category FOREIGN KEY (domain) REFERENCES categories(slug) ON UPDATE RESTRICT ON DELETE RESTRICT`,
+	} {
+		if _, err := s.db.ExecContext(ctx, stmt); err != nil {
+			var myErr *mysql.MySQLError
+			if errors.As(err, &myErr) && myErr.Number == 1826 {
+				continue
+			}
+			return fmt.Errorf("migrate alter: %w", err)
+		}
 	}
 
 	return nil

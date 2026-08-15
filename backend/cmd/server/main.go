@@ -316,6 +316,10 @@ func makeSeedResetHandler(s store.Store, logger zerolog.Logger) http.HandlerFunc
 			deleted, tablesDeleted, err = resetter.ResetSeedData(r.Context())
 			if err != nil {
 				logger.Error().Err(err).Msg("seed reset failed")
+				if errors.Is(err, store.ErrHasContent) {
+					http.Error(w, `{"error":"seed data is referenced by formula versions","code":409}`, http.StatusConflict)
+					return
+				}
 				http.Error(w, `{"error":"failed to reset seed data","code":500}`, http.StatusInternalServerError)
 				return
 			}

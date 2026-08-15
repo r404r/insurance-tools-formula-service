@@ -75,6 +75,9 @@ func (s *PostgresStore) ResetSeedData(ctx context.Context) (int64, int64, error)
 		return 0, 0, fmt.Errorf("begin seed reset tx: %w", err)
 	}
 	defer tx.Rollback()
+	if err := store.EnsureSeedLookupTablesUnreferenced(ctx, tx); err != nil {
+		return 0, 0, err
+	}
 	fr, err := tx.ExecContext(ctx, `DELETE FROM formulas WHERE seed_key != ''`)
 	if err != nil {
 		return 0, 0, fmt.Errorf("delete seed formulas: %w", err)
@@ -181,6 +184,16 @@ func (s *PostgresStore) Migrate(ctx context.Context) error {
 		`ALTER TABLE formulas ADD COLUMN IF NOT EXISTS seed_key TEXT NOT NULL DEFAULT ''`,
 		`ALTER TABLE lookup_tables ADD COLUMN IF NOT EXISTS seed_key TEXT NOT NULL DEFAULT ''`,
 		`UPDATE lookup_tables SET updated_at = created_at WHERE updated_at IS NULL`,
+		`INSERT INTO categories (id, slug, name, description, color, sort_order, created_at, updated_at)
+			SELECT 'lc-' || md5(domains.domain), domains.domain, domains.domain, '', '#6366f1', 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP
+			FROM (
+				SELECT DISTINCT domain FROM formulas
+				UNION
+				SELECT DISTINCT domain FROM lookup_tables
+			) AS domains
+			LEFT JOIN categories existing ON existing.slug = domains.domain
+			WHERE existing.slug IS NULL
+			ON CONFLICT (slug) DO NOTHING`,
 		`DO $$
 		BEGIN
 			IF NOT EXISTS (

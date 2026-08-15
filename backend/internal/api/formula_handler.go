@@ -276,11 +276,6 @@ func (h *FormulaHandler) Copy(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:   now,
 	}
 
-	if err := h.Formulas.Create(r.Context(), newFormula); err != nil {
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create formula", Code: http.StatusInternalServerError})
-		return
-	}
-
 	// Deep-copy the graph so the source and new formula don't share slices/maps.
 	copiedGraph := deepCopyGraph(latest.Graph)
 
@@ -296,20 +291,33 @@ func (h *FormulaHandler) Copy(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:  claims.UserID,
 		CreatedAt:  now,
 	}
-	if err := h.Versions.CreateVersion(r.Context(), newVersion); err != nil {
-		// Best-effort rollback: delete the formula shell we just created so the
-		// database is not left with an orphaned formula that has zero versions.
-		// If the delete also fails we cannot recover here; caller will see 500
-		// and the orphan row must be cleaned up out-of-band.
-		if delErr := h.Formulas.Delete(r.Context(), newFormulaID); delErr != nil {
+	if atomic, ok := h.Formulas.(store.FormulaVersionAtomicCreator); ok {
+		if err := atomic.CreateWithInitialVersion(r.Context(), newFormula, newVersion); err != nil {
 			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
-				Error: "failed to create version and rollback also failed",
+				Error: "failed to create formula and initial version",
 				Code:  http.StatusInternalServerError,
 			})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create version", Code: http.StatusInternalServerError})
-		return
+	} else {
+		if err := h.Formulas.Create(r.Context(), newFormula); err != nil {
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create formula", Code: http.StatusInternalServerError})
+			return
+		}
+		if err := h.Versions.CreateVersion(r.Context(), newVersion); err != nil {
+			// The optional atomic repository capability is not available, so
+			// maintain the legacy best-effort rollback behavior for test doubles
+			// and third-party repository implementations.
+			if delErr := h.Formulas.Delete(r.Context(), newFormulaID); delErr != nil {
+				writeJSON(w, http.StatusInternalServerError, ErrorResponse{
+					Error: "failed to create version and rollback also failed",
+					Code:  http.StatusInternalServerError,
+				})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create version", Code: http.StatusInternalServerError})
+			return
+		}
 	}
 
 	// Stamp updated_by/updated_at on the new formula so it shows up in
@@ -535,11 +543,6 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 			UpdatedAt:   now,
 			SeedKey:     seedKey,
 		}
-		if err := h.Formulas.Create(r.Context(), newFormula); err != nil {
-			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "failed to create formula"})
-			continue
-		}
-
 		copiedGraph := deepCopyGraph(ef.Graph)
 		newVersion := &domain.FormulaVersion{
 			ID:         uuid.New().String(),
@@ -551,14 +554,27 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 			CreatedBy:  claims.UserID,
 			CreatedAt:  now,
 		}
-		if err := h.Versions.CreateVersion(r.Context(), newVersion); err != nil {
-			errMsg := "failed to create version"
-			// Best-effort rollback of the formula shell; surface rollback failure.
-			if delErr := h.Formulas.Delete(r.Context(), newFormulaID); delErr != nil {
-				errMsg += "; rollback failed"
+		if atomic, ok := h.Formulas.(store.FormulaVersionAtomicCreator); ok {
+			if err := atomic.CreateWithInitialVersion(r.Context(), newFormula, newVersion); err != nil {
+				result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "failed to create formula and initial version"})
+				continue
 			}
-			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: errMsg})
-			continue
+		} else {
+			if err := h.Formulas.Create(r.Context(), newFormula); err != nil {
+				result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "failed to create formula"})
+				continue
+			}
+			if err := h.Versions.CreateVersion(r.Context(), newVersion); err != nil {
+				errMsg := "failed to create version"
+				// The optional atomic repository capability is not available, so
+				// preserve the legacy best-effort rollback behavior for existing
+				// repository implementations.
+				if delErr := h.Formulas.Delete(r.Context(), newFormulaID); delErr != nil {
+					errMsg += "; rollback failed"
+				}
+				result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: errMsg})
+				continue
+			}
 		}
 
 		// Stamp updated_by/updated_at on the freshly imported formula so

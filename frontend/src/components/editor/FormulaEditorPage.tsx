@@ -41,27 +41,6 @@ export default function FormulaEditorPage() {
 
   const [nodes, setNodes] = useState<Node[]>([])
 
-  const handleSetEditorMode = useCallback(
-    (mode: 'visual' | 'text') => {
-      if (mode === 'text') {
-        // Warn if any loop node has non-default settings that text mode can't represent
-        const lossyLoop = nodes.some((n) => {
-          if ((n.data.nodeType as string) !== 'loop') return false
-          const cfg = (n.data.config as Record<string, unknown>) ?? {}
-          return cfg.inclusiveEnd === false || cfg.maxIterations != null || cfg.version != null
-        })
-        if (lossyLoop) {
-          setSaveMessage(t('editor.loopTextLossy'))
-        }
-      }
-      setEditorMode(mode)
-      if (modeParam) {
-        // Remove the ?mode param so subsequent mode switches use the Zustand store
-        navigate(`/formulas/${id}`, { replace: true })
-      }
-    },
-    [id, modeParam, navigate, nodes, setEditorMode, t]
-  )
   const [edges, setEdges] = useState<Edge[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [textValue, setTextValue] = useState('')
@@ -92,6 +71,43 @@ export default function FormulaEditorPage() {
   const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
   const [isDirty, setIsDirty] = useState(false)
   const [hasUnappliedTextDraft, setHasUnappliedTextDraft] = useState(false)
+  const handleSetEditorMode = useCallback(
+    (mode: 'visual' | 'text') => {
+      // TextEditor keeps its local draft separate from the graph until Apply.
+      // Changing modes unmounts that editor, so ask before discarding a draft
+      // that has not yet been parsed into the visual graph.
+      if (hasUnappliedTextDraft && mode !== effectiveMode) {
+        if (!window.confirm(t('editor.unsavedChangesPrompt'))) {
+          return
+        }
+        // The user explicitly confirmed that this local-only draft may be
+        // discarded. Clear its guard so later mode switches are not warned
+        // about content that is no longer recoverable.
+        setHasUnappliedTextDraft(false)
+      }
+      if (mode === 'text') {
+        // Warn if any loop node has non-default settings that text mode can't represent
+        const lossyLoop = nodes.some((n) => {
+          if ((n.data.nodeType as string) !== 'loop') return false
+          const cfg = (n.data.config as Record<string, unknown>) ?? {}
+          return cfg.inclusiveEnd === false || cfg.maxIterations != null || cfg.version != null
+        })
+        if (lossyLoop) {
+          setSaveMessage(t('editor.loopTextLossy'))
+        }
+      }
+      setEditorMode(mode)
+      if (modeParam) {
+        // Remove only ?mode so a version pin (and any future query options)
+        // keeps its identity while the Zustand store takes over mode selection.
+        const nextSearchParams = new URLSearchParams(searchParams)
+        nextSearchParams.delete('mode')
+        const query = nextSearchParams.toString()
+        navigate(`/formulas/${id}${query ? `?${query}` : ''}`, { replace: true })
+      }
+    },
+    [effectiveMode, hasUnappliedTextDraft, id, modeParam, navigate, nodes, searchParams, setEditorMode, t]
+  )
   const loadedVersionIdRef = useRef<string | null>(null)
   const autoLayout = useAutoLayout()
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null
