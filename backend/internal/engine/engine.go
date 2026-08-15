@@ -112,6 +112,7 @@ func DefaultEngineConfig() EngineConfig {
 type defaultEngine struct {
 	executor        *Executor
 	cache           *ResultCache
+	typedCache      *typedResultCache
 	config          EngineConfig
 	tableResolver   TableResolver
 	formulaResolver FormulaResolver
@@ -124,6 +125,7 @@ func NewEngine(cfg EngineConfig) Engine {
 	}
 	engine := &defaultEngine{
 		cache:           NewResultCache(cfg.CacheSize),
+		typedCache:      newTypedResultCache(cfg.CacheSize),
 		config:          cfg,
 		tableResolver:   cfg.TableResolver,
 		formulaResolver: cfg.FormulaResolver,
@@ -150,6 +152,9 @@ func precisionCacheVersion(precision PrecisionConfig) string {
 
 // Calculate implements Engine.Calculate.
 func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]string) (*CalculationResult, error) {
+	if graphUsesTypedValues(graph) {
+		return e.calculateTyped(ctx, graph, inputs)
+	}
 	start := time.Now()
 
 	// Parse string inputs to Decimal.
@@ -237,6 +242,7 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 // the underlying lookup_tables rows without any extra plumbing.
 func (e *defaultEngine) ClearCache() {
 	e.cache.Clear()
+	e.typedCache.clear()
 	if inv, ok := e.tableResolver.(interface{ InvalidateAll() }); ok {
 		inv.InvalidateAll()
 	}
@@ -244,7 +250,7 @@ func (e *defaultEngine) ClearCache() {
 
 // CacheStats implements Engine.CacheStats.
 func (e *defaultEngine) CacheStats() (size int, maxSize int) {
-	return e.cache.Len(), e.cache.maxSize
+	return e.cache.Len() + e.typedCache.len(), e.cache.maxSize
 }
 
 func (e *defaultEngine) calculateGraph(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]Decimal) (*ExecutionPlan, map[string]Decimal, error) {
