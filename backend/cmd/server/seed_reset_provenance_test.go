@@ -172,6 +172,18 @@ func TestSeedResetDoesNotReportSuccessWhenPersistenceFails(t *testing.T) {
 	}
 }
 
+func TestSeedResetReturnsConflictWhenReferencedSeedDataCannotBeRemoved(t *testing.T) {
+	s := resetFailureStore{
+		resetStore: resetStore{},
+		err:        store.ErrHasContent,
+	}
+	rr := httptest.NewRecorder()
+	makeSeedResetHandler(s, zerolog.Nop())(rr, httptest.NewRequest(http.MethodPost, "/api/v1/admin/reset-seed", nil))
+	if rr.Code != http.StatusConflict {
+		t.Fatalf("reset status = %d, want %d when referenced seed data blocks reset; body = %s", rr.Code, http.StatusConflict, rr.Body.String())
+	}
+}
+
 func firstSeedName(t *testing.T, names map[string]bool) string {
 	t.Helper()
 	keys := make([]string, 0, len(names))
@@ -196,6 +208,15 @@ type resetStore struct {
 
 func (s resetStore) Formulas() store.FormulaRepository { return s.formulas }
 func (s resetStore) Tables() store.TableRepository     { return s.tables }
+
+type resetFailureStore struct {
+	resetStore
+	err error
+}
+
+func (s resetFailureStore) ResetSeedData(context.Context) (int64, int64, error) {
+	return 0, 0, s.err
+}
 
 type resetFormulaRepo struct {
 	formulas  []*domain.Formula

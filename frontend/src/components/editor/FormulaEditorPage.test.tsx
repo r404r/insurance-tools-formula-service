@@ -76,8 +76,8 @@ vi.mock('./FormulaCanvas', () => ({
 }))
 vi.mock('./NodePalette', () => ({ default: () => <div data-testid="node-palette" /> }))
 vi.mock('./NodePropertiesPanel', () => ({ default: () => <div data-testid="node-properties" /> }))
-vi.mock('./TextEditor', () => ({
-  default: ({ onDraftChange }: { onDraftChange?: (draft: string, mode: 'text' | 'latex') => void }) => {
+vi.mock('./TextEditor', () => {
+  function MockTextEditor({ onDraftChange }: { onDraftChange?: (draft: string, mode: 'text' | 'latex') => void }) {
     const [draft, setDraft] = useState('')
     const setTextDraft = (nextDraft: string, mode: 'text' | 'latex') => {
       setDraft(nextDraft)
@@ -90,8 +90,10 @@ vi.mock('./TextEditor', () => ({
         <button onClick={() => setTextDraft('\\frac{age}{2}', 'latex')}>simulate un-applied LaTex draft</button>
       </div>
     )
-  },
-}))
+  }
+
+  return { default: MockTextEditor }
+})
 vi.mock('./hooks/useAutoLayout', () => ({ useAutoLayout: () => (nodes: unknown[]) => nodes }))
 
 afterEach(() => {
@@ -204,6 +206,28 @@ describe('FormulaEditorPage test input validation', () => {
     fireEvent.click(screen.getByTestId('mode-visual'))
     expect(confirm).toHaveBeenCalledTimes(3)
     expect(screen.queryByTestId('text-editor')).toBeNull()
+    confirm.mockRestore()
+  })
+
+  it('clears the draft guard after confirming discard so later mode switches do not prompt again', async () => {
+    render(<FormulaEditorPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('formula-canvas').textContent).toBe('age')
+    })
+    fireEvent.click(screen.getByTestId('mode-text'))
+    fireEvent.click(screen.getByRole('button', { name: 'simulate un-applied text draft' }))
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    fireEvent.click(screen.getByTestId('mode-visual'))
+    expect(confirm).toHaveBeenCalledTimes(1)
+
+    fireEvent.click(screen.getByTestId('mode-text'))
+    await waitFor(() => {
+      expect(screen.getByTestId('text-editor')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByTestId('mode-visual'))
+    expect(confirm).toHaveBeenCalledTimes(1)
     confirm.mockRestore()
   })
 

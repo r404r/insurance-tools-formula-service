@@ -137,6 +137,9 @@ func TestResetSeedDataRejectsReferencedSeedTableWithDSN(t *testing.T) {
 	if err := s.Formulas().Create(ctx, seedFormula); err != nil {
 		t.Fatalf("create seed formula: %v", err)
 	}
+	if err := s.Versions().CreateVersion(ctx, &domain.FormulaVersion{ID: prefix + "seed-version", FormulaID: seedFormula.ID, Version: 1, State: domain.StateDraft, Graph: domain.FormulaGraph{Nodes: []domain.FormulaNode{{ID: "lookup", Type: domain.NodeTableLookup, Config: []byte(`{"tableId":"` + table.ID + `","keyColumns":["key"],"column":"value"}`)}}, Outputs: []string{"lookup"}}, CreatedBy: user.ID, CreatedAt: now}); err != nil {
+		t.Fatalf("create seed formula version: %v", err)
+	}
 	consumer := &domain.Formula{ID: prefix + "consumer", Name: "Consumer", Domain: domain.InsuranceDomain(category.Slug), CreatedBy: user.ID, CreatedAt: now, UpdatedAt: now}
 	if err := s.Formulas().Create(ctx, consumer); err != nil {
 		t.Fatalf("create consumer formula: %v", err)
@@ -157,6 +160,22 @@ func TestResetSeedDataRejectsReferencedSeedTableWithDSN(t *testing.T) {
 	}
 	if _, err := s.Tables().GetByID(ctx, table.ID); err != nil {
 		t.Fatalf("referenced seed table was removed despite rejected reset: %v", err)
+	}
+	if err := s.Formulas().Delete(ctx, consumer.ID); err != nil {
+		t.Fatalf("delete external consumer before retrying reset: %v", err)
+	}
+	formulasDeleted, tablesDeleted, err = s.ResetSeedData(ctx)
+	if err != nil {
+		t.Fatalf("ResetSeedData after external reference removal = %v, want success", err)
+	}
+	if formulasDeleted != 1 || tablesDeleted != 1 {
+		t.Fatalf("ResetSeedData retry counts = formulas:%d tables:%d, want 1/1", formulasDeleted, tablesDeleted)
+	}
+	if _, err := s.Formulas().GetByID(ctx, seedFormula.ID); err == nil {
+		t.Fatal("seed formula remains after unblocked reset")
+	}
+	if _, err := s.Tables().GetByID(ctx, table.ID); err == nil {
+		t.Fatal("seed table remains after unblocked reset")
 	}
 }
 
