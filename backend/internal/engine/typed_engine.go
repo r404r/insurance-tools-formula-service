@@ -78,6 +78,12 @@ func (c *typedResultCache) len() int {
 	return len(c.items)
 }
 
+func (c *typedResultCache) deleteString(key string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	delete(c.items, key)
+}
+
 func copyStringResults(input map[string]string) map[string]string {
 	copy := make(map[string]string, len(input))
 	for key, value := range input {
@@ -185,7 +191,7 @@ func (e *defaultEngine) calculateTyped(ctx context.Context, graph *domain.Formul
 		ParallelLevels: len(plan.Levels),
 		ExecutionTime:  time.Since(start),
 	}
-	e.typedCache.set(cacheKey, typedCachedResult{
+	e.storeTypedCache(cacheKey, typedCachedResult{
 		Outputs:        outputs,
 		Intermediates:  intermediates,
 		NodesEvaluated: result.NodesEvaluated,
@@ -349,8 +355,13 @@ func (e *defaultEngine) evalTypedLookup(ctx context.Context, node *domain.Formul
 	if err := json.Unmarshal(node.Config, &cfg); err != nil {
 		return Value{}, fmt.Errorf("invalid tableLookup config: %w", err)
 	}
-	if cfg.Column == "" {
-		return Value{}, fmt.Errorf("table lookup requires a column in typed evaluation")
+	column := cfg.Column
+	if column == "" {
+		var err error
+		column, err = e.resolveUniqueLookupColumn(ctx, cfg)
+		if err != nil {
+			return Value{}, err
+		}
 	}
 	parts := make([]string, 0, len(cfg.EffectiveKeyColumns()))
 	for _, column := range cfg.EffectiveKeyColumns() {
@@ -360,7 +371,7 @@ func (e *defaultEngine) evalTypedLookup(ctx context.Context, node *domain.Formul
 		}
 		parts = append(parts, value.WireString())
 	}
-	values, err := e.tableResolver.ResolveTable(ctx, cfg.TableID, cfg.EffectiveKeyColumns(), cfg.Column)
+	values, err := e.tableResolver.ResolveTable(ctx, cfg.TableID, cfg.EffectiveKeyColumns(), column)
 	if err != nil {
 		return Value{}, fmt.Errorf("resolve table %s: %w", cfg.TableID, err)
 	}

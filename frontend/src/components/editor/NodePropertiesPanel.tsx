@@ -234,6 +234,7 @@ export default function NodePropertiesPanel({
               <option value="divide">/ Divide</option>
               <option value="power">^ Power</option>
               <option value="modulo">% Modulo</option>
+              <option value="negate">− Negate</option>
             </select>
           </div>
         )}
@@ -253,7 +254,7 @@ export default function NodePropertiesPanel({
               </select>
             </div>
 
-            {(config.fn as string) === 'round' && (
+            {['round', 'floor', 'ceil'].includes((config.fn as string) ?? 'round') && (
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Places</label>
                 <input

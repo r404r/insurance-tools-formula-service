@@ -7,6 +7,54 @@ export interface ReactFlowData {
   edges: Edge[]
 }
 
+function isAggregateItemPort(port: string): boolean {
+  return port === 'items' || /^items:\d+$/.test(port)
+}
+
+function sortAggregateItemPorts(ports: string[]): string[] {
+  return [...new Set(ports)].sort((left, right) => {
+    if (left === 'items') return -1
+    if (right === 'items') return 1
+    return Number(left.slice('items:'.length)) - Number(right.slice('items:'.length))
+  })
+}
+
+/**
+ * Aggregate input handles are encoded by the parser in edge target ports,
+ * rather than in a node config field. Recreate them as view-only node data so
+ * React Flow can render and validate every existing item handle, including a
+ * free next index for adding another operand.
+ */
+function aggregateInputPorts(graph: FormulaGraph): Map<string, string[]> {
+  const aggregateIds = new Set(
+    graph.nodes
+      .filter((node) => node.type === 'aggregate')
+      .map((node) => node.id),
+  )
+  const portsByNode = new Map<string, string[]>()
+
+  for (const edge of graph.edges) {
+    if (!aggregateIds.has(edge.target) || !isAggregateItemPort(edge.targetPort)) continue
+    const ports = portsByNode.get(edge.target) ?? []
+    ports.push(edge.targetPort)
+    portsByNode.set(edge.target, ports)
+  }
+
+  for (const [nodeID, ports] of portsByNode) {
+    const sorted = sortAggregateItemPorts(ports)
+    const indexes = sorted
+      .filter((port) => port.startsWith('items:'))
+      .map((port) => Number(port.slice('items:'.length)))
+      .filter((index) => Number.isInteger(index) && index >= 0)
+    if (indexes.length > 0) {
+      sorted.push(`items:${Math.max(...indexes) + 1}`)
+    }
+    portsByNode.set(nodeID, sorted)
+  }
+
+  return portsByNode
+}
+
 function inferEdgeTargetPorts(graph: FormulaGraph): string[] {
   const nodeMap = new Map(
     graph.nodes.map((node) => [node.id, node] as const)
@@ -44,13 +92,19 @@ function inferEdgeTargetPorts(graph: FormulaGraph): string[] {
 export function apiToReactFlow(graph: FormulaGraph): ReactFlowData {
   const positions = graph.layout?.positions ?? {}
   const targetPorts = inferEdgeTargetPorts(graph)
+  const aggregatePorts = aggregateInputPorts(graph)
 
   const nodes: Node[] = graph.nodes.map((node) => {
     return {
       id: node.id,
       type: 'formulaNode',
       position: positions[node.id] ?? { x: 0, y: 0 },
-      data: createNodeData(node.type, node.config, node.description),
+      data: createNodeData(
+        node.type,
+        node.config,
+        node.description,
+        aggregatePorts.get(node.id),
+      ),
     }
   })
 

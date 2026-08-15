@@ -15,7 +15,6 @@ import (
 
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/auth"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
-	"github.com/r404r/insurance-tools/formula-service/backend/internal/parser"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store"
 )
 
@@ -516,11 +515,12 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "graph has no nodes"})
 			continue
 		}
-		// Run the full graph validator to reject malformed graphs (cycles,
-		// broken edges, duplicate node IDs, missing outputs, invalid configs).
+		// Reuse the Create/Publish contract before writing either record. The
+		// parser catches graph structure while the engine catches executable
+		// values such as invalid numeric constants.
 		graphCopy := ef.Graph
-		if verrs := parser.ValidateGraph(&graphCopy); len(verrs) > 0 {
-			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "invalid graph: " + verrs[0].Message})
+		if message := validatePersistedGraph(&graphCopy); message != "" {
+			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "invalid graph: " + message})
 			continue
 		}
 

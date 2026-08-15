@@ -130,11 +130,11 @@ describe('FormulaEditorPage test input validation', () => {
 
     const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
     fireEvent.click(screen.getByRole('button', { name: 'simulate un-applied text draft' }))
-    fireEvent.click(screen.getByRole('link', { name: '←' }))
+    fireEvent.click(screen.getByRole('link', { name: 'version.versions' }))
     expect(confirm).toHaveBeenCalledWith('editor.unsavedChangesPrompt')
 
     fireEvent.click(screen.getByRole('button', { name: 'simulate un-applied LaTex draft' }))
-    fireEvent.click(screen.getByRole('link', { name: '←' }))
+    fireEvent.click(screen.getByRole('link', { name: 'version.versions' }))
     expect(confirm).toHaveBeenCalledTimes(2)
     confirm.mockRestore()
   })

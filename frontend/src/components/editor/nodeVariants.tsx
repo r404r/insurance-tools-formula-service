@@ -19,6 +19,7 @@ const OP_DISPLAY: Record<string, string> = {
   divide: '÷',
   power: '^',
   modulo: '%',
+  negate: '−',
 }
 
 const DATA_TYPE_LABEL: Record<string, string> = {

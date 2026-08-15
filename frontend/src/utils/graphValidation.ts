@@ -9,6 +9,17 @@ export interface ValidationIssue {
   severity: 'error' | 'warning'
 }
 
+function dynamicInputPorts(node: Node): string[] {
+  const ports = (node.data as Record<string, unknown>).inputPorts
+  return Array.isArray(ports)
+    ? ports.filter((port): port is string => typeof port === 'string')
+    : []
+}
+
+function isAggregateItemPort(port: string): boolean {
+  return port === 'items' || /^items:\d+$/.test(port)
+}
+
 /** Detect cycles in the graph using iterative DFS tri-color marking. Returns arrays of node IDs in each cycle. */
 export function detectCycles(nodes: Node[], edges: Edge[]): string[][] {
   const adj = new Map<string, string[]>()
@@ -140,17 +151,20 @@ export function validateGraph(nodes: Node[], edges: Edge[]): ValidationIssue[] {
     const nodeType = String(node.data.nodeType ?? node.type)
     const config = (node.data.config as Record<string, unknown>) ?? {}
     const ports = connectedPorts.get(node.id) ?? new Set<string>()
-    const validTargetPorts = new Set(getInputPorts(nodeType, config).map((port) => port.id))
+    const validTargetPorts = new Set(getInputPorts(nodeType, config, dynamicInputPorts(node)).map((port) => port.id))
 
     for (const port of ports) {
-      if (!validTargetPorts.has(port)) {
+      // Aggregate ports are variadic and are persisted as items:N. The graph
+      // may arrive before the editor has had a chance to materialize its
+      // view-only handle list, so accept the canonical port family here.
+      if (!validTargetPorts.has(port) && !(nodeType === 'aggregate' && isAggregateItemPort(port))) {
         issues.push({ message: `Invalid input port: ${port}`, nodeIds: [node.id], severity: 'error' })
       }
     }
 
     switch (nodeType) {
       case 'operator':
-        if (!ports.has('left') || !ports.has('right'))
+        if (!ports.has('left') || (config.op !== 'negate' && !ports.has('right')))
           issues.push({ message: 'Operator must have left and right inputs', nodeIds: [node.id], severity: 'error' })
         break
       case 'function':
@@ -189,14 +203,24 @@ export function validateGraph(nodes: Node[], edges: Edge[]): ValidationIssue[] {
         }
         break
       }
-      case 'conditional':
-        for (const port of ['condition', 'conditionRight', 'thenValue', 'elseValue']) {
+      case 'conditional': {
+        for (const port of ['condition', 'conditionRight']) {
           if (!ports.has(port))
             issues.push({ message: `Conditional must have "${port}" input`, nodeIds: [node.id], severity: 'error' })
         }
+        // A parser-produced comparison is represented by a conditional node
+        // with only condition + conditionRight. Require branch ports only
+        // when one of them has been connected, i.e. an actual if/then/else.
+        const hasThen = ports.has('thenValue')
+        const hasElse = ports.has('elseValue')
+        if (hasThen !== hasElse) {
+          const missingPort = hasThen ? 'elseValue' : 'thenValue'
+          issues.push({ message: `Conditional must have "${missingPort}" input`, nodeIds: [node.id], severity: 'error' })
+        }
         break
+      }
       case 'aggregate':
-        if (!ports.has('items'))
+        if (![...ports].some(isAggregateItemPort))
           issues.push({ message: 'Aggregate must have an items input', nodeIds: [node.id], severity: 'error' })
         break
       case 'loop': {

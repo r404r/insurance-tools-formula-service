@@ -44,6 +44,31 @@ const nodeTypes = {
 
 const emptyValidation: ValidationState = { invalidNodeIds: new Set(), warnNodeIds: new Set() }
 
+function dynamicInputPorts(node: Node): string[] {
+  const ports = (node.data as Record<string, unknown>).inputPorts
+  return Array.isArray(ports)
+    ? ports.filter((port): port is string => typeof port === 'string')
+    : []
+}
+
+function withNextAggregateInputPort(node: Node, connectedPort: string): Node {
+  const nodeType = String(node.data.nodeType ?? node.type)
+  if (nodeType !== 'aggregate' || !/^items:\d+$/.test(connectedPort)) return node
+
+  const existing = dynamicInputPorts(node)
+  const indexes = [...existing, connectedPort]
+    .filter((port) => /^items:\d+$/.test(port))
+    .map((port) => Number(port.slice('items:'.length)))
+  const nextPort = `items:${Math.max(...indexes) + 1}`
+  const inputPorts = [...new Set([...existing, connectedPort, nextPort])].sort((left, right) => {
+    const leftIndex = Number(left.slice('items:'.length))
+    const rightIndex = Number(right.slice('items:'.length))
+    return leftIndex - rightIndex
+  })
+
+  return { ...node, data: { ...node.data, inputPorts } }
+}
+
 export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChange, onNodeSelect, validation }: Props) {
   const autoLayout = useAutoLayout()
   const rfInstance = useRef<ReactFlowInstance | null>(null)
@@ -68,7 +93,13 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
       }
 
       const config = (targetNode.data.config as Record<string, unknown>) ?? {}
-      const validTargetPorts = new Set(getInputPorts(String(targetNode.data.nodeType ?? targetNode.type), config).map((port) => port.id))
+      const validTargetPorts = new Set(
+        getInputPorts(
+          String(targetNode.data.nodeType ?? targetNode.type),
+          config,
+          dynamicInputPorts(targetNode),
+        ).map((port) => port.id),
+      )
       if (!validTargetPorts.has(connection.targetHandle)) {
         return false
       }
@@ -124,8 +155,15 @@ export default function FormulaCanvas({ nodes, edges, onNodesChange, onEdgesChan
           prev
         )
       )
+      if (params.target && params.targetHandle) {
+        onNodesChange((prev) =>
+          prev.map((node) => node.id === params.target
+            ? withNextAggregateInputPort(node, params.targetHandle!)
+            : node),
+        )
+      }
     },
-    [isValidConnection, onEdgesChange]
+    [isValidConnection, onEdgesChange, onNodesChange]
   )
 
   const handleNodeClick = useCallback(

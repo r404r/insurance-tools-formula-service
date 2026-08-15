@@ -110,12 +110,13 @@ func DefaultEngineConfig() EngineConfig {
 
 // defaultEngine is the production implementation of Engine.
 type defaultEngine struct {
-	executor        *Executor
-	cache           *ResultCache
-	typedCache      *typedResultCache
-	config          EngineConfig
-	tableResolver   TableResolver
-	formulaResolver FormulaResolver
+	executor         *Executor
+	cache            *ResultCache
+	typedCache       *typedResultCache
+	cacheCoordinator *resultCacheCoordinator
+	config           EngineConfig
+	tableResolver    TableResolver
+	formulaResolver  FormulaResolver
 }
 
 // NewEngine creates a new Engine with the given configuration.
@@ -123,12 +124,14 @@ func NewEngine(cfg EngineConfig) Engine {
 	if cfg.MaxLoopIterations <= 0 {
 		cfg.MaxLoopIterations = DefaultMaxLoopIterations
 	}
+	cache := NewResultCache(cfg.CacheSize)
 	engine := &defaultEngine{
-		cache:           NewResultCache(cfg.CacheSize),
-		typedCache:      newTypedResultCache(cfg.CacheSize),
-		config:          cfg,
-		tableResolver:   cfg.TableResolver,
-		formulaResolver: cfg.FormulaResolver,
+		cache:            cache,
+		typedCache:       newTypedResultCache(cache.maxSize),
+		cacheCoordinator: newResultCacheCoordinator(cache.maxSize),
+		config:           cfg,
+		tableResolver:    cfg.TableResolver,
+		formulaResolver:  cfg.FormulaResolver,
 	}
 	engine.executor = NewExecutor(cfg.Workers, cfg.Precision, cfg.TableResolver, engine.executeSubFormula, engine.executeLoop)
 	return engine
@@ -216,7 +219,7 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 	}
 
 	// Store full result in cache (outputs + intermediates + metadata).
-	e.cache.Set(cacheKey, CachedResult{
+	e.storeDecimalCache(cacheKey, CachedResult{
 		Outputs:        outputDecimals,
 		Intermediates:  intermediateDecimals,
 		NodesEvaluated: len(allResults),
@@ -241,8 +244,11 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 // so this keeps the parsed-rows cache in StoreTableResolver consistent with
 // the underlying lookup_tables rows without any extra plumbing.
 func (e *defaultEngine) ClearCache() {
+	e.cacheCoordinator.mu.Lock()
 	e.cache.Clear()
 	e.typedCache.clear()
+	e.cacheCoordinator.clear()
+	e.cacheCoordinator.mu.Unlock()
 	if inv, ok := e.tableResolver.(interface{ InvalidateAll() }); ok {
 		inv.InvalidateAll()
 	}
@@ -250,7 +256,34 @@ func (e *defaultEngine) ClearCache() {
 
 // CacheStats implements Engine.CacheStats.
 func (e *defaultEngine) CacheStats() (size int, maxSize int) {
+	e.cacheCoordinator.mu.Lock()
+	defer e.cacheCoordinator.mu.Unlock()
 	return e.cache.Len() + e.typedCache.len(), e.cache.maxSize
+}
+
+func (e *defaultEngine) storeDecimalCache(key CacheKey, result CachedResult) {
+	e.storeResultCache(key, decimalResultCache, func() {
+		e.cache.Set(key, result)
+	})
+}
+
+func (e *defaultEngine) storeTypedCache(key CacheKey, result typedCachedResult) {
+	e.storeResultCache(key, typedResultCacheKind, func() {
+		e.typedCache.set(key, result)
+	})
+}
+
+func (e *defaultEngine) storeResultCache(key CacheKey, kind resultCacheKind, store func()) {
+	e.cacheCoordinator.mu.Lock()
+	defer e.cacheCoordinator.mu.Unlock()
+	if evictedKey, evictedKind, evicted := e.cacheCoordinator.prepareInsert(key.String(), kind); evicted {
+		if evictedKind == decimalResultCache {
+			e.cache.deleteString(evictedKey)
+		} else {
+			e.typedCache.deleteString(evictedKey)
+		}
+	}
+	store()
 }
 
 func (e *defaultEngine) calculateGraph(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]Decimal) (*ExecutionPlan, map[string]Decimal, error) {

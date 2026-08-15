@@ -1,7 +1,15 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useBeforeUnload } from 'react-router-dom'
 
+function historyIndex(state: unknown): number | null {
+  if (!state || typeof state !== 'object') return null
+  const idx = (state as { idx?: unknown }).idx
+  return typeof idx === 'number' && Number.isFinite(idx) ? idx : null
+}
+
 export function useUnsavedChangesGuard(dirty: boolean, message: string) {
+  const restoringHistoryRef = useRef(false)
+  const currentHistoryIndexRef = useRef<number | null>(historyIndex(window.history.state))
   useBeforeUnload(
     (event) => {
       if (!dirty) return
@@ -33,5 +41,37 @@ export function useUnsavedChangesGuard(dirty: boolean, message: string) {
 
     document.addEventListener('click', handleClick, true)
     return () => document.removeEventListener('click', handleClick, true)
+  }, [dirty, message])
+
+  // BrowserRouter listens to popstate but, unlike a data router, cannot block
+  // it before the browser changes history. React Router stores a monotonically
+  // increasing `idx` in history.state; use the delta to compensate in the
+  // opposite direction for both Back and Forward. The +1 fallback preserves
+  // the old, conservative Back behavior for external entries without an idx.
+  useEffect(() => {
+    if (!dirty) return
+    currentHistoryIndexRef.current = historyIndex(window.history.state)
+
+    const handlePopState = (event: PopStateEvent) => {
+      const destinationIndex = historyIndex(event.state) ?? historyIndex(window.history.state)
+      if (restoringHistoryRef.current) {
+        restoringHistoryRef.current = false
+        currentHistoryIndexRef.current = destinationIndex
+        return
+      }
+      if (!window.confirm(message)) {
+        restoringHistoryRef.current = true
+        const currentIndex = currentHistoryIndexRef.current
+        const delta = currentIndex !== null && destinationIndex !== null
+          ? currentIndex - destinationIndex
+          : 1
+        window.history.go(delta === 0 ? 1 : delta)
+        return
+      }
+      currentHistoryIndexRef.current = destinationIndex
+    }
+
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
   }, [dirty, message])
 }

@@ -20,6 +20,7 @@ const OP_SYMBOLS: Record<string, string> = {
   divide: '/',
   power: '^',
   modulo: '%',
+  negate: '−',
 }
 
 function shortenIdentifier(value: unknown): string {
@@ -33,6 +34,10 @@ export interface FormulaNodeData {
   nodeType: NodeType
   config: Record<string, unknown>
   description?: string
+  // View-only dynamic target ports inferred from persisted edges. They are
+  // deliberately kept outside config so saving a graph never changes the
+  // backend formula schema.
+  inputPorts?: string[]
 }
 
 export interface PortDef {
@@ -88,18 +93,39 @@ export function subFormulaName(config: Record<string, unknown>): string {
   return String(config.formulaName ?? '').trim()
 }
 
-export function createNodeData(type: NodeType, config: Record<string, unknown>, description?: string): FormulaNodeData {
+export function createNodeData(
+  type: NodeType,
+  config: Record<string, unknown>,
+  description?: string,
+  inputPorts?: string[],
+): FormulaNodeData {
   return {
     label: nodeLabel(type, config),
     nodeType: type,
     config,
     description: description ?? '',
+    ...(inputPorts && inputPorts.length > 0 ? { inputPorts } : {}),
   }
 }
 
-export function getInputPorts(nodeType: string, config: Record<string, unknown>): PortDef[] {
+function portDefs(ids: string[], labelFor: (id: string) => string = (id) => id): PortDef[] {
+  return ids.map((id, index) => ({
+    id,
+    top: `${Math.round(((index + 1) / (ids.length + 1)) * 100)}%`,
+    label: labelFor(id),
+  }))
+}
+
+export function getInputPorts(
+  nodeType: string,
+  config: Record<string, unknown>,
+  dynamicInputPorts: string[] = [],
+): PortDef[] {
   switch (nodeType) {
     case 'operator':
+      if (config.op === 'negate') {
+        return [{ id: 'left', top: '50%', label: 'In' }]
+      }
       return [
         { id: 'left', top: '32%', label: 'L' },
         { id: 'right', top: '68%', label: 'R' },
@@ -144,7 +170,14 @@ export function getInputPorts(nodeType: string, config: Record<string, unknown>)
         { id: 'elseValue', top: '84%', label: 'Else' },
       ]
     case 'aggregate':
-      return [{ id: 'items', top: '50%', label: 'Items' }]
+      // The parser persists variadic aggregate operands as items:0,
+      // items:1, ... . Keep those dynamic handles editable and reserve the
+      // next index for adding one more item on the canvas. Legacy `items`
+      // graphs remain supported as well.
+      if (dynamicInputPorts.length > 0) {
+        return portDefs(dynamicInputPorts, (port) => port === 'items' ? 'Items' : port)
+      }
+      return [{ id: 'items:0', top: '50%', label: 'Items 1' }]
     case 'loop':
       return [
         { id: 'start', top: '25%', label: 'Start' },

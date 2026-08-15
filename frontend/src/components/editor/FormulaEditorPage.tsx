@@ -91,12 +91,13 @@ export default function FormulaEditorPage() {
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
   const [isDirty, setIsDirty] = useState(false)
+  const [hasUnappliedTextDraft, setHasUnappliedTextDraft] = useState(false)
   const loadedVersionIdRef = useRef<string | null>(null)
   const autoLayout = useAutoLayout()
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null
   const nodeIdSet = useMemo(() => new Set(nodes.map((n) => n.id)), [nodes])
   const isEditor = user?.role === 'editor' || user?.role === 'admin'
-  useUnsavedChangesGuard(isDirty, t('editor.unsavedChangesPrompt'))
+  useUnsavedChangesGuard(isDirty || hasUnappliedTextDraft, t('editor.unsavedChangesPrompt'))
 
   const { data: formula } = useQuery({
     queryKey: ['formula', id],
@@ -242,6 +243,7 @@ export default function FormulaEditorPage() {
     }
     setSelectedNodeId(null)
     setIsDirty(false)
+    setHasUnappliedTextDraft(false)
   // A version identity change is the only event that may replace the canvas.
   // Formula-name enrichment is applied separately below.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -346,6 +348,7 @@ export default function FormulaEditorPage() {
       setEdges(newEdges)
       setSelectedNodeId(null)
       setIsDirty(true)
+      setHasUnappliedTextDraft(false)
       setSaveMessage(t('editor.textApplied'))
       setTimeout(() => setSaveMessage(null), 3000)
     } catch (err) {
@@ -354,6 +357,13 @@ export default function FormulaEditorPage() {
       setIsParsing(false)
     }
   }, [autoLayout, enrichSubFormulaNodes, t])
+
+  const handleTextDraftChange = useCallback((draft: string, mode?: 'text' | 'latex') => {
+    // A text draft can be clean again when it exactly matches the generated
+    // formula text. LaTeX has its own input buffer, so any non-empty LaTeX
+    // value remains unapplied until the user presses Apply.
+    setHasUnappliedTextDraft(mode === 'latex' ? draft.length > 0 : draft !== textValue)
+  }, [textValue])
 
   const handleSave = async () => {
     if (!id) return
@@ -761,7 +771,12 @@ export default function FormulaEditorPage() {
           </div>
         ) : (
           <div className="h-full min-h-[520px] min-w-[820px]">
-            <TextEditor value={textValue} onChange={handleApplyText} isParsing={isParsing} />
+            <TextEditor
+              value={textValue}
+              onChange={handleApplyText}
+              onDraftChange={handleTextDraftChange}
+              isParsing={isParsing}
+            />
           </div>
         )}
       </div>

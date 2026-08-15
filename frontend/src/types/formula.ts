@@ -23,7 +23,7 @@ export type NodeType =
   | 'aggregate'
   | 'loop'
 
-export type OperatorKind = 'add' | 'subtract' | 'multiply' | 'divide' | 'modulo' | 'power'
+export type OperatorKind = 'add' | 'subtract' | 'multiply' | 'divide' | 'modulo' | 'power' | 'negate'
 
 export type FunctionKind =
   | 'round'

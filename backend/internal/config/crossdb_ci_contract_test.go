@@ -122,9 +122,9 @@ func hasContainerService(services *yaml.Node, name string) bool {
 func looksLikeDriverDSN(variable, value string) bool {
 	value = strings.ToLower(value)
 	if strings.HasPrefix(variable, "POSTGRES_") {
-		return strings.Contains(value, "postgres")
+		return strings.HasPrefix(value, "postgres://") || strings.HasPrefix(value, "postgresql://")
 	}
-	return strings.Contains(value, "mysql")
+	return strings.Contains(value, "@tcp(")
 }
 
 func jobRunsStoreSuite(job *yaml.Node, driver string) bool {
