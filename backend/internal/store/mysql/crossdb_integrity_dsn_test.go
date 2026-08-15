@@ -53,11 +53,39 @@ func TestLegacyCategoryIntegrityMigrationWithDSN(t *testing.T) {
 			t.Fatalf("create legacy schema: %v", err)
 		}
 	}
+	legacyNow := time.Now().UTC()
+	if _, err := s.db.ExecContext(ctx,
+		`INSERT INTO users (id, username, password, role, created_at) VALUES (?, ?, ?, ?, ?)`,
+		"legacy-orphan-user", "legacy-orphan-user", "x", "editor", legacyNow.Format(time.RFC3339Nano),
+	); err != nil {
+		t.Fatalf("create legacy orphan user: %v", err)
+	}
+	if _, err := s.db.ExecContext(ctx,
+		`INSERT INTO formulas (id, name, domain, description, created_by, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		"legacy-orphan-formula", "Orphan formula", "legacy-orphan-domain", "", "legacy-orphan-user", legacyNow.Format(time.RFC3339Nano), legacyNow.Format(time.RFC3339Nano),
+	); err != nil {
+		t.Fatalf("create legacy orphan formula: %v", err)
+	}
+	if _, err := s.db.ExecContext(ctx,
+		`INSERT INTO lookup_tables (id, name, domain, table_type, data_json, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+		"legacy-orphan-table", "Orphan table", "legacy-orphan-domain", "rating", `[]`, legacyNow.Format(time.RFC3339Nano),
+	); err != nil {
+		t.Fatalf("create legacy orphan table: %v", err)
+	}
 	if err := s.Migrate(ctx); err != nil {
-		t.Fatalf("migrate legacy schema: %v", err)
+		t.Fatalf("migrate legacy schema with orphan domains: %v", err)
 	}
 	if err := s.Migrate(ctx); err != nil {
 		t.Fatalf("repeat legacy migration: %v", err)
+	}
+	if _, err := s.Categories().GetBySlug(ctx, "legacy-orphan-domain"); err != nil {
+		t.Fatalf("migration did not create category for orphan domain: %v", err)
+	}
+	if _, err := s.Formulas().GetByID(ctx, "legacy-orphan-formula"); err != nil {
+		t.Fatalf("migration did not preserve orphan formula: %v", err)
+	}
+	if _, err := s.Tables().GetByID(ctx, "legacy-orphan-table"); err != nil {
+		t.Fatalf("migration did not preserve orphan lookup table: %v", err)
 	}
 	now := time.Now().UTC()
 	if err := s.Categories().Create(ctx, &domain.Category{ID: "legacy-category", Slug: "legacy-life", Name: "Life", Color: "#000", CreatedAt: now, UpdatedAt: now}); err != nil {
@@ -71,6 +99,64 @@ func TestLegacyCategoryIntegrityMigrationWithDSN(t *testing.T) {
 	}
 	if err := s.Categories().Delete(ctx, "legacy-category"); !errors.Is(err, storepkg.ErrHasContent) {
 		t.Fatalf("delete migrated referenced category = %v, want ErrHasContent", err)
+	}
+}
+
+// TestResetSeedDataRejectsReferencedSeedTableWithDSN exercises the same
+// atomic reset contract against a real, disposable MySQL database.
+func TestResetSeedDataRejectsReferencedSeedTableWithDSN(t *testing.T) {
+	dsn := os.Getenv("MYSQL_TEST_DSN")
+	if dsn == "" {
+		t.Skip("MYSQL_TEST_DSN is not set")
+	}
+	s, err := New(dsn)
+	if err != nil {
+		t.Fatalf("open MySQL: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	ctx := context.Background()
+	if err := s.Migrate(ctx); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+
+	prefix := "seed-reset-" + uuid.NewString()[:8] + "-"
+	now := time.Now().UTC()
+	category := &domain.Category{ID: prefix + "category", Slug: prefix + "life", Name: "Life", Color: "#000", CreatedAt: now, UpdatedAt: now}
+	if err := s.Categories().Create(ctx, category); err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	user := &domain.User{ID: prefix + "user", Username: prefix + "user", Password: "x", Role: domain.RoleEditor, CreatedAt: now}
+	if err := s.Users().Create(ctx, user); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	table := &domain.LookupTable{ID: prefix + "table", Name: "Seed table", Domain: domain.InsuranceDomain(category.Slug), TableType: "rating", Data: []byte(`[]`), SeedKey: "fixture", CreatedAt: now, UpdatedAt: now}
+	if err := s.Tables().Create(ctx, table); err != nil {
+		t.Fatalf("create seed table: %v", err)
+	}
+	seedFormula := &domain.Formula{ID: prefix + "seed-formula", Name: "Seed formula", Domain: domain.InsuranceDomain(category.Slug), SeedKey: "fixture", CreatedBy: user.ID, CreatedAt: now, UpdatedAt: now}
+	if err := s.Formulas().Create(ctx, seedFormula); err != nil {
+		t.Fatalf("create seed formula: %v", err)
+	}
+	consumer := &domain.Formula{ID: prefix + "consumer", Name: "Consumer", Domain: domain.InsuranceDomain(category.Slug), CreatedBy: user.ID, CreatedAt: now, UpdatedAt: now}
+	if err := s.Formulas().Create(ctx, consumer); err != nil {
+		t.Fatalf("create consumer formula: %v", err)
+	}
+	if err := s.Versions().CreateVersion(ctx, &domain.FormulaVersion{ID: prefix + "consumer-version", FormulaID: consumer.ID, Version: 1, State: domain.StateDraft, Graph: domain.FormulaGraph{Nodes: []domain.FormulaNode{{ID: "lookup", Type: domain.NodeTableLookup, Config: []byte(`{"tableId":"` + table.ID + `","keyColumns":["key"],"column":"value"}`)}}, Outputs: []string{"lookup"}}, CreatedBy: user.ID, CreatedAt: now}); err != nil {
+		t.Fatalf("create consumer version: %v", err)
+	}
+
+	formulasDeleted, tablesDeleted, err := s.ResetSeedData(ctx)
+	if !errors.Is(err, storepkg.ErrHasContent) {
+		t.Fatalf("ResetSeedData error = %v, want ErrHasContent", err)
+	}
+	if formulasDeleted != 0 || tablesDeleted != 0 {
+		t.Fatalf("ResetSeedData counts = formulas:%d tables:%d, want 0/0 after atomic rejection", formulasDeleted, tablesDeleted)
+	}
+	if _, err := s.Formulas().GetByID(ctx, seedFormula.ID); err != nil {
+		t.Fatalf("seed formula was removed despite rejected reset: %v", err)
+	}
+	if _, err := s.Tables().GetByID(ctx, table.ID); err != nil {
+		t.Fatalf("referenced seed table was removed despite rejected reset: %v", err)
 	}
 }
 

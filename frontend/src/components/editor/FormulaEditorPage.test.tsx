@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { useFormulaStore } from '../../store/formulaStore'
@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   }],
   empty: [] as unknown[],
   allFormulas: [] as Array<{ id: string; name: string }>,
+  searchParams: new URLSearchParams(),
 }))
 
 vi.mock('react-router-dom', () => ({
@@ -32,7 +33,7 @@ vi.mock('react-router-dom', () => ({
   ),
   useNavigate: () => mocks.navigate,
   useParams: () => ({ id: 'formula-1' }),
-  useSearchParams: () => [new URLSearchParams(), vi.fn()],
+  useSearchParams: () => [mocks.searchParams, vi.fn()],
   useBeforeUnload: vi.fn(),
 }))
 
@@ -76,12 +77,20 @@ vi.mock('./FormulaCanvas', () => ({
 vi.mock('./NodePalette', () => ({ default: () => <div data-testid="node-palette" /> }))
 vi.mock('./NodePropertiesPanel', () => ({ default: () => <div data-testid="node-properties" /> }))
 vi.mock('./TextEditor', () => ({
-  default: ({ onDraftChange }: { onDraftChange?: (draft: string) => void }) => (
-    <div data-testid="text-editor">
-      <button onClick={() => onDraftChange?.('age + 1')}>simulate un-applied text draft</button>
-      <button onClick={() => onDraftChange?.('\\frac{age}{2}')}>simulate un-applied LaTex draft</button>
-    </div>
-  ),
+  default: ({ onDraftChange }: { onDraftChange?: (draft: string, mode: 'text' | 'latex') => void }) => {
+    const [draft, setDraft] = useState('')
+    const setTextDraft = (nextDraft: string, mode: 'text' | 'latex') => {
+      setDraft(nextDraft)
+      onDraftChange?.(nextDraft, mode)
+    }
+    return (
+      <div data-testid="text-editor">
+        <output data-testid="text-editor-draft">{draft}</output>
+        <button onClick={() => setTextDraft('age + 1', 'text')}>simulate un-applied text draft</button>
+        <button onClick={() => setTextDraft('\\frac{age}{2}', 'latex')}>simulate un-applied LaTex draft</button>
+      </div>
+    )
+  },
 }))
 vi.mock('./hooks/useAutoLayout', () => ({ useAutoLayout: () => (nodes: unknown[]) => nodes }))
 
@@ -90,6 +99,19 @@ afterEach(() => {
   useFormulaStore.getState().reset()
   mocks.post.mockClear()
   mocks.allFormulas = []
+  mocks.versions = [{
+    id: 'version-1', formulaId: 'formula-1', version: 1, state: 'draft',
+    graph: {
+      nodes: [{ id: 'age', type: 'variable', config: { name: 'age', dataType: 'integer' } }],
+      edges: [], outputs: ['age'],
+    },
+    changeNote: '', createdBy: 'user-1', createdAt: '2026-08-15T00:00:00Z',
+  }]
+  mocks.searchParams = new URLSearchParams()
+  mocks.navigate.mockReset()
+  mocks.navigate.mockImplementation((to: string) => {
+    mocks.searchParams = new URLSearchParams(to.split('?')[1] ?? '')
+  })
 })
 
 describe('FormulaEditorPage test input validation', () => {
@@ -154,5 +176,61 @@ describe('FormulaEditorPage test input validation', () => {
     expect(confirm).toHaveBeenCalledWith('editor.unsavedChangesPrompt')
     expect(screen.getByTestId('formula-canvas').textContent).toBe('user-edit')
     confirm.mockRestore()
+  })
+
+  it('confirms before leaving unapplied Text or LaTeX drafts and preserves a canceled draft', async () => {
+    render(<FormulaEditorPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('formula-canvas').textContent).toBe('age')
+    })
+    fireEvent.click(screen.getByTestId('mode-text'))
+
+    const confirm = vi.spyOn(window, 'confirm')
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(false)
+      .mockReturnValueOnce(true)
+
+    fireEvent.click(screen.getByRole('button', { name: 'simulate un-applied text draft' }))
+    fireEvent.click(screen.getByTestId('mode-visual'))
+    expect(confirm).toHaveBeenLastCalledWith('editor.unsavedChangesPrompt')
+    expect(screen.getByTestId('text-editor-draft').textContent).toBe('age + 1')
+
+    fireEvent.click(screen.getByRole('button', { name: 'simulate un-applied LaTex draft' }))
+    fireEvent.click(screen.getByTestId('mode-visual'))
+    expect(confirm).toHaveBeenCalledTimes(2)
+    expect(screen.getByTestId('text-editor-draft').textContent).toBe('\\frac{age}{2}')
+
+    fireEvent.click(screen.getByTestId('mode-visual'))
+    expect(confirm).toHaveBeenCalledTimes(3)
+    expect(screen.queryByTestId('text-editor')).toBeNull()
+    confirm.mockRestore()
+  })
+
+  it('keeps baseVersion while consuming mode so a pinned source version is not reloaded as latest', async () => {
+    mocks.versions = [
+      {
+        id: 'version-2', formulaId: 'formula-1', version: 2, state: 'draft',
+        graph: {
+          nodes: [{ id: 'latest', type: 'variable', config: { name: 'latest', dataType: 'integer' } }],
+          edges: [], outputs: ['latest'],
+        },
+        changeNote: '', createdBy: 'user-1', createdAt: '2026-08-15T00:00:00Z',
+      },
+      mocks.versions[0],
+    ]
+    mocks.searchParams = new URLSearchParams('baseVersion=1&mode=text')
+    const view = render(<FormulaEditorPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('text-editor')).toBeTruthy()
+    })
+    fireEvent.click(screen.getByTestId('mode-visual'))
+    expect(mocks.navigate).toHaveBeenCalledWith('/formulas/formula-1?baseVersion=1', { replace: true })
+
+    view.rerender(<FormulaEditorPage />)
+    await waitFor(() => {
+      expect(screen.getByTestId('formula-canvas').textContent).toBe('age')
+    })
   })
 })
