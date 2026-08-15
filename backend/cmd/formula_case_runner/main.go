@@ -20,7 +20,7 @@ import (
 const (
 	defaultBaseURL   = "http://127.0.0.1:8080/api/v1"
 	defaultUsername  = "admin"
-	defaultPassword  = "admin99999"
+	defaultPassword  = "formula-service-local-admin"
 	defaultFormulaID = "d764dfd9-777a-43e6-956e-8fbcb467db6f"
 )
 

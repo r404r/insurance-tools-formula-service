@@ -27,6 +27,13 @@ type DAG struct {
 // BuildDAG constructs a DAG from a FormulaGraph, validates that the graph
 // is acyclic, and returns the resulting structure.
 func BuildDAG(graph *domain.FormulaGraph) (*DAG, error) {
+	if graph == nil {
+		return nil, fmt.Errorf("graph is nil")
+	}
+	if len(graph.Outputs) == 0 {
+		return nil, fmt.Errorf("graph must declare at least one output")
+	}
+
 	d := &DAG{
 		forward:  make(map[string][]string),
 		reverse:  make(map[string][]string),
@@ -39,6 +46,12 @@ func BuildDAG(graph *domain.FormulaGraph) (*DAG, error) {
 	// Index nodes.
 	for i := range graph.Nodes {
 		n := &graph.Nodes[i]
+		if n.ID == "" {
+			return nil, fmt.Errorf("node has empty ID")
+		}
+		if _, exists := d.nodes[n.ID]; exists {
+			return nil, fmt.Errorf("duplicate node ID %q", n.ID)
+		}
 		d.nodes[n.ID] = n
 		d.forward[n.ID] = nil
 		d.reverse[n.ID] = nil
@@ -47,6 +60,12 @@ func BuildDAG(graph *domain.FormulaGraph) (*DAG, error) {
 
 	// Mark outputs.
 	for _, id := range graph.Outputs {
+		if _, exists := d.nodes[id]; !exists {
+			return nil, fmt.Errorf("output references unknown node %q", id)
+		}
+		if d.outputs[id] {
+			return nil, fmt.Errorf("duplicate output %q", id)
+		}
 		d.outputs[id] = true
 	}
 

@@ -45,6 +45,7 @@ type Formula struct {
 	CreatedAt         time.Time       `json:"createdAt"`
 	UpdatedAt         time.Time       `json:"updatedAt"`
 	ExpectedUpdatedAt time.Time       `json:"-"`
+	SeedKey           string          `json:"seedKey,omitempty"`
 }
 
 // FormulaGraph is the DAG representation of a formula
@@ -240,6 +241,7 @@ type LookupTable struct {
 	CreatedAt         time.Time       `json:"createdAt"`
 	UpdatedAt         time.Time       `json:"updatedAt"`
 	ExpectedUpdatedAt time.Time       `json:"-"`
+	SeedKey           string          `json:"seedKey,omitempty"`
 }
 
 // FormulaFilter for listing formulas.

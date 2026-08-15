@@ -71,6 +71,31 @@ func (s *SQLiteStore) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)
 }
 
+func (s *SQLiteStore) ResetSeedData(ctx context.Context) (int64, int64, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, 0, fmt.Errorf("begin seed reset tx: %w", err)
+	}
+	defer tx.Rollback()
+	if err := store.EnsureSeedLookupTablesUnreferenced(ctx, tx); err != nil {
+		return 0, 0, err
+	}
+	formulaResult, err := tx.ExecContext(ctx, `DELETE FROM formulas WHERE seed_key != ''`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("delete seed formulas: %w", err)
+	}
+	tableResult, err := tx.ExecContext(ctx, `DELETE FROM lookup_tables WHERE seed_key != ''`)
+	if err != nil {
+		return 0, 0, fmt.Errorf("delete seed tables: %w", err)
+	}
+	formulasDeleted, _ := formulaResult.RowsAffected()
+	tablesDeleted, _ := tableResult.RowsAffected()
+	if err := tx.Commit(); err != nil {
+		return 0, 0, fmt.Errorf("commit seed reset: %w", err)
+	}
+	return formulasDeleted, tablesDeleted, nil
+}
+
 // Migrate creates the schema tables if they do not exist.
 func (s *SQLiteStore) Migrate(ctx context.Context) error {
 	statements := []string{
@@ -84,8 +109,9 @@ func (s *SQLiteStore) Migrate(ctx context.Context) error {
 		`CREATE TABLE IF NOT EXISTS formulas (
 			id          TEXT PRIMARY KEY,
 			name        TEXT NOT NULL,
-			domain      TEXT NOT NULL,
+			domain      TEXT NOT NULL REFERENCES categories(slug) ON UPDATE RESTRICT ON DELETE RESTRICT,
 			description TEXT NOT NULL DEFAULT '',
+			seed_key    TEXT NOT NULL DEFAULT '',
 			created_by  TEXT NOT NULL REFERENCES users(id),
 			updated_by  TEXT REFERENCES users(id),
 			created_at  TEXT NOT NULL,
@@ -106,9 +132,10 @@ func (s *SQLiteStore) Migrate(ctx context.Context) error {
 		`CREATE TABLE IF NOT EXISTS lookup_tables (
 			id         TEXT PRIMARY KEY,
 			name       TEXT NOT NULL,
-			domain     TEXT NOT NULL,
+			domain     TEXT NOT NULL REFERENCES categories(slug) ON UPDATE RESTRICT ON DELETE RESTRICT,
 			table_type TEXT NOT NULL,
 			data_json  TEXT NOT NULL,
+			seed_key   TEXT NOT NULL DEFAULT '',
 			created_at TEXT NOT NULL,
 			updated_at TEXT NOT NULL
 		)`,
@@ -131,6 +158,32 @@ func (s *SQLiteStore) Migrate(ctx context.Context) error {
 			value      TEXT NOT NULL,
 			updated_at TEXT NOT NULL
 		)`,
+		`CREATE TABLE IF NOT EXISTS system_guards (
+			name    TEXT PRIMARY KEY,
+			version INTEGER NOT NULL DEFAULT 0
+		)`,
+		`INSERT OR IGNORE INTO system_guards (name, version) VALUES ('last_admin', 0)`,
+		`CREATE TRIGGER IF NOT EXISTS restrict_category_delete
+			BEFORE DELETE ON categories
+			WHEN EXISTS (SELECT 1 FROM formulas WHERE domain = OLD.slug)
+			  OR EXISTS (SELECT 1 FROM lookup_tables WHERE domain = OLD.slug)
+			BEGIN SELECT RAISE(ABORT, 'category in use'); END`,
+		`CREATE TRIGGER IF NOT EXISTS validate_formula_category_insert
+			BEFORE INSERT ON formulas
+			WHEN NOT EXISTS (SELECT 1 FROM categories WHERE slug = NEW.domain)
+			BEGIN SELECT RAISE(ABORT, 'invalid category'); END`,
+		`CREATE TRIGGER IF NOT EXISTS validate_formula_category_update
+			BEFORE UPDATE OF domain ON formulas
+			WHEN NOT EXISTS (SELECT 1 FROM categories WHERE slug = NEW.domain)
+			BEGIN SELECT RAISE(ABORT, 'invalid category'); END`,
+		`CREATE TRIGGER IF NOT EXISTS validate_table_category_insert
+			BEFORE INSERT ON lookup_tables
+			WHEN NOT EXISTS (SELECT 1 FROM categories WHERE slug = NEW.domain)
+			BEGIN SELECT RAISE(ABORT, 'invalid category'); END`,
+		`CREATE TRIGGER IF NOT EXISTS validate_table_category_update
+			BEFORE UPDATE OF domain ON lookup_tables
+			WHEN NOT EXISTS (SELECT 1 FROM categories WHERE slug = NEW.domain)
+			BEGIN SELECT RAISE(ABORT, 'invalid category'); END`,
 	}
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -166,6 +219,8 @@ func (s *SQLiteStore) Migrate(ctx context.Context) error {
 			stmt: `ALTER TABLE lookup_tables ADD COLUMN updated_at TEXT`,
 			desc: "add lookup_tables.updated_at for optimistic locking",
 		},
+		{stmt: `ALTER TABLE formulas ADD COLUMN seed_key TEXT NOT NULL DEFAULT ''`, desc: "add formulas.seed_key provenance"},
+		{stmt: `ALTER TABLE lookup_tables ADD COLUMN seed_key TEXT NOT NULL DEFAULT ''`, desc: "add lookup_tables.seed_key provenance"},
 	}
 	for _, a := range alters {
 		if _, err := tx.ExecContext(ctx, a.stmt); err != nil {
@@ -191,11 +246,11 @@ type formulaRepo struct {
 
 func (r *formulaRepo) Create(ctx context.Context, f *domain.Formula) error {
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO formulas (id, name, domain, description, created_by, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO formulas (id, name, domain, description, created_by, created_at, updated_at, seed_key)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		f.ID, f.Name, f.Domain, f.Description, f.CreatedBy,
 		formatTime(f.CreatedAt),
-		formatTime(f.UpdatedAt),
+		formatTime(f.UpdatedAt), f.SeedKey,
 	)
 	if err != nil {
 		return fmt.Errorf("insert formula: %w", err)
@@ -203,9 +258,36 @@ func (r *formulaRepo) Create(ctx context.Context, f *domain.Formula) error {
 	return nil
 }
 
+func (r *formulaRepo) CreateWithInitialVersion(ctx context.Context, f *domain.Formula, v *domain.FormulaVersion) error {
+	graphJSON, err := json.Marshal(v.Graph)
+	if err != nil {
+		return fmt.Errorf("marshal initial graph: %w", err)
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin formula/version tx: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO formulas (id, name, domain, description, created_by, created_at, updated_at, seed_key)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		f.ID, f.Name, f.Domain, f.Description, f.CreatedBy, formatTime(f.CreatedAt), formatTime(f.UpdatedAt), f.SeedKey,
+	); err != nil {
+		return fmt.Errorf("insert formula: %w", classifyWriteError(err))
+	}
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO formula_versions (id, formula_id, version, state, graph_json, parent_ver, change_note, created_by, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		v.ID, v.FormulaID, v.Version, v.State, string(graphJSON), nullableInt(v.ParentVer), v.ChangeNote, v.CreatedBy, formatTime(v.CreatedAt),
+	); err != nil {
+		return fmt.Errorf("insert initial version: %w", classifyWriteError(err))
+	}
+	return tx.Commit()
+}
+
 func (r *formulaRepo) GetByID(ctx context.Context, id string) (*domain.Formula, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, name, domain, description, created_by, updated_by, created_at, updated_at
+		`SELECT id, name, domain, description, created_by, updated_by, created_at, updated_at, seed_key
 		 FROM formulas WHERE id = ?`, id)
 	return scanFormula(row)
 }
@@ -268,7 +350,7 @@ func (r *formulaRepo) List(ctx context.Context, filter domain.FormulaFilter) ([]
 	// NULLs sort last regardless of direction so that legacy rows
 	// without an updater do not crowd the head of an ascending page.
 	query := `SELECT f.id, f.name, f.domain, f.description,
-		f.created_by, f.updated_by, f.created_at, f.updated_at,
+		f.created_by, f.updated_by, f.created_at, f.updated_at, f.seed_key,
 		COALESCE(u1.username, ''), COALESCE(u2.username, '')
 		FROM formulas f
 		LEFT JOIN users u1 ON u1.id = f.created_by
@@ -518,7 +600,7 @@ func (r *userRepo) Create(ctx context.Context, u *domain.User) error {
 		formatTime(u.CreatedAt),
 	)
 	if err != nil {
-		return fmt.Errorf("insert user: %w", err)
+		return fmt.Errorf("insert user: %w", classifyWriteError(err))
 	}
 	return nil
 }
@@ -568,24 +650,31 @@ func (r *userRepo) List(ctx context.Context) ([]*domain.User, error) {
 }
 
 func (r *userRepo) UpdateRole(ctx context.Context, id string, role domain.Role) error {
-	// Prevent demoting the last admin.
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin update role tx: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE system_guards SET version = version + 1 WHERE name = 'last_admin'`); err != nil {
+		return fmt.Errorf("lock last admin guard: %w", err)
+	}
 	if role != domain.RoleAdmin {
 		var currentRole string
-		err := r.db.QueryRowContext(ctx, `SELECT role FROM users WHERE id = ?`, id).Scan(&currentRole)
-		if err == sql.ErrNoRows {
-			return sql.ErrNoRows
+		if err := tx.QueryRowContext(ctx, `SELECT role FROM users WHERE id = ?`, id).Scan(&currentRole); err != nil {
+			return err
 		}
 		if domain.Role(currentRole) == domain.RoleAdmin {
 			var adminCount int
-			_ = r.db.QueryRowContext(ctx,
-				`SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != ?`, id).Scan(&adminCount)
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != ?`, id).Scan(&adminCount); err != nil {
+				return fmt.Errorf("count other admins: %w", err)
+			}
 			if adminCount == 0 {
 				return store.ErrLastAdmin
 			}
 		}
 	}
 
-	res, err := r.db.ExecContext(ctx,
+	res, err := tx.ExecContext(ctx,
 		`UPDATE users SET role = ?, token_version = token_version + 1 WHERE id = ?`, role, id)
 	if err != nil {
 		return fmt.Errorf("update role: %w", err)
@@ -594,26 +683,35 @@ func (r *userRepo) UpdateRole(ctx context.Context, id string, role domain.Role) 
 	if n == 0 {
 		return sql.ErrNoRows
 	}
-	return nil
+	return tx.Commit()
 }
 
 func (r *userRepo) Delete(ctx context.Context, id string) error {
-	// Prevent deleting the last admin.
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin delete user tx: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE system_guards SET version = version + 1 WHERE name = 'last_admin'`); err != nil {
+		return fmt.Errorf("lock last admin guard: %w", err)
+	}
 	var currentRole string
-	err := r.db.QueryRowContext(ctx, `SELECT role FROM users WHERE id = ?`, id).Scan(&currentRole)
+	err = tx.QueryRowContext(ctx, `SELECT role FROM users WHERE id = ?`, id).Scan(&currentRole)
 	if err == sql.ErrNoRows {
 		return sql.ErrNoRows
 	}
 	if domain.Role(currentRole) == domain.RoleAdmin {
 		var adminCount int
-		_ = r.db.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != ?`, id).Scan(&adminCount)
+		if err := tx.QueryRowContext(ctx,
+			`SELECT COUNT(*) FROM users WHERE role = 'admin' AND id != ?`, id).Scan(&adminCount); err != nil {
+			return fmt.Errorf("count other admins: %w", err)
+		}
 		if adminCount == 0 {
 			return store.ErrLastAdmin
 		}
 	}
 
-	res, err := r.db.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
+	res, err := tx.ExecContext(ctx, `DELETE FROM users WHERE id = ?`, id)
 	if err != nil {
 		if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") {
 			return store.ErrHasContent
@@ -624,7 +722,7 @@ func (r *userRepo) Delete(ctx context.Context, id string) error {
 	if n == 0 {
 		return sql.ErrNoRows
 	}
-	return nil
+	return tx.Commit()
 }
 
 // ---------------------------------------------------------------------------
@@ -641,10 +739,10 @@ func (r *tableRepo) Create(ctx context.Context, t *domain.LookupTable) error {
 	}
 	dataJSON := string(t.Data)
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO lookup_tables (id, name, domain, table_type, data_json, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO lookup_tables (id, name, domain, table_type, data_json, created_at, updated_at, seed_key)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		t.ID, t.Name, t.Domain, t.TableType, dataJSON,
-		formatTime(t.CreatedAt), formatTime(t.UpdatedAt),
+		formatTime(t.CreatedAt), formatTime(t.UpdatedAt), t.SeedKey,
 	)
 	if err != nil {
 		return fmt.Errorf("insert lookup table: %w", err)
@@ -654,7 +752,7 @@ func (r *tableRepo) Create(ctx context.Context, t *domain.LookupTable) error {
 
 func (r *tableRepo) GetByID(ctx context.Context, id string) (*domain.LookupTable, error) {
 	row := r.db.QueryRowContext(ctx,
-		`SELECT id, name, domain, table_type, data_json, created_at, COALESCE(updated_at, created_at) FROM lookup_tables WHERE id = ?`, id)
+		`SELECT id, name, domain, table_type, data_json, created_at, COALESCE(updated_at, created_at), seed_key FROM lookup_tables WHERE id = ?`, id)
 	return scanLookupTable(row)
 }
 
@@ -663,10 +761,10 @@ func (r *tableRepo) List(ctx context.Context, domainFilter *domain.InsuranceDoma
 	var args []interface{}
 
 	if domainFilter != nil {
-		query = `SELECT id, name, domain, table_type, data_json, created_at, COALESCE(updated_at, created_at) FROM lookup_tables WHERE domain = ? ORDER BY name ASC`
+		query = `SELECT id, name, domain, table_type, data_json, created_at, COALESCE(updated_at, created_at), seed_key FROM lookup_tables WHERE domain = ? ORDER BY name ASC`
 		args = append(args, string(*domainFilter))
 	} else {
-		query = `SELECT id, name, domain, table_type, data_json, created_at, COALESCE(updated_at, created_at) FROM lookup_tables ORDER BY name ASC`
+		query = `SELECT id, name, domain, table_type, data_json, created_at, COALESCE(updated_at, created_at), seed_key FROM lookup_tables ORDER BY name ASC`
 	}
 
 	rows, err := r.db.QueryContext(ctx, query, args...)
@@ -760,7 +858,7 @@ func scanFormula(s scanner) (*domain.Formula, error) {
 	var f domain.Formula
 	var createdAt, updatedAt string
 	var updatedBy sql.NullString
-	err := s.Scan(&f.ID, &f.Name, &f.Domain, &f.Description, &f.CreatedBy, &updatedBy, &createdAt, &updatedAt)
+	err := s.Scan(&f.ID, &f.Name, &f.Domain, &f.Description, &f.CreatedBy, &updatedBy, &createdAt, &updatedAt, &f.SeedKey)
 	if err != nil {
 		return nil, fmt.Errorf("scan formula: %w", err)
 	}
@@ -784,7 +882,7 @@ func scanFormulaListRow(rows *sql.Rows) (*domain.Formula, error) {
 	var updatedBy sql.NullString
 	err := rows.Scan(
 		&f.ID, &f.Name, &f.Domain, &f.Description,
-		&f.CreatedBy, &updatedBy, &createdAt, &updatedAt,
+		&f.CreatedBy, &updatedBy, &createdAt, &updatedAt, &f.SeedKey,
 		&f.CreatedByName, &f.UpdatedByName,
 	)
 	if err != nil {
@@ -841,7 +939,7 @@ func scanLookupTable(s scanner) (*domain.LookupTable, error) {
 	var t domain.LookupTable
 	var dataJSON string
 	var createdAt, updatedAt string
-	err := s.Scan(&t.ID, &t.Name, &t.Domain, &t.TableType, &dataJSON, &createdAt, &updatedAt)
+	err := s.Scan(&t.ID, &t.Name, &t.Domain, &t.TableType, &dataJSON, &createdAt, &updatedAt, &t.SeedKey)
 	if err != nil {
 		return nil, fmt.Errorf("scan lookup table: %w", err)
 	}
@@ -896,9 +994,16 @@ func (r *categoryRepo) Create(ctx context.Context, c *domain.Category) error {
 		formatTime(c.UpdatedAt),
 	)
 	if err != nil {
-		return fmt.Errorf("insert category: %w", err)
+		return fmt.Errorf("insert category: %w", classifyWriteError(err))
 	}
 	return nil
+}
+
+func classifyWriteError(err error) error {
+	if err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed") {
+		return fmt.Errorf("%w: %v", store.ErrConflict, err)
+	}
+	return err
 }
 
 func (r *categoryRepo) GetByID(ctx context.Context, id string) (*domain.Category, error) {
@@ -971,6 +1076,9 @@ func (r *categoryRepo) Update(ctx context.Context, c *domain.Category) error {
 func (r *categoryRepo) Delete(ctx context.Context, id string) error {
 	res, err := r.db.ExecContext(ctx, `DELETE FROM categories WHERE id = ?`, id)
 	if err != nil {
+		if strings.Contains(err.Error(), "FOREIGN KEY constraint failed") || strings.Contains(err.Error(), "category in use") {
+			return store.ErrHasContent
+		}
 		return fmt.Errorf("delete category: %w", err)
 	}
 	n, _ := res.RowsAffected()

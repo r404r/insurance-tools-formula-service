@@ -110,11 +110,13 @@ func DefaultEngineConfig() EngineConfig {
 
 // defaultEngine is the production implementation of Engine.
 type defaultEngine struct {
-	executor        *Executor
-	cache           *ResultCache
-	config          EngineConfig
-	tableResolver   TableResolver
-	formulaResolver FormulaResolver
+	executor         *Executor
+	cache            *ResultCache
+	typedCache       *typedResultCache
+	cacheCoordinator *resultCacheCoordinator
+	config           EngineConfig
+	tableResolver    TableResolver
+	formulaResolver  FormulaResolver
 }
 
 // NewEngine creates a new Engine with the given configuration.
@@ -122,11 +124,14 @@ func NewEngine(cfg EngineConfig) Engine {
 	if cfg.MaxLoopIterations <= 0 {
 		cfg.MaxLoopIterations = DefaultMaxLoopIterations
 	}
+	cache := NewResultCache(cfg.CacheSize)
 	engine := &defaultEngine{
-		cache:           NewResultCache(cfg.CacheSize),
-		config:          cfg,
-		tableResolver:   cfg.TableResolver,
-		formulaResolver: cfg.FormulaResolver,
+		cache:            cache,
+		typedCache:       newTypedResultCache(cache.maxSize),
+		cacheCoordinator: newResultCacheCoordinator(cache.maxSize),
+		config:           cfg,
+		tableResolver:    cfg.TableResolver,
+		formulaResolver:  cfg.FormulaResolver,
 	}
 	engine.executor = NewExecutor(cfg.Workers, cfg.Precision, cfg.TableResolver, engine.executeSubFormula, engine.executeLoop)
 	return engine
@@ -150,6 +155,9 @@ func precisionCacheVersion(precision PrecisionConfig) string {
 
 // Calculate implements Engine.Calculate.
 func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]string) (*CalculationResult, error) {
+	if graphUsesTypedValues(graph) {
+		return e.calculateTyped(ctx, graph, inputs)
+	}
 	start := time.Now()
 
 	// Parse string inputs to Decimal.
@@ -211,7 +219,7 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 	}
 
 	// Store full result in cache (outputs + intermediates + metadata).
-	e.cache.Set(cacheKey, CachedResult{
+	e.storeDecimalCache(cacheKey, CachedResult{
 		Outputs:        outputDecimals,
 		Intermediates:  intermediateDecimals,
 		NodesEvaluated: len(allResults),
@@ -236,7 +244,11 @@ func (e *defaultEngine) Calculate(ctx context.Context, graph *domain.FormulaGrap
 // so this keeps the parsed-rows cache in StoreTableResolver consistent with
 // the underlying lookup_tables rows without any extra plumbing.
 func (e *defaultEngine) ClearCache() {
+	e.cacheCoordinator.mu.Lock()
 	e.cache.Clear()
+	e.typedCache.clear()
+	e.cacheCoordinator.clear()
+	e.cacheCoordinator.mu.Unlock()
 	if inv, ok := e.tableResolver.(interface{ InvalidateAll() }); ok {
 		inv.InvalidateAll()
 	}
@@ -244,7 +256,34 @@ func (e *defaultEngine) ClearCache() {
 
 // CacheStats implements Engine.CacheStats.
 func (e *defaultEngine) CacheStats() (size int, maxSize int) {
-	return e.cache.Len(), e.cache.maxSize
+	e.cacheCoordinator.mu.Lock()
+	defer e.cacheCoordinator.mu.Unlock()
+	return e.cache.Len() + e.typedCache.len(), e.cache.maxSize
+}
+
+func (e *defaultEngine) storeDecimalCache(key CacheKey, result CachedResult) {
+	e.storeResultCache(key, decimalResultCache, func() {
+		e.cache.Set(key, result)
+	})
+}
+
+func (e *defaultEngine) storeTypedCache(key CacheKey, result typedCachedResult) {
+	e.storeResultCache(key, typedResultCacheKind, func() {
+		e.typedCache.set(key, result)
+	})
+}
+
+func (e *defaultEngine) storeResultCache(key CacheKey, kind resultCacheKind, store func()) {
+	e.cacheCoordinator.mu.Lock()
+	defer e.cacheCoordinator.mu.Unlock()
+	if evictedKey, evictedKind, evicted := e.cacheCoordinator.prepareInsert(key.String(), kind); evicted {
+		if evictedKind == decimalResultCache {
+			e.cache.deleteString(evictedKey)
+		} else {
+			e.typedCache.deleteString(evictedKey)
+		}
+	}
+	store()
 }
 
 func (e *defaultEngine) calculateGraph(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]Decimal) (*ExecutionPlan, map[string]Decimal, error) {
@@ -394,6 +433,21 @@ func (e *defaultEngine) executeLoop(ctx context.Context, node *domain.FormulaNod
 	// Guard: iterator variable must not shadow a parent input to avoid silent wrong results.
 	if _, conflict := seedInputs[cfg.Iterator]; conflict {
 		return Zero, fmt.Errorf("node %s: loop iterator %q conflicts with an existing input variable", node.ID, cfg.Iterator)
+	}
+	// Keep the established loop-level diagnostic for a missing body output
+	// while BuildDAG still enforces this invariant for every graph entrypoint.
+	if len(version.Graph.Outputs) == 1 {
+		outputID := version.Graph.Outputs[0]
+		found := false
+		for _, bodyNode := range version.Graph.Nodes {
+			if bodyNode.ID == outputID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return Zero, fmt.Errorf("node %s: loop body output %q was not produced", node.ID, outputID)
+		}
 	}
 
 	// Pre-build the execution plan for the body formula once; reuse across all iterations.
@@ -712,8 +766,8 @@ func (e *defaultEngine) Validate(graph *domain.FormulaGraph) []ValidationError {
 }
 
 // preloadTableData finds all tableLookup nodes in the graph and pre-loads
-// their table data into the inputs map with "table:<key>" entries so that
-// the evaluator can resolve them during execution.
+// their table data into namespaced entries so the evaluator can resolve them
+// during execution without collisions between lookup table/column pairs.
 func (e *defaultEngine) preloadTableData(ctx context.Context, graph *domain.FormulaGraph, inputs map[string]Decimal) error {
 	for _, node := range graph.Nodes {
 		if node.Type != domain.NodeTableLookup {
@@ -723,7 +777,15 @@ func (e *defaultEngine) preloadTableData(ctx context.Context, graph *domain.Form
 		if err := json.Unmarshal(node.Config, &cfg); err != nil {
 			return fmt.Errorf("node %s: invalid tableLookup config: %w", node.ID, err)
 		}
-		tableData, err := e.tableResolver.ResolveTable(ctx, cfg.TableID, cfg.EffectiveKeyColumns(), cfg.Column)
+		column := cfg.Column
+		if column == "" {
+			resolvedColumn, resolveErr := e.resolveUniqueLookupColumn(ctx, cfg)
+			if resolveErr != nil {
+				return fmt.Errorf("node %s: %w", node.ID, resolveErr)
+			}
+			column = resolvedColumn
+		}
+		tableData, err := e.tableResolver.ResolveTable(ctx, cfg.TableID, cfg.EffectiveKeyColumns(), column)
 		if err != nil {
 			return fmt.Errorf("node %s: resolve table %s: %w", node.ID, cfg.TableID, err)
 		}
@@ -732,10 +794,48 @@ func (e *defaultEngine) preloadTableData(ctx context.Context, graph *domain.Form
 			if err != nil {
 				return fmt.Errorf("table %s key %s: invalid decimal value %q: %w", cfg.TableID, key, val, err)
 			}
-			inputs["table:"+key] = d
+			inputs[lookupInputKey(cfg.TableID, cfg.Column, key)] = d
 		}
 	}
 	return nil
+}
+
+// resolveUniqueLookupColumn implements the two-argument lookup(table, key)
+// form. It is valid only when the table schema has exactly one non-key column;
+// choosing the first map key would make calculations depend on Go map order.
+func (e *defaultEngine) resolveUniqueLookupColumn(ctx context.Context, cfg domain.TableLookupConfig) (string, error) {
+	rows, err := e.tableResolver.GetRows(ctx, cfg.TableID)
+	if err != nil {
+		return "", fmt.Errorf("load table %s: %w", cfg.TableID, err)
+	}
+	keyColumns := make(map[string]bool, len(cfg.EffectiveKeyColumns()))
+	for _, key := range cfg.EffectiveKeyColumns() {
+		keyColumns[key] = true
+	}
+	candidates := make(map[string]bool)
+	for _, row := range rows {
+		for column := range row {
+			if !keyColumns[column] {
+				candidates[column] = true
+			}
+		}
+	}
+	if len(candidates) == 1 {
+		for column := range candidates {
+			return column, nil
+		}
+	}
+	if len(candidates) == 0 {
+		return "", fmt.Errorf("lookup table %s has no non-key value column", cfg.TableID)
+	}
+	return "", fmt.Errorf("ambiguous lookup column for table %s; specify a column explicitly", cfg.TableID)
+}
+
+// lookupInputKey is the private namespace used for preloaded lookup values.
+// Length-prefixed parts avoid ambiguity if future table IDs or column names
+// contain the separator.
+func lookupInputKey(tableID, column, compositeKey string) string {
+	return fmt.Sprintf("table:%d:%s:%d:%s:%s", len(tableID), tableID, len(column), column, compositeKey)
 }
 
 // parseInputs converts string input values to Decimals.
@@ -805,7 +905,7 @@ func validateNodeConfig(node domain.FormulaNode) error {
 		}
 		validOps := map[string]bool{
 			"add": true, "subtract": true, "multiply": true,
-			"divide": true, "power": true, "modulo": true,
+			"divide": true, "power": true, "modulo": true, "negate": true,
 		}
 		if !validOps[cfg.Op] {
 			return fmt.Errorf("unknown operator %q", cfg.Op)
@@ -991,13 +1091,15 @@ func validateRequiredPorts(graph *domain.FormulaGraph, dag *DAG) []ValidationErr
 
 		switch n.Type {
 		case domain.NodeOperator:
+			var cfg domain.OperatorConfig
+			_ = json.Unmarshal(n.Config, &cfg)
 			if !hasPort("left") {
 				errs = append(errs, ValidationError{
 					NodeID:  n.ID,
 					Message: "operator node missing 'left' input connection",
 				})
 			}
-			if !hasPort("right") {
+			if cfg.Op != "negate" && !hasPort("right") {
 				errs = append(errs, ValidationError{
 					NodeID:  n.ID,
 					Message: "operator node missing 'right' input connection",
@@ -1034,13 +1136,20 @@ func validateRequiredPorts(graph *domain.FormulaGraph, dag *DAG) []ValidationErr
 			// of the real error.
 			_ = json.Unmarshal(n.Config, &condCfg)
 
-			// Then/else are required by both branches.
-			for _, port := range []string{"thenValue", "elseValue"} {
-				if !hasPort(port) {
-					errs = append(errs, ValidationError{
-						NodeID:  n.ID,
-						Message: fmt.Sprintf("conditional node missing '%s' input connection", port),
-					})
+			// A legacy condition with only condition / conditionRight is a
+			// standalone comparison expression and evaluates to Decimal 1 or 0.
+			// Branch ports remain mandatory for actual conditionals.
+			standaloneComparison := len(condCfg.Conditions) == 0 &&
+				hasPort("condition") && hasPort("conditionRight") &&
+				!hasPort("thenValue") && !hasPort("elseValue")
+			if !standaloneComparison {
+				for _, port := range []string{"thenValue", "elseValue"} {
+					if !hasPort(port) {
+						errs = append(errs, ValidationError{
+							NodeID:  n.ID,
+							Message: fmt.Sprintf("conditional node missing '%s' input connection", port),
+						})
+					}
 				}
 			}
 

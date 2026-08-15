@@ -36,10 +36,10 @@ type cacheEntry struct {
 
 // ResultCache is a thread-safe LRU cache for formula computation results.
 type ResultCache struct {
-	mu       sync.RWMutex
-	items    map[string]*cacheEntry
-	maxSize  int
-	counter  uint64
+	mu      sync.RWMutex
+	items   map[string]*cacheEntry
+	maxSize int
+	counter uint64
 }
 
 // NewResultCache creates a ResultCache with the given maximum entry count.
@@ -136,6 +136,15 @@ func (rc *ResultCache) Len() int {
 	rc.mu.RLock()
 	defer rc.mu.RUnlock()
 	return len(rc.items)
+}
+
+// deleteString removes an entry selected by the engine-level shared cache
+// coordinator. It is intentionally private because callers should normally
+// use Engine.ClearCache rather than evict a single calculation result.
+func (rc *ResultCache) deleteString(key string) {
+	rc.mu.Lock()
+	defer rc.mu.Unlock()
+	delete(rc.items, key)
 }
 
 // Clear removes all entries from the cache.

@@ -24,6 +24,12 @@ func newTestStore(t *testing.T) *SQLiteStore {
 	if err := store.Migrate(context.Background()); err != nil {
 		t.Fatalf("migrate: %v", err)
 	}
+	now := time.Now().UTC()
+	if err := store.Categories().Create(context.Background(), &domain.Category{
+		ID: "default-category-life", Slug: "life", Name: "Life", Color: "#6366f1", CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("seed default category: %v", err)
+	}
 	return store
 }
 
@@ -47,6 +53,14 @@ func seedUser(t *testing.T, s *SQLiteStore, id, username string) {
 // the helper passes it through UpdateMeta when set.
 func seedFormula(t *testing.T, s *SQLiteStore, id, name, createdBy string, createdAt time.Time, updatedBy string, updatedAt time.Time) {
 	t.Helper()
+	if _, err := s.Categories().GetBySlug(context.Background(), "life"); err != nil {
+		now := time.Now().UTC()
+		if err := s.Categories().Create(context.Background(), &domain.Category{
+			ID: "category-life", Slug: "life", Name: "Life", Color: "#6366f1", CreatedAt: now, UpdatedAt: now,
+		}); err != nil {
+			t.Fatalf("seed life category: %v", err)
+		}
+	}
 	f := &domain.Formula{
 		ID:        id,
 		Name:      name,

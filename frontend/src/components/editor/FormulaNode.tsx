@@ -19,7 +19,7 @@ export default function FormulaNode({ id, data, selected }: NodeProps) {
   const nodeType = nodeData.nodeType
   const config = nodeData.config ?? {}
   const colors = NODE_COLORS[nodeType] ?? { bg: '#f3f4f6', border: '#9ca3af' }
-  const inputPorts = getInputPorts(nodeType, config)
+  const inputPorts = getInputPorts(nodeType, config, nodeData.inputPorts ?? [])
   const isOperator = nodeType === 'operator'
 
   const { invalidNodeIds, warnNodeIds } = useValidation()

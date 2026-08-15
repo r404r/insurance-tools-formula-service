@@ -265,10 +265,9 @@ func TestDAGToAST_RejectsTableAggregateWithClearMessage(t *testing.T) {
 	}
 }
 
-// TestValidateGraph_LegacyConditionalStillAccepted ensures the legacy
-// single-comparator if/then/else shape still passes through unchanged
-// after the composite branch was added.
-func TestValidateGraph_LegacyConditionalStillAccepted(t *testing.T) {
+// TestValidateGraph_StandaloneComparisonStillAccepted verifies the canonical
+// two-port comparison shape remains valid alongside four-port conditionals.
+func TestValidateGraph_StandaloneComparisonStillAccepted(t *testing.T) {
 	cfgJSON, _ := json.Marshal(domain.ConditionalConfig{Comparator: "gt"})
 	graph := &domain.FormulaGraph{
 		Nodes: []domain.FormulaNode{
@@ -277,13 +276,13 @@ func TestValidateGraph_LegacyConditionalStillAccepted(t *testing.T) {
 			{ID: "R", Type: domain.NodeVariable, Config: mustMarshalVar(t, "R")},
 		},
 		Edges: []domain.FormulaEdge{
-			{Source: "L", Target: "cond", SourcePort: "out", TargetPort: "left"},
-			{Source: "R", Target: "cond", SourcePort: "out", TargetPort: "right"},
+			{Source: "L", Target: "cond", SourcePort: "out", TargetPort: "condition"},
+			{Source: "R", Target: "cond", SourcePort: "out", TargetPort: "conditionRight"},
 		},
 		Outputs: []string{"cond"},
 	}
 	errs := ValidateGraph(graph)
 	if len(errs) > 0 {
-		t.Fatalf("legacy comparator graph rejected: %v", errs)
+		t.Fatalf("standalone comparison graph rejected: %v", errs)
 	}
 }

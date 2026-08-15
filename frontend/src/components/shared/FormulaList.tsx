@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import { api } from '../../api/client'
+import { listAllFormulaIds } from '../../api/formulas'
 import { useAuthStore } from '../../store/authStore'
 import { listCategories } from '../../api/categories'
 import TemplateGallery from './TemplateGallery'
@@ -234,14 +235,10 @@ export default function FormulaList() {
 
   const exportAllMutation = useMutation({
     mutationFn: async () => {
-      // Fetch all matching formulas up to 500 to get their IDs.
-      const params = new URLSearchParams()
-      if (search) params.set('search', search)
-      if (domainFilter !== 'all') params.set('domain', domainFilter)
-      params.set('limit', '500')
-      params.set('offset', '0')
-      const r = await api.get<{ formulas: Formula[] }>(`/formulas?${params.toString()}`)
-      const ids = (r.formulas ?? []).map((f) => f.id)
+      const ids = await listAllFormulaIds({
+        search: search || undefined,
+        domain: domainFilter === 'all' ? undefined : domainFilter,
+      })
       await handleExport(ids, `formulas-export-${new Date().toISOString().slice(0, 10)}.json`)
     },
   })

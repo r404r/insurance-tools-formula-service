@@ -118,7 +118,8 @@
     "tableAggregateNoTextMode": "この計算式にはTableAggregateノードが含まれています。テキストモードはサポートされていません。ビジュアルエディタをご使用ください。",
     "idEmpty": "IDは空にできません",
     "idInvalid": "IDは英字またはアンダースコアで始まり、続く文字は英字・数字・アンダースコアのみ（最大64文字）",
-    "idConflict": "IDが他のノードと重複しています"
+    "idConflict": "IDが他のノードと重複しています",
+    "unsavedChangesPrompt": "保存していない変更があります。保存せずに移動しますか？"
   },
   "node": {
     "variable": "変数",

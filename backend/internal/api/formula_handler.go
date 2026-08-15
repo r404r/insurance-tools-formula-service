@@ -1,11 +1,13 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -13,7 +15,6 @@ import (
 
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/auth"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
-	"github.com/r404r/insurance-tools/formula-service/backend/internal/parser"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store"
 )
 
@@ -275,11 +276,6 @@ func (h *FormulaHandler) Copy(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt:   now,
 	}
 
-	if err := h.Formulas.Create(r.Context(), newFormula); err != nil {
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create formula", Code: http.StatusInternalServerError})
-		return
-	}
-
 	// Deep-copy the graph so the source and new formula don't share slices/maps.
 	copiedGraph := deepCopyGraph(latest.Graph)
 
@@ -295,20 +291,33 @@ func (h *FormulaHandler) Copy(w http.ResponseWriter, r *http.Request) {
 		CreatedBy:  claims.UserID,
 		CreatedAt:  now,
 	}
-	if err := h.Versions.CreateVersion(r.Context(), newVersion); err != nil {
-		// Best-effort rollback: delete the formula shell we just created so the
-		// database is not left with an orphaned formula that has zero versions.
-		// If the delete also fails we cannot recover here; caller will see 500
-		// and the orphan row must be cleaned up out-of-band.
-		if delErr := h.Formulas.Delete(r.Context(), newFormulaID); delErr != nil {
+	if atomic, ok := h.Formulas.(store.FormulaVersionAtomicCreator); ok {
+		if err := atomic.CreateWithInitialVersion(r.Context(), newFormula, newVersion); err != nil {
 			writeJSON(w, http.StatusInternalServerError, ErrorResponse{
-				Error: "failed to create version and rollback also failed",
+				Error: "failed to create formula and initial version",
 				Code:  http.StatusInternalServerError,
 			})
 			return
 		}
-		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create version", Code: http.StatusInternalServerError})
-		return
+	} else {
+		if err := h.Formulas.Create(r.Context(), newFormula); err != nil {
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create formula", Code: http.StatusInternalServerError})
+			return
+		}
+		if err := h.Versions.CreateVersion(r.Context(), newVersion); err != nil {
+			// The optional atomic repository capability is not available, so
+			// maintain the legacy best-effort rollback behavior for test doubles
+			// and third-party repository implementations.
+			if delErr := h.Formulas.Delete(r.Context(), newFormulaID); delErr != nil {
+				writeJSON(w, http.StatusInternalServerError, ErrorResponse{
+					Error: "failed to create version and rollback also failed",
+					Code:  http.StatusInternalServerError,
+				})
+				return
+			}
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to create version", Code: http.StatusInternalServerError})
+			return
+		}
 	}
 
 	// Stamp updated_by/updated_at on the new formula so it shows up in
@@ -385,8 +394,8 @@ func (h *FormulaHandler) Export(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "ids is required and must be non-empty", Code: http.StatusBadRequest})
 		return
 	}
-	if len(req.IDs) > 500 {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "too many ids (max 500)", Code: http.StatusBadRequest})
+	if len(req.IDs) > 10000 {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "too many ids (max 10000)", Code: http.StatusBadRequest})
 		return
 	}
 
@@ -490,6 +499,10 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 		Imported: []ImportedItem{},
 		Errors:   []ImportError{},
 	}
+	seedKey := ""
+	if claims.Role == domain.RoleAdmin {
+		seedKey = strings.TrimSpace(r.Header.Get("X-Seed-Key"))
+	}
 	now := time.Now().UTC()
 
 	for i, ef := range bundle.Formulas {
@@ -510,11 +523,12 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "graph has no nodes"})
 			continue
 		}
-		// Run the full graph validator to reject malformed graphs (cycles,
-		// broken edges, duplicate node IDs, missing outputs, invalid configs).
+		// Reuse the Create/Publish contract before writing either record. The
+		// parser catches graph structure while the engine catches executable
+		// values such as invalid numeric constants.
 		graphCopy := ef.Graph
-		if verrs := parser.ValidateGraph(&graphCopy); len(verrs) > 0 {
-			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "invalid graph: " + verrs[0].Message})
+		if message := validatePersistedGraph(&graphCopy); message != "" {
+			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "invalid graph: " + message})
 			continue
 		}
 
@@ -527,12 +541,8 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 			CreatedBy:   claims.UserID,
 			CreatedAt:   now,
 			UpdatedAt:   now,
+			SeedKey:     seedKey,
 		}
-		if err := h.Formulas.Create(r.Context(), newFormula); err != nil {
-			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "failed to create formula"})
-			continue
-		}
-
 		copiedGraph := deepCopyGraph(ef.Graph)
 		newVersion := &domain.FormulaVersion{
 			ID:         uuid.New().String(),
@@ -544,14 +554,27 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 			CreatedBy:  claims.UserID,
 			CreatedAt:  now,
 		}
-		if err := h.Versions.CreateVersion(r.Context(), newVersion); err != nil {
-			errMsg := "failed to create version"
-			// Best-effort rollback of the formula shell; surface rollback failure.
-			if delErr := h.Formulas.Delete(r.Context(), newFormulaID); delErr != nil {
-				errMsg += "; rollback failed"
+		if atomic, ok := h.Formulas.(store.FormulaVersionAtomicCreator); ok {
+			if err := atomic.CreateWithInitialVersion(r.Context(), newFormula, newVersion); err != nil {
+				result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "failed to create formula and initial version"})
+				continue
 			}
-			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: errMsg})
-			continue
+		} else {
+			if err := h.Formulas.Create(r.Context(), newFormula); err != nil {
+				result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "failed to create formula"})
+				continue
+			}
+			if err := h.Versions.CreateVersion(r.Context(), newVersion); err != nil {
+				errMsg := "failed to create version"
+				// The optional atomic repository capability is not available, so
+				// preserve the legacy best-effort rollback behavior for existing
+				// repository implementations.
+				if delErr := h.Formulas.Delete(r.Context(), newFormulaID); delErr != nil {
+					errMsg += "; rollback failed"
+				}
+				result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: errMsg})
+				continue
+			}
 		}
 
 		// Stamp updated_by/updated_at on the freshly imported formula so
@@ -606,6 +629,10 @@ func (h *FormulaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Formulas.Delete(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "formula not found", Code: http.StatusNotFound})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to delete formula", Code: http.StatusInternalServerError})
 		return
 	}

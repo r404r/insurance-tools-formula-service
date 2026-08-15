@@ -25,7 +25,7 @@
 // not run it concurrently with normal user traffic.
 //
 // Authentication: the runner logs in as the bootstrap admin (default
-// admin/admin99999, overridable via flags or env). The bootstrap admin is
+// admin/formula-service-local-admin, overridable via flags or env). The bootstrap admin is
 // still created by backend/cmd/server/main.go because the API has no
 // chicken-and-egg admin endpoint.
 package main
@@ -62,7 +62,7 @@ func main() {
 	cfg := config{
 		BaseURL:   envOr("SEED_BASE_URL", "http://localhost:8080"),
 		AdminUser: envOr("SEED_ADMIN_USER", "admin"),
-		AdminPass: envOr("SEED_ADMIN_PASS", "admin99999"),
+		AdminPass: envOr("SEED_ADMIN_PASS", "formula-service-local-admin"),
 		SeedDir:   envOr("SEED_DIR", "backend/seed"),
 	}
 	flag.StringVar(&cfg.BaseURL, "base-url", cfg.BaseURL, "formula-service base URL")
@@ -366,6 +366,7 @@ func (c *client) doJSON(method, path string, body any, out any) error {
 	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set("X-Seed-Key", "bundled-v1")
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -392,6 +393,7 @@ func (c *client) doRaw(method, path string, body []byte, out any) error {
 	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set("X-Seed-Key", "bundled-v1")
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -410,8 +412,9 @@ func (c *client) doRaw(method, path string, body []byte, out any) error {
 func (c *client) listTables() (map[string]string, error) {
 	var resp struct {
 		Tables []struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
+			ID      string `json:"id"`
+			Name    string `json:"name"`
+			SeedKey string `json:"seedKey"`
 		} `json:"tables"`
 	}
 	if err := c.doJSON(http.MethodGet, "/api/v1/tables", nil, &resp); err != nil {
@@ -419,7 +422,9 @@ func (c *client) listTables() (map[string]string, error) {
 	}
 	out := make(map[string]string, len(resp.Tables))
 	for _, r := range resp.Tables {
-		out[r.Name] = r.ID
+		if r.SeedKey != "" {
+			out[r.Name] = r.ID
+		}
 	}
 	return out, nil
 }
@@ -438,8 +443,9 @@ func (c *client) listFormulas() (map[string]string, error) {
 		q.Set("offset", fmt.Sprintf("%d", offset))
 		var resp struct {
 			Formulas []struct {
-				ID   string `json:"id"`
-				Name string `json:"name"`
+				ID      string `json:"id"`
+				Name    string `json:"name"`
+				SeedKey string `json:"seedKey"`
 			} `json:"formulas"`
 			Total int `json:"total"`
 		}
@@ -447,7 +453,9 @@ func (c *client) listFormulas() (map[string]string, error) {
 			return nil, err
 		}
 		for _, f := range resp.Formulas {
-			out[f.Name] = f.ID
+			if f.SeedKey != "" {
+				out[f.Name] = f.ID
+			}
 		}
 		offset += len(resp.Formulas)
 		if len(resp.Formulas) < pageSize || offset >= resp.Total {

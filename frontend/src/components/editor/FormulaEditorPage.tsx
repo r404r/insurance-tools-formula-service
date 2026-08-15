@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef, type SetStateAction } from 'react'
 import { useParams, Link, useSearchParams, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -17,6 +17,7 @@ import NodePropertiesPanel from './NodePropertiesPanel'
 import type { Formula, FormulaVersion, InsuranceDomain, NodeType } from '../../types/formula'
 import { createNodeData } from './nodePresentation'
 import { useAutoLayout } from './hooks/useAutoLayout'
+import { useUnsavedChangesGuard } from './hooks/useUnsavedChangesGuard'
 import { validateGraph, type ValidationIssue } from '../../utils/graphValidation'
 export type { ValidationIssue } from '../../utils/graphValidation'
 
@@ -40,31 +41,11 @@ export default function FormulaEditorPage() {
 
   const [nodes, setNodes] = useState<Node[]>([])
 
-  const handleSetEditorMode = useCallback(
-    (mode: 'visual' | 'text') => {
-      if (mode === 'text') {
-        // Warn if any loop node has non-default settings that text mode can't represent
-        const lossyLoop = nodes.some((n) => {
-          if ((n.data.nodeType as string) !== 'loop') return false
-          const cfg = (n.data.config as Record<string, unknown>) ?? {}
-          return cfg.inclusiveEnd === false || cfg.maxIterations != null || cfg.version != null
-        })
-        if (lossyLoop) {
-          setSaveMessage(t('editor.loopTextLossy'))
-        }
-      }
-      setEditorMode(mode)
-      if (modeParam) {
-        // Remove the ?mode param so subsequent mode switches use the Zustand store
-        navigate(`/formulas/${id}`, { replace: true })
-      }
-    },
-    [id, modeParam, navigate, nodes, setEditorMode, t]
-  )
   const [edges, setEdges] = useState<Edge[]>([])
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [textValue, setTextValue] = useState('')
   const [testInputs, setTestInputs] = useState<Record<string, string>>({})
+  const [testInputError, setTestInputError] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<Record<string, string> | null>(null)
   const [isTestPanelCollapsed, setIsTestPanelCollapsed] = useState(false)
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([])
@@ -88,10 +69,51 @@ export default function FormulaEditorPage() {
   const [isSavingDesc, setIsSavingDesc] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [activeVersionNumber, setActiveVersionNumber] = useState<number | null>(null)
+  const [isDirty, setIsDirty] = useState(false)
+  const [hasUnappliedTextDraft, setHasUnappliedTextDraft] = useState(false)
+  const handleSetEditorMode = useCallback(
+    (mode: 'visual' | 'text') => {
+      // TextEditor keeps its local draft separate from the graph until Apply.
+      // Changing modes unmounts that editor, so ask before discarding a draft
+      // that has not yet been parsed into the visual graph.
+      if (hasUnappliedTextDraft && mode !== effectiveMode) {
+        if (!window.confirm(t('editor.unsavedChangesPrompt'))) {
+          return
+        }
+        // The user explicitly confirmed that this local-only draft may be
+        // discarded. Clear its guard so later mode switches are not warned
+        // about content that is no longer recoverable.
+        setHasUnappliedTextDraft(false)
+      }
+      if (mode === 'text') {
+        // Warn if any loop node has non-default settings that text mode can't represent
+        const lossyLoop = nodes.some((n) => {
+          if ((n.data.nodeType as string) !== 'loop') return false
+          const cfg = (n.data.config as Record<string, unknown>) ?? {}
+          return cfg.inclusiveEnd === false || cfg.maxIterations != null || cfg.version != null
+        })
+        if (lossyLoop) {
+          setSaveMessage(t('editor.loopTextLossy'))
+        }
+      }
+      setEditorMode(mode)
+      if (modeParam) {
+        // Remove only ?mode so a version pin (and any future query options)
+        // keeps its identity while the Zustand store takes over mode selection.
+        const nextSearchParams = new URLSearchParams(searchParams)
+        nextSearchParams.delete('mode')
+        const query = nextSearchParams.toString()
+        navigate(`/formulas/${id}${query ? `?${query}` : ''}`, { replace: true })
+      }
+    },
+    [effectiveMode, hasUnappliedTextDraft, id, modeParam, navigate, nodes, searchParams, setEditorMode, t]
+  )
+  const loadedVersionIdRef = useRef<string | null>(null)
   const autoLayout = useAutoLayout()
   const selectedNode = selectedNodeId ? nodes.find((node) => node.id === selectedNodeId) ?? null : null
   const nodeIdSet = useMemo(() => new Set(nodes.map((n) => n.id)), [nodes])
   const isEditor = user?.role === 'editor' || user?.role === 'admin'
+  useUnsavedChangesGuard(isDirty || hasUnappliedTextDraft, t('editor.unsavedChangesPrompt'))
 
   const { data: formula } = useQuery({
     queryKey: ['formula', id],
@@ -168,12 +190,13 @@ export default function FormulaEditorPage() {
 
       let changed = false
       const result = inputNodes.map((node) => {
-        const nodeType = String(node.data.nodeType ?? node.type)
+        const nodeData = (node.data ?? {}) as Record<string, unknown>
+        const nodeType = String(nodeData.nodeType ?? node.type)
         if (nodeType !== 'subFormula' && nodeType !== 'loop') {
           return node
         }
 
-        const config = (node.data.config as Record<string, unknown>) ?? {}
+        const config = (nodeData.config as Record<string, unknown>) ?? {}
         const formulaId = String(config.formulaId ?? '')
         const matchedFormula = allFormulas.find((item) => item.id === formulaId)
         const formulaName = matchedFormula?.name ?? String(config.formulaName ?? '').trim()
@@ -188,7 +211,7 @@ export default function FormulaEditorPage() {
           data: createNodeData(nodeType as NodeType, {
             ...config,
             formulaName,
-          }, String(node.data.description ?? '')),
+          }, String(nodeData.description ?? '')),
         }
       })
       return changed ? result : inputNodes
@@ -218,6 +241,13 @@ export default function FormulaEditorPage() {
       return
     }
 
+    // Auxiliary query results can recreate `enrichSubFormulaNodes`, but they
+    // must not reload a version the user is already editing locally.
+    if (loadedVersionIdRef.current === latestVersion.id) {
+      return
+    }
+    loadedVersionIdRef.current = latestVersion.id
+
     const { nodes: n, edges: e } = apiToReactFlow(latestVersion.graph)
     const hydratedNodes = enrichSubFormulaNodes(n)
     setNodes(hydratedNodes)
@@ -228,7 +258,12 @@ export default function FormulaEditorPage() {
       setTextValue(`// ${(err as Error).message}`)
     }
     setSelectedNodeId(null)
-  }, [enrichSubFormulaNodes, latestVersion?.id, latestVersion?.graph])
+    setIsDirty(false)
+    setHasUnappliedTextDraft(false)
+  // A version identity change is the only event that may replace the canvas.
+  // Formula-name enrichment is applied separately below.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [latestVersion?.id])
 
   useEffect(() => {
     if (allFormulas.length === 0) {
@@ -271,6 +306,16 @@ export default function FormulaEditorPage() {
     }
   }, [effectiveMode, nodes, edges])
 
+  const handleNodesChange = useCallback((nextNodes: SetStateAction<Node[]>) => {
+    setNodes(nextNodes)
+    setIsDirty(true)
+  }, [])
+
+  const handleEdgesChange = useCallback((nextEdges: SetStateAction<Edge[]>) => {
+    setEdges(nextEdges)
+    setIsDirty(true)
+  }, [])
+
   const handleNodeDataChange = useCallback(
     (nodeId: string, data: Record<string, unknown>) => {
       setNodes((prev) =>
@@ -281,6 +326,7 @@ export default function FormulaEditorPage() {
           return { ...n, data: createNodeData(nodeType, config, String(data.description ?? n.data.description ?? '')) }
         })
       )
+      setIsDirty(true)
     },
     []
   )
@@ -302,6 +348,7 @@ export default function FormulaEditorPage() {
       })
     )
     setSelectedNodeId((cur) => (cur === oldId ? newId : cur))
+    setIsDirty(true)
   }, [])
 
   const handleApplyText = useCallback(async (text: string) => {
@@ -316,6 +363,8 @@ export default function FormulaEditorPage() {
       setNodes(layoutNodes)
       setEdges(newEdges)
       setSelectedNodeId(null)
+      setIsDirty(true)
+      setHasUnappliedTextDraft(false)
       setSaveMessage(t('editor.textApplied'))
       setTimeout(() => setSaveMessage(null), 3000)
     } catch (err) {
@@ -324,6 +373,13 @@ export default function FormulaEditorPage() {
       setIsParsing(false)
     }
   }, [autoLayout, enrichSubFormulaNodes, t])
+
+  const handleTextDraftChange = useCallback((draft: string, mode?: 'text' | 'latex') => {
+    // A text draft can be clean again when it exactly matches the generated
+    // formula text. LaTeX has its own input buffer, so any non-empty LaTeX
+    // value remains unapplied until the user presses Apply.
+    setHasUnappliedTextDraft(mode === 'latex' ? draft.length > 0 : draft !== textValue)
+  }, [textValue])
 
   const handleSave = async () => {
     if (!id) return
@@ -395,6 +451,7 @@ export default function FormulaEditorPage() {
       const savedVersion = await api.post<FormulaVersion>(`/formulas/${id}/versions`, saveBody)
       setCurrentVersion(savedVersion)
       setActiveVersionNumber(savedVersion.version)
+      setIsDirty(false)
       await queryClient.invalidateQueries({ queryKey: ['versions', id] })
       // Drop the baseVersion query param after EVERY successful save,
       // even when we are not currently in fork mode. Reason: if the
@@ -521,6 +578,10 @@ export default function FormulaEditorPage() {
 
   const handleTest = async () => {
     if (!id) return
+    if (testInputError) {
+      setTestResult({ error: testInputError })
+      return
+    }
     try {
       const res = await api.post<{ result: Record<string, string> }>('/calculate', {
         formulaId: id,
@@ -711,8 +772,8 @@ export default function FormulaEditorPage() {
             <FormulaCanvas
               nodes={nodes}
               edges={edges}
-              onNodesChange={setNodes}
-              onEdgesChange={setEdges}
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
               onNodeSelect={(node) => setSelectedNodeId(node?.id ?? null)}
               validation={validationState}
             />
@@ -726,7 +787,12 @@ export default function FormulaEditorPage() {
           </div>
         ) : (
           <div className="h-full min-h-[520px] min-w-[820px]">
-            <TextEditor value={textValue} onChange={handleApplyText} isParsing={isParsing} />
+            <TextEditor
+              value={textValue}
+              onChange={handleApplyText}
+              onDraftChange={handleTextDraftChange}
+              isParsing={isParsing}
+            />
           </div>
         )}
       </div>
@@ -755,8 +821,22 @@ export default function FormulaEditorPage() {
                 <input
                   className="min-w-[320px] flex-1 text-sm border border-gray-300 rounded px-2 py-1"
                   placeholder={`${t('calc.inputs')} (JSON): {"age": "35", "sumAssured": "1000000"}`}
+                  aria-invalid={testInputError ? 'true' : undefined}
                   onChange={(e) => {
-                    try { setTestInputs(JSON.parse(e.target.value)) } catch { /* ignore */ }
+                    try {
+                      const parsed: unknown = JSON.parse(e.target.value)
+                      if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+                        throw new Error('Test inputs must be a JSON object')
+                      }
+                      setTestInputs(parsed as Record<string, string>)
+                      setTestInputError(null)
+                    } catch (err) {
+                      // Clear the executable value as well as displaying the
+                      // error: a malformed current input must never submit a
+                      // previous valid input object.
+                      setTestInputs({})
+                      setTestInputError((err as Error).message)
+                    }
                   }}
                 />
                 <button
@@ -766,6 +846,9 @@ export default function FormulaEditorPage() {
                   {t('calc.calculate')}
                 </button>
               </div>
+              {testInputError && (
+                <p className="mt-1 text-xs text-red-600" role="alert">{testInputError}</p>
+              )}
               {testResult && (
                 <div className="mt-3 overflow-auto rounded border bg-white p-2 text-xs font-mono text-gray-700">
                   {JSON.stringify(testResult)}

@@ -19,6 +19,7 @@ const OP_DISPLAY: Record<string, string> = {
   divide: '÷',
   power: '^',
   modulo: '%',
+  negate: '−',
 }
 
 const DATA_TYPE_LABEL: Record<string, string> = {
@@ -124,6 +125,23 @@ export function TableLookupInner({ config }: { config: Record<string, unknown> }
 }
 
 // ---------------------------------------------------------------------------
+// Table aggregate
+// ---------------------------------------------------------------------------
+
+export function TableAggregateInner({ config }: { config: Record<string, unknown> }) {
+  const aggregate = String(config.aggregate ?? '?')
+  const expression = String(config.expression ?? '?')
+  return (
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-[10px] text-emerald-600">Σ table</span>
+      <span className="max-w-[120px] truncate font-mono text-[12px] font-bold text-emerald-900">
+        {aggregate}({expression})
+      </span>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Conditional
 // ---------------------------------------------------------------------------
 
@@ -199,6 +217,8 @@ export function NodeVariantInner({
       return <SubFormulaInner config={config} />
     case 'tableLookup':
       return <TableLookupInner config={config} />
+    case 'tableAggregate':
+      return <TableAggregateInner config={config} />
     case 'conditional':
       return <ConditionalInner config={config} />
     case 'aggregate':

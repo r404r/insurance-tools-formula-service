@@ -18,7 +18,7 @@
 #   BASE_URL        backend base URL (default http://localhost:8080)
 #   COMPOSE_PROFILE docker compose profile to start (default postgres)
 #   ADMIN_USER      admin username for login (default admin)
-#   ADMIN_PASS      admin password for login (default admin99999)
+#   ADMIN_PASS      admin password for login (default formula-service-local-admin)
 #
 set -euo pipefail
 
@@ -92,7 +92,7 @@ fi
 echo "==> Running API regression suite against $BASE_URL"
 mkdir -p "$REPORT_DIR"
 set +e
-BASE_URL="$BASE_URL" ADMIN_USER="${ADMIN_USER:-admin}" ADMIN_PASS="${ADMIN_PASS:-admin99999}" \
+BASE_URL="$BASE_URL" ADMIN_USER="${ADMIN_USER:-admin}" ADMIN_PASS="${ADMIN_PASS:-formula-service-local-admin}" \
   REPORT_DIR="$REPORT_DIR" \
   bash -c 'cd "$1/backend" && go run ./cmd/api_regression' _ "$REPO_ROOT"
 RC=$?

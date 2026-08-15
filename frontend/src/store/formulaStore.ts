@@ -30,7 +30,15 @@ export const useFormulaStore = create<FormulaState>((set) => ({
   ...initialState,
   setCurrentFormula: (formula) => set({ currentFormula: formula }),
   setCurrentVersion: (version) =>
-    set({ currentVersion: version, graph: version?.graph ?? null, isDirty: false }),
+    set((state) => {
+      // React Query may re-deliver the same version while auxiliary editor
+      // data (such as formula names) is enriched. That is metadata refresh,
+      // not permission to discard unsaved work.
+      if (version && state.isDirty && state.currentVersion?.id === version.id) {
+        return { currentVersion: version }
+      }
+      return { currentVersion: version, graph: version?.graph ?? null, isDirty: false }
+    }),
   setGraph: (graph) => set({ graph, isDirty: true }),
   setEditorMode: (mode) => set({ editorMode: mode }),
   markDirty: () => set({ isDirty: true }),

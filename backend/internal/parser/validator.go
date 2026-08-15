@@ -143,7 +143,7 @@ func ValidateGraph(graph *domain.FormulaGraph) []ValidationError {
 		case domain.NodeFunction:
 			errs = append(errs, validateFunction(n)...)
 		case domain.NodeConditional:
-			errs = append(errs, validateConditional(n, len(distinctInputPorts[n.ID]))...)
+			errs = append(errs, validateConditional(n, distinctInputPorts[n.ID])...)
 		case domain.NodeTableLookup:
 			errs = append(errs, validateTableLookup(n)...)
 		case domain.NodeTableAggregate:
@@ -262,8 +262,9 @@ func validateFunction(n domain.FormulaNode) []ValidationError {
 	return errs
 }
 
-func validateConditional(n domain.FormulaNode, inputCount int) []ValidationError {
+func validateConditional(n domain.FormulaNode, inputPorts map[string]bool) []ValidationError {
 	var errs []ValidationError
+	inputCount := len(inputPorts)
 	var cfg domain.ConditionalConfig
 	if err := json.Unmarshal(n.Config, &cfg); err != nil {
 		errs = append(errs, ValidationError{NodeID: n.ID, Message: "invalid conditional config: " + err.Error()})
@@ -304,9 +305,11 @@ func validateConditional(n domain.FormulaNode, inputCount int) []ValidationError
 		return errs
 	}
 
-	// Legacy path: single comparator. Two shapes are accepted depending
-	// on whether Comparator is set (pure comparison node — 2 inputs) or
-	// blank (legacy if-then-else — 3 inputs). Behavior unchanged.
+	// Legacy path: a Comparator is used for both a standalone comparison
+	// (condition / conditionRight) and parser-generated if/then/else nodes
+	// (the same two comparison ports plus thenValue / elseValue). Keep the
+	// two shapes exact: accepting any four inputs would let malformed ports
+	// bypass parser validation until the engine layer.
 	if cfg.Comparator != "" {
 		if !validComparators[cfg.Comparator] {
 			errs = append(errs, ValidationError{
@@ -314,11 +317,34 @@ func validateConditional(n domain.FormulaNode, inputCount int) []ValidationError
 				Message: fmt.Sprintf("unknown comparator %q; expected one of eq, ne, gt, ge, lt, le", cfg.Comparator),
 			})
 		}
-		if inputCount != 2 {
+
+		expectedPorts := []string{"condition", "conditionRight"}
+		shape := "comparison node"
+		if inputPorts["thenValue"] || inputPorts["elseValue"] {
+			expectedPorts = append(expectedPorts, "thenValue", "elseValue")
+			shape = "conditional node"
+		}
+		if inputCount != len(expectedPorts) {
 			errs = append(errs, ValidationError{
 				NodeID:  n.ID,
-				Message: fmt.Sprintf("comparison node expects 2 inputs but has %d", inputCount),
+				Message: fmt.Sprintf("%s expects %d inputs but has %d", shape, len(expectedPorts), inputCount),
 			})
+		}
+		for _, port := range expectedPorts {
+			if !inputPorts[port] {
+				errs = append(errs, ValidationError{
+					NodeID:  n.ID,
+					Message: fmt.Sprintf("%s missing %q input connection", shape, port),
+				})
+			}
+		}
+		for port := range inputPorts {
+			if !containsInputPort(expectedPorts, port) {
+				errs = append(errs, ValidationError{
+					NodeID:  n.ID,
+					Message: fmt.Sprintf("%s has unexpected input port %q", shape, port),
+				})
+			}
 		}
 	} else {
 		// if/then/else expects 3 inputs: condition, consequent, alternate
@@ -330,6 +356,15 @@ func validateConditional(n domain.FormulaNode, inputCount int) []ValidationError
 		}
 	}
 	return errs
+}
+
+func containsInputPort(ports []string, candidate string) bool {
+	for _, port := range ports {
+		if port == candidate {
+			return true
+		}
+	}
+	return false
 }
 
 func validateTableLookup(n domain.FormulaNode) []ValidationError {

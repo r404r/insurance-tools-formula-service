@@ -48,6 +48,23 @@ function firstIncomingSource(edges: Edge[], target: string): string | null {
   return edge?.source ?? null
 }
 
+function aggregateIncomingSources(edges: Edge[], target: string): string[] {
+  const indexed = edges
+    .filter((edge) => edge.target === target && /^items:\d+$/.test(edge.targetHandle ?? ''))
+    .sort((left, right) => {
+      const leftIndex = Number((left.targetHandle ?? '').slice('items:'.length))
+      const rightIndex = Number((right.targetHandle ?? '').slice('items:'.length))
+      return leftIndex - rightIndex
+    })
+    .map((edge) => edge.source)
+
+  if (indexed.length > 0) return indexed
+
+  return edges
+    .filter((edge) => edge.target === target && edge.targetHandle === 'items')
+    .map((edge) => edge.source)
+}
+
 function isIdentifier(value: string): boolean {
   return /^[A-Za-z_][A-Za-z0-9_]*$/.test(value)
 }
@@ -96,6 +113,13 @@ export function reactFlowToText(nodes: Node[], edges: Edge[]): string {
         break
       case 'operator': {
         const leftId = incomingSource(edges, nodeId, 'left')
+        if (config.op === 'negate') {
+          if (!leftId) {
+            throw new Error(`Operator node ${nodeId} is missing input`)
+          }
+          result = `-${renderNode(leftId, nextStack)}`
+          break
+        }
         const rightId = incomingSource(edges, nodeId, 'right')
         if (!leftId || !rightId) {
           throw new Error(`Operator node ${nodeId} is missing left or right input`)
@@ -121,7 +145,7 @@ export function reactFlowToText(nodes: Node[], edges: Edge[]): string {
           throw new Error(`Function node ${nodeId} is missing input`)
         }
 
-        if (fn === 'round' && args.places) {
+        if ((fn === 'round' || fn === 'floor' || fn === 'ceil') && args.places) {
           result = `${fn}(${renderNode(inId, nextStack)}, ${args.places})`
         } else {
           result = `${fn}(${renderNode(inId, nextStack)})`
@@ -159,21 +183,28 @@ export function reactFlowToText(nodes: Node[], edges: Edge[]): string {
       case 'conditional': {
         const conditionId = incomingSource(edges, nodeId, 'condition')
         const conditionRightId = incomingSource(edges, nodeId, 'conditionRight')
-        const thenId = incomingSource(edges, nodeId, 'thenValue')
-        const elseId = incomingSource(edges, nodeId, 'elseValue')
-        if (!conditionId || !conditionRightId || !thenId || !elseId) {
+        if (!conditionId || !conditionRightId) {
           throw new Error(`Conditional node ${nodeId} is missing one or more inputs`)
         }
         const comparator = comparatorSymbol(String(config.comparator ?? '=='))
+        const thenId = incomingSource(edges, nodeId, 'thenValue')
+        const elseId = incomingSource(edges, nodeId, 'elseValue')
+        if (!thenId && !elseId) {
+          result = `${renderNode(conditionId, nextStack)} ${comparator} ${renderNode(conditionRightId, nextStack)}`
+          break
+        }
+        if (!thenId || !elseId) {
+          throw new Error(`Conditional node ${nodeId} is missing one or more inputs`)
+        }
         result = `if ${renderNode(conditionId, nextStack)} ${comparator} ${renderNode(conditionRightId, nextStack)} then ${renderNode(thenId, nextStack)} else ${renderNode(elseId, nextStack)}`
         break
       }
       case 'aggregate': {
-        const itemsId = incomingSource(edges, nodeId, 'items')
-        if (!itemsId) {
+        const itemIds = aggregateIncomingSources(edges, nodeId)
+        if (itemIds.length === 0) {
           throw new Error(`Aggregate node ${nodeId} is missing items input`)
         }
-        result = `${String(config.fn ?? 'sum')}(${renderNode(itemsId, nextStack)})`
+        result = `${String(config.fn ?? 'sum')}(${itemIds.map((itemId) => renderNode(itemId, nextStack)).join(', ')})`
         break
       }
       case 'subFormula': {

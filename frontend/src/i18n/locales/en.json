@@ -118,7 +118,8 @@
     "tableAggregateNoTextMode": "This formula contains TableAggregate nodes. Text mode is not supported — please use the visual editor.",
     "idEmpty": "ID cannot be empty",
     "idInvalid": "ID must start with a letter or underscore, followed by letters, digits, or underscores (max 64)",
-    "idConflict": "ID conflicts with another node"
+    "idConflict": "ID conflicts with another node",
+    "unsavedChangesPrompt": "You have unsaved changes. Leave without saving?"
   },
   "node": {
     "variable": "Variable",

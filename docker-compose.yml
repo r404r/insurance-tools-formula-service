@@ -32,7 +32,12 @@ services:
       - SERVER_PORT=8080
       - DB_DRIVER=sqlite
       - DB_DSN=file:/data/formula.db?_journal=WAL&_foreign_keys=on
-      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:-change-me-in-production}
+      # Local-only defaults; production must provide unique values through
+      # the environment/secrets manager instead of using this compose file.
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:-formula-service-local-jwt-secret-at-least-32-bytes}
+      - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-formula-service-local-admin}
+      - SERVER_CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+      - AUTH_COOKIE_SECURE=false
       - ENGINE_MAX_WORKERS=0
       - ENGINE_INTERMEDIATE_PRECISION=28
       - ENGINE_OUTPUT_PRECISION=18
@@ -67,7 +72,10 @@ services:
       - SERVER_PORT=8080
       - DB_DRIVER=postgres
       - DB_DSN=postgres://${POSTGRES_USER:-formula}:${POSTGRES_PASSWORD:-formula_dev}@postgres:5432/${POSTGRES_DB:-formula_service}?sslmode=disable
-      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:-change-me-in-production}
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:-formula-service-local-jwt-secret-at-least-32-bytes}
+      - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-formula-service-local-admin}
+      - SERVER_CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+      - AUTH_COOKIE_SECURE=false
       - ENGINE_MAX_WORKERS=0
       - ENGINE_INTERMEDIATE_PRECISION=28
       - ENGINE_OUTPUT_PRECISION=18
@@ -97,7 +105,10 @@ services:
       - SERVER_PORT=8080
       - DB_DRIVER=mysql
       - DB_DSN=${MYSQL_USER:-formula}:${MYSQL_PASSWORD:-formula_dev}@tcp(mysql:3306)/${MYSQL_DATABASE:-formula_service}?parseTime=true&charset=utf8mb4&loc=UTC
-      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:-change-me-in-production}
+      - AUTH_JWT_SECRET=${AUTH_JWT_SECRET:-formula-service-local-jwt-secret-at-least-32-bytes}
+      - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-formula-service-local-admin}
+      - SERVER_CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+      - AUTH_COOKIE_SECURE=false
       - ENGINE_MAX_WORKERS=0
       - ENGINE_INTERMEDIATE_PRECISION=28
       - ENGINE_OUTPUT_PRECISION=18
@@ -202,7 +213,7 @@ services:
     environment:
       - SEED_BASE_URL=http://backend:8080
       - SEED_ADMIN_USER=admin
-      - SEED_ADMIN_PASS=admin99999
+      - SEED_ADMIN_PASS=${ADMIN_INITIAL_PASSWORD:-formula-service-local-admin}
       - SEED_DIR=/seed
     networks:
       - default

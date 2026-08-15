@@ -7,6 +7,7 @@ export const NODE_COLORS: Record<string, { bg: string; border: string }> = {
   function: { bg: '#d1fae5', border: '#10b981' },
   subFormula: { bg: '#e0e7ff', border: '#6366f1' },
   tableLookup: { bg: '#fae8ff', border: '#a855f7' },
+  tableAggregate: { bg: '#ecfdf5', border: '#059669' },
   conditional: { bg: '#ffedd5', border: '#f97316' },
   aggregate: { bg: '#ccfbf1', border: '#14b8a6' },
   loop: { bg: '#fef9c3', border: '#ca8a04' },
@@ -19,6 +20,7 @@ const OP_SYMBOLS: Record<string, string> = {
   divide: '/',
   power: '^',
   modulo: '%',
+  negate: '−',
 }
 
 function shortenIdentifier(value: unknown): string {
@@ -32,6 +34,10 @@ export interface FormulaNodeData {
   nodeType: NodeType
   config: Record<string, unknown>
   description?: string
+  // View-only dynamic target ports inferred from persisted edges. They are
+  // deliberately kept outside config so saving a graph never changes the
+  // backend formula schema.
+  inputPorts?: string[]
 }
 
 export interface PortDef {
@@ -70,6 +76,8 @@ export function nodeLabel(type: string, config: Record<string, unknown>): string
       return `sub:${shortenIdentifier(config.formulaId)}`
     case 'tableLookup':
       return `lookup(${config.column ?? '?'})`
+    case 'tableAggregate':
+      return `table ${config.aggregate ?? '?'}`
     case 'conditional':
       return `if ${config.comparator ?? '?'}`
     case 'aggregate':
@@ -85,18 +93,39 @@ export function subFormulaName(config: Record<string, unknown>): string {
   return String(config.formulaName ?? '').trim()
 }
 
-export function createNodeData(type: NodeType, config: Record<string, unknown>, description?: string): FormulaNodeData {
+export function createNodeData(
+  type: NodeType,
+  config: Record<string, unknown>,
+  description?: string,
+  inputPorts?: string[],
+): FormulaNodeData {
   return {
     label: nodeLabel(type, config),
     nodeType: type,
     config,
     description: description ?? '',
+    ...(inputPorts && inputPorts.length > 0 ? { inputPorts } : {}),
   }
 }
 
-export function getInputPorts(nodeType: string, config: Record<string, unknown>): PortDef[] {
+function portDefs(ids: string[], labelFor: (id: string) => string = (id) => id): PortDef[] {
+  return ids.map((id, index) => ({
+    id,
+    top: `${Math.round(((index + 1) / (ids.length + 1)) * 100)}%`,
+    label: labelFor(id),
+  }))
+}
+
+export function getInputPorts(
+  nodeType: string,
+  config: Record<string, unknown>,
+  dynamicInputPorts: string[] = [],
+): PortDef[] {
   switch (nodeType) {
     case 'operator':
+      if (config.op === 'negate') {
+        return [{ id: 'left', top: '50%', label: 'In' }]
+      }
       return [
         { id: 'left', top: '32%', label: 'L' },
         { id: 'right', top: '68%', label: 'R' },
@@ -120,6 +149,19 @@ export function getInputPorts(nodeType: string, config: Record<string, unknown>)
         label: col,
       }))
     }
+    case 'tableAggregate': {
+      const filters = Array.isArray(config.filters) ? config.filters : []
+      const inputPorts = filters
+        .map((filter) => String((filter as Record<string, unknown>).inputPort ?? '').trim())
+        .filter(Boolean)
+        .filter((port, index, all) => all.indexOf(port) === index)
+      const count = inputPorts.length
+      return inputPorts.map((port, index) => ({
+        id: port,
+        top: `${Math.round(((index + 1) / (count + 1)) * 100)}%`,
+        label: port,
+      }))
+    }
     case 'conditional':
       return [
         { id: 'condition', top: '18%', label: 'If' },
@@ -128,7 +170,14 @@ export function getInputPorts(nodeType: string, config: Record<string, unknown>)
         { id: 'elseValue', top: '84%', label: 'Else' },
       ]
     case 'aggregate':
-      return [{ id: 'items', top: '50%', label: 'Items' }]
+      // The parser persists variadic aggregate operands as items:0,
+      // items:1, ... . Keep those dynamic handles editable and reserve the
+      // next index for adding one more item on the canvas. Legacy `items`
+      // graphs remain supported as well.
+      if (dynamicInputPorts.length > 0) {
+        return portDefs(dynamicInputPorts, (port) => port === 'items' ? 'Items' : port)
+      }
+      return [{ id: 'items:0', top: '50%', label: 'Items 1' }]
     case 'loop':
       return [
         { id: 'start', top: '25%', label: 'Start' },
@@ -154,6 +203,14 @@ export function defaultNodeConfig(type: NodeType): Record<string, unknown> {
       return { formulaId: '' }
     case 'tableLookup':
       return { tableId: '', keyColumns: ['key'], column: '' }
+    case 'tableAggregate':
+      return {
+        tableId: '',
+        aggregate: 'avg',
+        expression: '',
+        filters: [{ column: '', op: 'eq', inputPort: 'filter' }],
+        filterCombinator: 'and',
+      }
     case 'conditional':
       return { comparator: 'gt' }
     case 'aggregate':

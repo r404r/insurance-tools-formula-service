@@ -88,7 +88,8 @@ func (ev *Evaluator) evalConstant(node *domain.FormulaNode) (Decimal, error) {
 	return d, nil
 }
 
-// evalOperator applies a binary operator to the "left" and "right" inputs.
+// evalOperator applies an operator to its input ports. Binary operators use
+// "left" and "right"; negate intentionally has only a "left" operand.
 func (ev *Evaluator) evalOperator(node *domain.FormulaNode, inputs map[string]Decimal) (Decimal, error) {
 	var cfg domain.OperatorConfig
 	if err := json.Unmarshal(node.Config, &cfg); err != nil {
@@ -98,6 +99,9 @@ func (ev *Evaluator) evalOperator(node *domain.FormulaNode, inputs map[string]De
 	left, ok := inputs["left"]
 	if !ok {
 		return Zero, fmt.Errorf("node %s: missing 'left' input", node.ID)
+	}
+	if cfg.Op == "negate" {
+		return left.Neg(), nil
 	}
 	right, ok := inputs["right"]
 	if !ok {
@@ -156,13 +160,21 @@ func (ev *Evaluator) evalFunction(node *domain.FormulaNode, inputs map[string]De
 		if !hasIn {
 			return Zero, fmt.Errorf("node %s: missing 'in' input for floor", node.ID)
 		}
-		return in.Floor(), nil
+		places, err := functionPlaces(node.ID, cfg, "floor")
+		if err != nil {
+			return Zero, err
+		}
+		return in.Shift(places).Floor().Shift(-places), nil
 
 	case "ceil":
 		if !hasIn {
 			return Zero, fmt.Errorf("node %s: missing 'in' input for ceil", node.ID)
 		}
-		return in.Ceil(), nil
+		places, err := functionPlaces(node.ID, cfg, "ceil")
+		if err != nil {
+			return Zero, err
+		}
+		return in.Shift(places).Ceil().Shift(-places), nil
 
 	case "abs":
 		if !hasIn {
@@ -171,6 +183,9 @@ func (ev *Evaluator) evalFunction(node *domain.FormulaNode, inputs map[string]De
 		return in.Abs(), nil
 
 	case "min":
+		if len(inputs) != 2 {
+			return Zero, fmt.Errorf("node %s: min expects exactly 2 inputs, got %d", node.ID, len(inputs))
+		}
 		left, ok1 := inputs["left"]
 		right, ok2 := inputs["right"]
 		if !ok1 || !ok2 {
@@ -182,6 +197,9 @@ func (ev *Evaluator) evalFunction(node *domain.FormulaNode, inputs map[string]De
 		return right, nil
 
 	case "max":
+		if len(inputs) != 2 {
+			return Zero, fmt.Errorf("node %s: max expects exactly 2 inputs, got %d", node.ID, len(inputs))
+		}
 		left, ok1 := inputs["left"]
 		right, ok2 := inputs["right"]
 		if !ok1 || !ok2 {
@@ -233,9 +251,23 @@ func (ev *Evaluator) evalFunction(node *domain.FormulaNode, inputs map[string]De
 	}
 }
 
+func functionPlaces(nodeID string, cfg domain.FunctionConfig, fn string) (int32, error) {
+	placesRaw, ok := cfg.Args["places"]
+	if !ok {
+		return 0, nil
+	}
+	places, err := decimal.NewFromString(placesRaw)
+	if err != nil || !places.Equal(places.Truncate(0)) {
+		return 0, fmt.Errorf("node %s: invalid %s places %q", nodeID, fn, placesRaw)
+	}
+	return int32(places.IntPart()), nil
+}
+
 // evalTableLookup looks up a value from table data provided in the inputs map.
 // One input port per key column provides the lookup values; together they form a
-// composite key ("|"-joined) that maps to a pre-loaded "table:<compositeKey>" entry.
+// composite key ("|"-joined) that maps to a pre-loaded key namespaced by
+// table ID and column. The namespace prevents equal keys from different
+// lookups overwriting one another during preload.
 func (ev *Evaluator) evalTableLookup(node *domain.FormulaNode, inputs map[string]Decimal) (Decimal, error) {
 	var cfg domain.TableLookupConfig
 	if err := json.Unmarshal(node.Config, &cfg); err != nil {
@@ -253,7 +285,7 @@ func (ev *Evaluator) evalTableLookup(node *domain.FormulaNode, inputs map[string
 	}
 	compositeKey := strings.Join(parts, "|")
 
-	tableKey := "table:" + compositeKey
+	tableKey := lookupInputKey(cfg.TableID, cfg.Column, compositeKey)
 	val, ok := inputs[tableKey]
 	if !ok {
 		return Zero, fmt.Errorf("node %s: no table entry for key %q in table %s", node.ID, compositeKey, cfg.TableID)
@@ -519,12 +551,6 @@ func (ev *Evaluator) evalConditional(node *domain.FormulaNode, inputs map[string
 		return Zero, fmt.Errorf("node %s: invalid conditional config: %w", node.ID, err)
 	}
 
-	thenVal, okThen := inputs["thenValue"]
-	elseVal, okElse := inputs["elseValue"]
-	if !okThen || !okElse {
-		return Zero, fmt.Errorf("node %s: conditional requires 'thenValue' and 'elseValue' inputs", node.ID)
-	}
-
 	var result bool
 	var err error
 	if len(cfg.Conditions) > 0 {
@@ -534,6 +560,18 @@ func (ev *Evaluator) evalConditional(node *domain.FormulaNode, inputs map[string
 	}
 	if err != nil {
 		return Zero, err
+	}
+
+	thenVal, okThen := inputs["thenValue"]
+	elseVal, okElse := inputs["elseValue"]
+	if !okThen && !okElse && len(cfg.Conditions) == 0 {
+		if result {
+			return One, nil
+		}
+		return Zero, nil
+	}
+	if !okThen || !okElse {
+		return Zero, fmt.Errorf("node %s: conditional requires 'thenValue' and 'elseValue' inputs", node.ID)
 	}
 
 	if result {

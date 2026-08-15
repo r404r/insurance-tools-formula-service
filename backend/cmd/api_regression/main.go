@@ -12,7 +12,7 @@
 // Usage:
 //
 //	BASE_URL=http://localhost:8080 \
-//	ADMIN_USER=admin ADMIN_PASS=admin99999 \
+//	ADMIN_USER=admin ADMIN_PASS=formula-service-local-admin \
 //	REPORT_DIR=tests/reports \
 //	go run ./cmd/api_regression
 //
@@ -26,7 +26,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/cookiejar"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -49,7 +48,7 @@ func loadConfig() config {
 	return config{
 		BaseURL:   envOr("BASE_URL", "http://localhost:8080"),
 		AdminUser: envOr("ADMIN_USER", "admin"),
-		AdminPass: envOr("ADMIN_PASS", "admin99999"),
+		AdminPass: envOr("ADMIN_PASS", "formula-service-local-admin"),
 		ReportDir: envOr("REPORT_DIR", "tests/reports"),
 	}
 }
@@ -65,19 +64,20 @@ func envOr(key, def string) string {
 // HTTP client
 // ─────────────────────────────────────────────────────────────────────────
 
-// client is a thin wrapper around http.Client. The cookie jar transparently
-// carries the httpOnly auth_token cookie the server sets at login, so
-// authenticated calls need no manual header wiring.
+// client is a thin wrapper around http.Client. It deliberately does not retain
+// the login cookie: the regression suite authenticates subsequent API calls
+// with the returned Bearer token, which reflects non-browser API clients and
+// avoids conflating those calls with cookie-based CSRF protection.
 type client struct {
-	base string
-	http *http.Client
+	base  string
+	http  *http.Client
+	token string
 }
 
 func newClient(base string) *client {
-	jar, _ := cookiejar.New(nil)
 	return &client{
 		base: strings.TrimRight(base, "/"),
-		http: &http.Client{Timeout: 30 * time.Second, Jar: jar},
+		http: &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -105,6 +105,9 @@ func (c *client) do(method, path string, body any) (apiResponse, error) {
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -302,6 +305,7 @@ func main() {
 		if lr.Token == "" {
 			return "", fmt.Errorf("login returned empty token")
 		}
+		c.token = lr.Token
 		return fmt.Sprintf("role=%s", lr.User.Role), nil
 	})
 

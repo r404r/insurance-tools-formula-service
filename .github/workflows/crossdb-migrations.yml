@@ -1,0 +1,95 @@
+name: Cross-database migration gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  postgres-mysql-migrations:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: formula_test
+          POSTGRES_USER: formula
+          POSTGRES_PASSWORD: formula_test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U formula -d formula_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      postgres-legacy:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: formula_legacy
+          POSTGRES_USER: formula
+          POSTGRES_PASSWORD: formula_test_password
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U formula -d formula_legacy"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+      mysql:
+        image: mysql:8
+        env:
+          MYSQL_DATABASE: formula_test
+          MYSQL_USER: formula
+          MYSQL_PASSWORD: formula_test_password
+          MYSQL_ROOT_PASSWORD: formula_root_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -u root -pformula_root_password"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 24
+      mysql-legacy:
+        image: mysql:8
+        env:
+          MYSQL_DATABASE: formula_legacy
+          MYSQL_USER: formula
+          MYSQL_PASSWORD: formula_test_password
+          MYSQL_ROOT_PASSWORD: formula_root_password
+        ports:
+          - 3307:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -u root -pformula_root_password"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 24
+    env:
+      POSTGRES_TEST_DSN: postgres://formula:formula_test_password@localhost:5432/formula_test?sslmode=disable
+      POSTGRES_LEGACY_TEST_DSN: postgres://formula:formula_test_password@localhost:5433/formula_legacy?sslmode=disable
+      MYSQL_TEST_DSN: formula:formula_test_password@tcp(localhost:3306)/formula_test?parseTime=true&charset=utf8mb4&loc=UTC
+      MYSQL_LEGACY_TEST_DSN: formula:formula_test_password@tcp(localhost:3307)/formula_legacy?parseTime=true&charset=utf8mb4&loc=UTC
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.1"
+          cache-dependency-path: backend/go.sum
+      - name: Run real PostgreSQL and MySQL migration/concurrency suites
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -count=1 -json \
+            -run 'Test(CrossDatabaseIntegrityWithDSN|LegacyCategoryIntegrityMigrationWithDSN)$' \
+            ./internal/store/postgres ./internal/store/mysql | tee "$RUNNER_TEMP/crossdb-dsn-tests.json"
+          if jq -e '
+              select(
+                .Action == "skip" and
+                (.Test == "TestCrossDatabaseIntegrityWithDSN" or .Test == "TestLegacyCategoryIntegrityMigrationWithDSN")
+              )
+            ' "$RUNNER_TEMP/crossdb-dsn-tests.json" >/dev/null; then
+            echo "DSN-backed migration suites were skipped; failing the gate."
+            exit 1
+          fi

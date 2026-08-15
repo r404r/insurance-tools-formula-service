@@ -2,10 +2,9 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { listTemplates } from '../../api/templates'
+import { instantiateTemplate, listTemplates } from '../../api/templates'
 import { listCategories } from '../../api/categories'
-import { api } from '../../api/client'
-import type { Formula, FormulaGraph, InsuranceDomain, FormulaTemplate } from '../../types/formula'
+import type { InsuranceDomain, FormulaTemplate } from '../../types/formula'
 
 interface Props {
   onClose: () => void
@@ -35,32 +34,14 @@ export default function TemplateGallery({ onClose }: Props) {
     queryFn: () => listCategories().then((r) => r.categories ?? []),
   })
 
-  // Create formula then immediately create a version with the template graph.
+  // The backend creates the formula and initial version in one transaction.
   const createMutation = useMutation({
-    mutationFn: async ({
-      name,
-      domain,
-      description,
-      graph,
-    }: {
+    mutationFn: ({ name, domain, description, templateId }: {
       name: string
       domain: InsuranceDomain
       description: string
-      graph: FormulaGraph
-    }) => {
-      const formula = await api.post<Formula>('/formulas', { name, domain, description })
-      try {
-        await api.post(`/formulas/${formula.id}/versions`, {
-          graph,
-          changeNote: t('template.initialVersionNote'),
-        })
-      } catch (err) {
-        // Roll back the formula to avoid leaving an orphan record.
-        await api.delete(`/formulas/${formula.id}`).catch(() => undefined)
-        throw err
-      }
-      return formula
-    },
+      templateId: string
+    }) => instantiateTemplate(templateId, { name, domain, description }),
     onSuccess: (formula) => {
       navigate(`/formulas/${formula.id}`)
     },
@@ -83,7 +64,7 @@ export default function TemplateGallery({ onClose }: Props) {
       name: newName,
       domain: newDomain,
       description: newDescription,
-      graph: selected.graph,
+      templateId: selected.id,
     })
   }
 

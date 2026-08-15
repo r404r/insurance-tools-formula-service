@@ -25,7 +25,6 @@ import (
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store/mysql"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store/postgres"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store/sqlite"
-	"github.com/r404r/insurance-tools/formula-service/backend/seed"
 )
 
 func main() {
@@ -311,40 +310,53 @@ func mustJSON(v any) json.RawMessage {
 // backend/seed/{formulas,tables}/.
 func makeSeedResetHandler(s store.Store, logger zerolog.Logger) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		seedNames, tableNames, err := seed.Names()
-		if err != nil {
-			logger.Error().Err(err).Msg("seed reset: failed to load embedded seed names")
-			http.Error(w, `{"error":"failed to load seed name list","code":500}`, http.StatusInternalServerError)
-			return
-		}
-
-		// Delete seed formulas by name match.
-		formulas, _, _ := s.Formulas().List(r.Context(), domain.FormulaFilter{Limit: 10000})
-		deleted := 0
-		for _, f := range formulas {
-			if seedNames[f.Name] {
+		var deleted, tablesDeleted int64
+		if resetter, ok := s.(store.SeedResetter); ok {
+			var err error
+			deleted, tablesDeleted, err = resetter.ResetSeedData(r.Context())
+			if err != nil {
+				logger.Error().Err(err).Msg("seed reset failed")
+				if errors.Is(err, store.ErrHasContent) {
+					http.Error(w, `{"error":"seed data is referenced by formula versions","code":409}`, http.StatusConflict)
+					return
+				}
+				http.Error(w, `{"error":"failed to reset seed data","code":500}`, http.StatusInternalServerError)
+				return
+			}
+		} else {
+			formulas, _, err := s.Formulas().List(r.Context(), domain.FormulaFilter{Limit: 10000})
+			if err != nil {
+				http.Error(w, `{"error":"failed to list seed formulas","code":500}`, http.StatusInternalServerError)
+				return
+			}
+			for _, f := range formulas {
+				if f.SeedKey == "" {
+					continue
+				}
 				if err := s.Formulas().Delete(r.Context(), f.ID); err != nil {
-					logger.Warn().Err(err).Str("name", f.Name).Msg("failed to delete seed formula")
-				} else {
-					deleted++
+					http.Error(w, `{"error":"failed to delete seed formula","code":500}`, http.StatusInternalServerError)
+					return
 				}
+				deleted++
+			}
+			tables, err := s.Tables().List(r.Context(), nil)
+			if err != nil {
+				http.Error(w, `{"error":"failed to list seed tables","code":500}`, http.StatusInternalServerError)
+				return
+			}
+			for _, table := range tables {
+				if table.SeedKey == "" {
+					continue
+				}
+				if err := s.Tables().Delete(r.Context(), table.ID); err != nil {
+					http.Error(w, `{"error":"failed to delete seed table","code":500}`, http.StatusInternalServerError)
+					return
+				}
+				tablesDeleted++
 			}
 		}
 
-		// Delete seed tables (by name match only — tables don't have CreatedBy).
-		tables, _ := s.Tables().List(r.Context(), nil)
-		tablesDeleted := 0
-		for _, t := range tables {
-			if tableNames[t.Name] {
-				if err := s.Tables().Delete(r.Context(), t.ID); err != nil {
-					logger.Warn().Err(err).Str("name", t.Name).Msg("failed to delete seed table")
-				} else {
-					tablesDeleted++
-				}
-			}
-		}
-
-		logger.Info().Int("formulas", deleted).Int("tables", tablesDeleted).Msg("seed data deleted (re-run seed-runner to re-create)")
+		logger.Info().Int64("formulas", deleted).Int64("tables", tablesDeleted).Msg("seed data deleted (re-run seed-runner to re-create)")
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

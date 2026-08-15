@@ -38,6 +38,17 @@ type RouterConfig struct {
 
 // NewRouter creates a chi.Mux with all API routes wired up.
 func NewRouter(cfg RouterConfig) *chi.Mux {
+	if cfg.TemplateHandler != nil && cfg.FormulaHandler != nil && cfg.VersionHandler != nil {
+		if cfg.TemplateHandler.Formulas == nil {
+			cfg.TemplateHandler.Formulas = cfg.FormulaHandler.Formulas
+		}
+		if cfg.TemplateHandler.Versions == nil {
+			cfg.TemplateHandler.Versions = cfg.VersionHandler.Versions
+		}
+		if cfg.TemplateHandler.Categories == nil {
+			cfg.TemplateHandler.Categories = cfg.FormulaHandler.Categories
+		}
+	}
 	r := chi.NewRouter()
 
 	// Global middleware stack.
@@ -63,7 +74,10 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 		// login: 5 req/min/IP; register: 3 req/min/IP; parse: 30 req/min/IP.
 		r.With(IPRateLimit(5, 5, cfg.TrustProxy)).Post("/auth/login", cfg.AuthHandler.Login)
 		r.With(IPRateLimit(3, 3, cfg.TrustProxy)).Post("/auth/register", cfg.AuthHandler.Register)
-		r.Post("/auth/logout", cfg.AuthHandler.Logout)
+		// Logout clears an ambient browser cookie, so it needs the same CSRF
+		// protection as authenticated cookie requests even though no valid
+		// session is required to make logout idempotent.
+		r.With(CSRFProtect(cfg.CORSOrigins)).Post("/auth/logout", cfg.AuthHandler.Logout)
 
 		// Parse text formula to graph (stateless, no auth needed).
 		r.With(IPRateLimit(30, 30, cfg.TrustProxy)).Post("/parse", cfg.ParseHandler.Parse)
@@ -78,6 +92,9 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 
 			// Current user.
 			r.Get("/auth/me", cfg.AuthHandler.Me)
+
+			r.With(auth.RequirePermission(auth.PermFormulaCreate)).
+				Post("/templates/{id}/instantiate", cfg.TemplateHandler.Instantiate)
 
 			// Formula CRUD.
 			r.Route("/formulas", func(r chi.Router) {

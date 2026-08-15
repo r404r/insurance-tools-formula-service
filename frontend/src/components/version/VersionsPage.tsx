@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../../api/client'
+import { useAuthStore } from '../../store/authStore'
 import type { FormulaVersion, Formula } from '../../types/formula'
 import VersionDiffModal from './VersionDiffModal'
 
@@ -17,6 +18,8 @@ export default function VersionsPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const user = useAuthStore((state) => state.user)
+  const canManageStates = user?.role === 'admin'
   const [diffTarget, setDiffTarget] = useState<{ from: number; to: number } | null>(null)
 
   // Edit handler shared by every row's "Edit" button. EVERY row pins
@@ -100,7 +103,7 @@ export default function VersionsPage() {
                 >
                   {t('version.edit')}
                 </button>
-                {v.state === 'draft' && (
+                {canManageStates && v.state === 'draft' && (
                   <button
                     onClick={() => updateState.mutate({ ver: v.version, state: 'published' })}
                     className="text-xs bg-green-600 text-white px-3 py-1 rounded hover:bg-green-700"
@@ -108,7 +111,7 @@ export default function VersionsPage() {
                     {t('version.publish')}
                   </button>
                 )}
-                {(v.state === 'draft' || v.state === 'published') && (
+                {canManageStates && (v.state === 'draft' || v.state === 'published') && (
                   <button
                     onClick={() => updateState.mutate({ ver: v.version, state: 'archived' })}
                     className="text-xs bg-gray-200 text-gray-700 px-3 py-1 rounded hover:bg-gray-300"
@@ -120,6 +123,12 @@ export default function VersionsPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {updateState.isError && (
+        <p role="alert" className="mt-4 text-sm text-red-600">
+          {(updateState.error as Error)?.message ?? t('common.error')}
+        </p>
       )}
 
       {diffTarget && id && (

@@ -8,12 +8,15 @@ import { latexToFormulaText } from '../../utils/latexToFormula'
 interface Props {
   value: string
   onChange: (value: string) => void
+  // Draft edits are deliberately separate from Apply: they must activate the
+  // navigation guard without mutating the visual graph yet.
+  onDraftChange?: (draft: string, mode: Mode) => void
   isParsing?: boolean
 }
 
 type Mode = 'text' | 'latex'
 
-export default function TextEditor({ value, onChange, isParsing }: Props) {
+export default function TextEditor({ value, onChange, onDraftChange, isParsing }: Props) {
   const { t } = useTranslation()
   const [mode, setMode] = useState<Mode>('text')
   const [localValue, setLocalValue] = useState(value)
@@ -122,7 +125,10 @@ export default function TextEditor({ value, onChange, isParsing }: Props) {
             </div>
             <textarea
               value={localValue}
-              onChange={(e) => setLocalValue(e.target.value)}
+              onChange={(e) => {
+                setLocalValue(e.target.value)
+                onDraftChange?.(e.target.value, 'text')
+              }}
               className="min-h-[280px] flex-1 w-full overflow-auto p-4 font-mono text-sm resize-none focus:outline-none"
               placeholder="round(lookup(mortalityTable, age) * sumAssured, 18)"
               spellCheck={false}
@@ -166,7 +172,10 @@ export default function TextEditor({ value, onChange, isParsing }: Props) {
             </div>
             <textarea
               value={latexInput}
-              onChange={(e) => setLatexInput(e.target.value)}
+              onChange={(e) => {
+                setLatexInput(e.target.value)
+                onDraftChange?.(e.target.value, 'latex')
+              }}
               className="min-h-[180px] flex-1 w-full overflow-auto p-4 font-mono text-sm resize-none focus:outline-none"
               placeholder="\frac{\mathrm{a} + \mathrm{b}}{2}"
               spellCheck={false}
