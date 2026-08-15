@@ -82,6 +82,13 @@ func itoa(n int) string {
 	return itoa(n/10) + itoa(n%10)
 }
 
+func validVersionTestGraph() domain.FormulaGraph {
+	return domain.FormulaGraph{
+		Nodes:   []domain.FormulaNode{{ID: "out", Type: domain.NodeConstant, Config: json.RawMessage(`{"value":"1"}`)}},
+		Outputs: []string{"out"},
+	}
+}
+
 func (r *inMemoryVersionRepo) CreateVersion(_ context.Context, v *domain.FormulaVersion) error {
 	r.versions[versionKey(v.FormulaID, v.Version)] = v
 	return nil
@@ -121,8 +128,8 @@ func (r *inMemoryVersionRepo) UpdateState(_ context.Context, formulaID string, v
 
 // newForkTestHandler builds a handler with two seed versions:
 //
-//   v1 = published (a stable but old shape)
-//   v2 = archived  (the version we want to fork from)
+//	v1 = published (a stable but old shape)
+//	v2 = archived  (the version we want to fork from)
 //
 // The handler is fully wired so an HTTP POST goes through the same
 // path as production: GetByID → ListVersions → BaseVersion check →
@@ -149,7 +156,7 @@ func newForkTestHandler(t *testing.T) (*VersionHandler, *inMemoryFormulaRepo, *i
 		FormulaID:  formulaID,
 		Version:    1,
 		State:      domain.StatePublished,
-		Graph:      domain.FormulaGraph{Outputs: []string{"out"}},
+		Graph:      validVersionTestGraph(),
 		ChangeNote: "v1",
 		CreatedBy:  "u-creator",
 		CreatedAt:  now,
@@ -161,7 +168,7 @@ func newForkTestHandler(t *testing.T) (*VersionHandler, *inMemoryFormulaRepo, *i
 		FormulaID:  formulaID,
 		Version:    2,
 		State:      domain.StateArchived,
-		Graph:      domain.FormulaGraph{Outputs: []string{"out"}},
+		Graph:      validVersionTestGraph(),
 		ChangeNote: "v2 archived",
 		CreatedBy:  "u-creator",
 		CreatedAt:  now,
@@ -205,7 +212,7 @@ func TestVersionCreate_DefaultParentIsLatest(t *testing.T) {
 	// No baseVersion: parent should be the previous max (v2 here).
 	h, _, versions, formulaID := newForkTestHandler(t)
 	rr, created := doCreate(t, h, formulaID, CreateVersionRequest{
-		Graph:      domain.FormulaGraph{Outputs: []string{"out"}},
+		Graph:      validVersionTestGraph(),
 		ChangeNote: "default save",
 	})
 	if rr.Code != http.StatusCreated {
@@ -233,7 +240,7 @@ func TestVersionCreate_ForkFromArchived(t *testing.T) {
 	h, _, versions, formulaID := newForkTestHandler(t)
 	base := 2
 	rr, created := doCreate(t, h, formulaID, CreateVersionRequest{
-		Graph:       domain.FormulaGraph{Outputs: []string{"out"}},
+		Graph:       validVersionTestGraph(),
 		ChangeNote:  "fork from v2",
 		BaseVersion: &base,
 	})
@@ -264,7 +271,7 @@ func TestVersionCreate_ForkFromPublished(t *testing.T) {
 	h, _, _, formulaID := newForkTestHandler(t)
 	base := 1
 	rr, created := doCreate(t, h, formulaID, CreateVersionRequest{
-		Graph:       domain.FormulaGraph{Outputs: []string{"out"}},
+		Graph:       validVersionTestGraph(),
 		ChangeNote:  "fork from v1",
 		BaseVersion: &base,
 	})
@@ -283,7 +290,7 @@ func TestVersionCreate_ForkFromMissingBaseReturns404(t *testing.T) {
 	h, _, _, formulaID := newForkTestHandler(t)
 	base := 99
 	rr, _ := doCreate(t, h, formulaID, CreateVersionRequest{
-		Graph:       domain.FormulaGraph{Outputs: []string{"out"}},
+		Graph:       validVersionTestGraph(),
 		ChangeNote:  "fork from nothing",
 		BaseVersion: &base,
 	})
@@ -298,7 +305,7 @@ func TestVersionCreate_ForkStampsUpdaterMeta(t *testing.T) {
 	h, formulas, _, formulaID := newForkTestHandler(t)
 	base := 2
 	rr, _ := doCreate(t, h, formulaID, CreateVersionRequest{
-		Graph:       domain.FormulaGraph{Outputs: []string{"out"}},
+		Graph:       validVersionTestGraph(),
 		ChangeNote:  "fork stamps updater",
 		BaseVersion: &base,
 	})

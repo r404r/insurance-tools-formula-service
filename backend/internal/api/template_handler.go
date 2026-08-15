@@ -3,26 +3,106 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
+	"time"
 
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	"github.com/r404r/insurance-tools/formula-service/backend/internal/auth"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
+	"github.com/r404r/insurance-tools/formula-service/backend/internal/store"
 )
 
 // FormulaTemplate is a pre-built formula template that users can instantiate.
 type FormulaTemplate struct {
-	ID          string                    `json:"id"`
-	Domain      domain.InsuranceDomain    `json:"domain"`
-	Name        string                    `json:"name"`
-	Description string                    `json:"description"`
-	Graph       domain.FormulaGraph       `json:"graph"`
+	ID          string                 `json:"id"`
+	Domain      domain.InsuranceDomain `json:"domain"`
+	Name        string                 `json:"name"`
+	Description string                 `json:"description"`
+	Graph       domain.FormulaGraph    `json:"graph"`
 }
 
 // TemplateHandler serves the static formula template catalogue.
-type TemplateHandler struct{}
+type TemplateHandler struct {
+	Formulas   store.FormulaRepository
+	Versions   store.VersionRepository
+	Categories store.CategoryRepository
+}
 
 // List returns all built-in formula templates.
 // GET /api/v1/templates
 func (h *TemplateHandler) List(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"templates": allTemplates})
+}
+
+type InstantiateTemplateRequest struct {
+	Name        string                 `json:"name"`
+	Domain      domain.InsuranceDomain `json:"domain"`
+	Description string                 `json:"description"`
+}
+
+// Instantiate creates a formula and its initial draft version as one backend
+// workflow. Production stores use a database transaction; lightweight test
+// repositories receive an explicit compensation rollback on version failure.
+func (h *TemplateHandler) Instantiate(w http.ResponseWriter, r *http.Request) {
+	claims := auth.GetClaims(r.Context())
+	if claims == nil {
+		writeJSON(w, http.StatusUnauthorized, ErrorResponse{Error: "authentication required", Code: http.StatusUnauthorized})
+		return
+	}
+	templateID := chi.URLParam(r, "id")
+	var selected *FormulaTemplate
+	for i := range allTemplates {
+		if allTemplates[i].ID == templateID {
+			selected = &allTemplates[i]
+			break
+		}
+	}
+	if selected == nil {
+		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "template not found", Code: http.StatusNotFound})
+		return
+	}
+	var req InstantiateTemplateRequest
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	req.Description = strings.TrimSpace(req.Description)
+	if req.Name == "" || req.Domain == "" {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "name and domain are required", Code: http.StatusBadRequest})
+		return
+	}
+	if _, err := h.Categories.GetBySlug(r.Context(), string(req.Domain)); err != nil {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid category", Code: http.StatusBadRequest})
+		return
+	}
+	now := time.Now().UTC()
+	formula := &domain.Formula{
+		ID: uuid.New().String(), Name: req.Name, Domain: req.Domain, Description: req.Description,
+		CreatedBy: claims.UserID, UpdatedBy: claims.UserID, CreatedAt: now, UpdatedAt: now,
+	}
+	version := &domain.FormulaVersion{
+		ID: uuid.New().String(), FormulaID: formula.ID, Version: 1, State: domain.StateDraft,
+		Graph: selected.Graph, ChangeNote: "Initial version from template", CreatedBy: claims.UserID, CreatedAt: now,
+	}
+	if atomic, ok := h.Formulas.(store.FormulaVersionAtomicCreator); ok {
+		if err := atomic.CreateWithInitialVersion(r.Context(), formula, version); err != nil {
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to instantiate template", Code: http.StatusInternalServerError})
+			return
+		}
+	} else {
+		if err := h.Formulas.Create(r.Context(), formula); err != nil {
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to instantiate template", Code: http.StatusInternalServerError})
+			return
+		}
+		if err := h.Versions.CreateVersion(r.Context(), version); err != nil {
+			_ = h.Formulas.Delete(r.Context(), formula.ID)
+			writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to instantiate template", Code: http.StatusInternalServerError})
+			return
+		}
+	}
+	writeJSON(w, http.StatusCreated, formula)
 }
 
 // mustJSON encodes v as JSON; panics on error (only called at init time with
@@ -82,8 +162,8 @@ var allTemplates = []FormulaTemplate{
 				{ID: "n2", Type: domain.NodeVariable, Config: tplVar("qx")},
 				{ID: "n3", Type: domain.NodeVariable, Config: tplVar("interestRate")},
 				{ID: "n4", Type: domain.NodeConstant, Config: tplConst("1")},
-				{ID: "n5", Type: domain.NodeOperator, Config: tplOp("add")},     // 1 + interestRate
-				{ID: "n6", Type: domain.NodeOperator, Config: tplOp("divide")},  // v = 1 / (1+i)
+				{ID: "n5", Type: domain.NodeOperator, Config: tplOp("add")},      // 1 + interestRate
+				{ID: "n6", Type: domain.NodeOperator, Config: tplOp("divide")},   // v = 1 / (1+i)
 				{ID: "n7", Type: domain.NodeOperator, Config: tplOp("multiply")}, // sumAssured × qx
 				{ID: "n8", Type: domain.NodeOperator, Config: tplOp("multiply")}, // × v
 				{ID: "n9", Type: domain.NodeFunction, Config: tplFn("round")},
@@ -619,10 +699,10 @@ var allTemplates = []FormulaTemplate{
 				{ID: "n3", Type: domain.NodeConstant, Config: tplConst("2")},
 				{ID: "n4", Type: domain.NodeConstant, Config: tplConst("1")},
 				{ID: "n5", Type: domain.NodeConstant, Config: tplConst("24")},
-				{ID: "n6", Type: domain.NodeOperator, Config: tplOp("multiply")},  // 2 * start_month
-				{ID: "n7", Type: domain.NodeOperator, Config: tplOp("subtract")},  // 2*start_month - 1
-				{ID: "n8", Type: domain.NodeOperator, Config: tplOp("divide")},    // /24
-				{ID: "n9", Type: domain.NodeOperator, Config: tplOp("multiply")},  // premium *
+				{ID: "n6", Type: domain.NodeOperator, Config: tplOp("multiply")}, // 2 * start_month
+				{ID: "n7", Type: domain.NodeOperator, Config: tplOp("subtract")}, // 2*start_month - 1
+				{ID: "n8", Type: domain.NodeOperator, Config: tplOp("divide")},   // /24
+				{ID: "n9", Type: domain.NodeOperator, Config: tplOp("multiply")}, // premium *
 			},
 			Edges: []domain.FormulaEdge{
 				{Source: "n3", Target: "n6", SourcePort: "out", TargetPort: "left"},

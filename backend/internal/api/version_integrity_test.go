@@ -74,10 +74,10 @@ func TestVersionHandlerPublishDelegatesAtomicTransitionToRepository(t *testing.T
 	formulaID := "formula-1"
 	_ = formulas.Create(context.Background(), &domain.Formula{ID: formulaID})
 	_ = versions.CreateVersion(context.Background(), &domain.FormulaVersion{
-		ID: "v1", FormulaID: formulaID, Version: 1, State: domain.StatePublished,
+		ID: "v1", FormulaID: formulaID, Version: 1, State: domain.StatePublished, Graph: validVersionTestGraph(),
 	})
 	_ = versions.CreateVersion(context.Background(), &domain.FormulaVersion{
-		ID: "v2", FormulaID: formulaID, Version: 2, State: domain.StateDraft,
+		ID: "v2", FormulaID: formulaID, Version: 2, State: domain.StateDraft, Graph: validVersionTestGraph(),
 	})
 
 	body, _ := json.Marshal(UpdateVersionStateRequest{State: domain.StatePublished})
@@ -95,5 +95,32 @@ func TestVersionHandlerPublishDelegatesAtomicTransitionToRepository(t *testing.T
 	}
 	if len(versions.updates) != 1 || versions.updates[0].version != 2 || versions.updates[0].state != domain.StatePublished {
 		t.Fatalf("UpdateState calls = %+v, want one atomic publish call for version 2", versions.updates)
+	}
+}
+
+func TestVersionCreateRejectsNonExecutableGraph(t *testing.T) {
+	h, _, _, formulaID := newForkTestHandler(t)
+	rr, _ := doCreate(t, h, formulaID, CreateVersionRequest{Graph: domain.FormulaGraph{}})
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 for non-executable graph; body=%s", rr.Code, rr.Body.String())
+	}
+}
+
+func TestVersionPublishRejectsPersistedNonExecutableGraph(t *testing.T) {
+	formulas := newInMemoryFormulaRepo()
+	versions := newInMemoryVersionRepo()
+	formulaID := "invalid-formula"
+	_ = formulas.Create(context.Background(), &domain.Formula{ID: formulaID})
+	_ = versions.CreateVersion(context.Background(), &domain.FormulaVersion{ID: "invalid-v1", FormulaID: formulaID, Version: 1, State: domain.StateDraft, Graph: domain.FormulaGraph{}})
+	body, _ := json.Marshal(UpdateVersionStateRequest{State: domain.StatePublished})
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/formulas/"+formulaID+"/versions/1", bytes.NewReader(body))
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", formulaID)
+	rctx.URLParams.Add("ver", "1")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	rr := httptest.NewRecorder()
+	(&VersionHandler{Versions: versions, Formulas: formulas}).UpdateState(rr, req)
+	if rr.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400 for publishing non-executable graph; body=%s", rr.Code, rr.Body.String())
 	}
 }

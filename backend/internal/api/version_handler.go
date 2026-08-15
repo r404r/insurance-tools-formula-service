@@ -13,8 +13,22 @@ import (
 
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/auth"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
+	"github.com/r404r/insurance-tools/formula-service/backend/internal/engine"
+	"github.com/r404r/insurance-tools/formula-service/backend/internal/parser"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store"
 )
+
+var persistedGraphValidator = engine.NewEngine(engine.DefaultEngineConfig())
+
+func validatePersistedGraph(graph *domain.FormulaGraph) string {
+	if errs := parser.ValidateGraph(graph); len(errs) > 0 {
+		return errs[0].Message
+	}
+	if errs := persistedGraphValidator.Validate(graph); len(errs) > 0 {
+		return errs[0].Message
+	}
+	return ""
+}
 
 // VersionHandler implements formula version management HTTP endpoints.
 type VersionHandler struct {
@@ -63,6 +77,10 @@ func (h *VersionHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	var req CreateVersionRequest
 	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if message := validatePersistedGraph(&req.Graph); message != "" {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid graph: " + message, Code: http.StatusBadRequest})
 		return
 	}
 
@@ -147,7 +165,6 @@ func (h *VersionHandler) Get(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "version not found", Code: http.StatusNotFound})
 		return
 	}
-
 	writeJSON(w, http.StatusOK, version)
 }
 
@@ -175,6 +192,12 @@ func (h *VersionHandler) UpdateState(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "version not found", Code: http.StatusNotFound})
 		return
 	}
+	if req.State == domain.StatePublished {
+		if message := validatePersistedGraph(&version.Graph); message != "" {
+			writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "invalid graph: " + message, Code: http.StatusBadRequest})
+			return
+		}
+	}
 
 	// Validate state transitions: draft -> published, published -> archived, draft -> archived.
 	if !isValidTransition(version.State, req.State) {
@@ -183,17 +206,6 @@ func (h *VersionHandler) UpdateState(w http.ResponseWriter, r *http.Request) {
 			Code:  http.StatusBadRequest,
 		})
 		return
-	}
-
-	// When publishing, archive the currently published version first.
-	if req.State == domain.StatePublished {
-		published, _ := h.Versions.GetPublished(r.Context(), formulaID)
-		if published != nil {
-			if err := h.Versions.UpdateState(r.Context(), formulaID, published.Version, domain.StateArchived); err != nil {
-				writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to archive previous version", Code: http.StatusInternalServerError})
-				return
-			}
-		}
 	}
 
 	if err := h.Versions.UpdateState(r.Context(), formulaID, ver, req.State); err != nil {
@@ -267,13 +279,15 @@ func computeDiff(from, to *domain.FormulaVersion) domain.VersionDiff {
 	// Initialize all slices to empty (not nil) so they serialise to JSON []
 	// rather than null, which would break frontend array operations.
 	diff := domain.VersionDiff{
-		FromVersion:   from.Version,
-		ToVersion:     to.Version,
-		AddedNodes:    []domain.FormulaNode{},
-		RemovedNodes:  []domain.FormulaNode{},
-		ModifiedNodes: []domain.NodeDiff{},
-		AddedEdges:    []domain.FormulaEdge{},
-		RemovedEdges:  []domain.FormulaEdge{},
+		FromVersion:    from.Version,
+		ToVersion:      to.Version,
+		AddedNodes:     []domain.FormulaNode{},
+		RemovedNodes:   []domain.FormulaNode{},
+		ModifiedNodes:  []domain.NodeDiff{},
+		AddedEdges:     []domain.FormulaEdge{},
+		RemovedEdges:   []domain.FormulaEdge{},
+		AddedOutputs:   []string{},
+		RemovedOutputs: []string{},
 	}
 
 	// Index nodes by ID for both versions.
@@ -329,17 +343,36 @@ func computeDiff(from, to *domain.FormulaVersion) domain.VersionDiff {
 		}
 	}
 
+	fromOutputs := make(map[string]struct{}, len(from.Graph.Outputs))
+	for _, output := range from.Graph.Outputs {
+		fromOutputs[output] = struct{}{}
+	}
+	toOutputs := make(map[string]struct{}, len(to.Graph.Outputs))
+	for _, output := range to.Graph.Outputs {
+		toOutputs[output] = struct{}{}
+		if _, exists := fromOutputs[output]; !exists {
+			diff.AddedOutputs = append(diff.AddedOutputs, output)
+		}
+	}
+	for _, output := range from.Graph.Outputs {
+		if _, exists := toOutputs[output]; !exists {
+			diff.RemovedOutputs = append(diff.RemovedOutputs, output)
+		}
+	}
+
 	// Sort slices for deterministic output.
 	sort.Slice(diff.AddedNodes, func(i, j int) bool { return diff.AddedNodes[i].ID < diff.AddedNodes[j].ID })
 	sort.Slice(diff.RemovedNodes, func(i, j int) bool { return diff.RemovedNodes[i].ID < diff.RemovedNodes[j].ID })
 	sort.Slice(diff.ModifiedNodes, func(i, j int) bool { return diff.ModifiedNodes[i].NodeID < diff.ModifiedNodes[j].NodeID })
+	sort.Strings(diff.AddedOutputs)
+	sort.Strings(diff.RemovedOutputs)
 
 	return diff
 }
 
 // nodesEqual compares two FormulaNodes for equality.
 func nodesEqual(a, b domain.FormulaNode) bool {
-	if a.ID != b.ID || a.Type != b.Type {
+	if a.ID != b.ID || a.Type != b.Type || a.Description != b.Description {
 		return false
 	}
 	return string(a.Config) == string(b.Config)

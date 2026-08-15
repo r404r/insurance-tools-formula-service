@@ -366,6 +366,7 @@ func (c *client) doJSON(method, path string, body any, out any) error {
 	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set("X-Seed-Key", "bundled-v1")
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -392,6 +393,7 @@ func (c *client) doRaw(method, path string, body []byte, out any) error {
 	}
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set("X-Seed-Key", "bundled-v1")
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -410,8 +412,9 @@ func (c *client) doRaw(method, path string, body []byte, out any) error {
 func (c *client) listTables() (map[string]string, error) {
 	var resp struct {
 		Tables []struct {
-			ID   string `json:"id"`
-			Name string `json:"name"`
+			ID      string `json:"id"`
+			Name    string `json:"name"`
+			SeedKey string `json:"seedKey"`
 		} `json:"tables"`
 	}
 	if err := c.doJSON(http.MethodGet, "/api/v1/tables", nil, &resp); err != nil {
@@ -419,7 +422,9 @@ func (c *client) listTables() (map[string]string, error) {
 	}
 	out := make(map[string]string, len(resp.Tables))
 	for _, r := range resp.Tables {
-		out[r.Name] = r.ID
+		if r.SeedKey != "" {
+			out[r.Name] = r.ID
+		}
 	}
 	return out, nil
 }
@@ -438,8 +443,9 @@ func (c *client) listFormulas() (map[string]string, error) {
 		q.Set("offset", fmt.Sprintf("%d", offset))
 		var resp struct {
 			Formulas []struct {
-				ID   string `json:"id"`
-				Name string `json:"name"`
+				ID      string `json:"id"`
+				Name    string `json:"name"`
+				SeedKey string `json:"seedKey"`
 			} `json:"formulas"`
 			Total int `json:"total"`
 		}
@@ -447,7 +453,9 @@ func (c *client) listFormulas() (map[string]string, error) {
 			return nil, err
 		}
 		for _, f := range resp.Formulas {
-			out[f.Name] = f.ID
+			if f.SeedKey != "" {
+				out[f.Name] = f.ID
+			}
 		}
 		offset += len(resp.Formulas)
 		if len(resp.Formulas) < pageSize || offset >= resp.Total {

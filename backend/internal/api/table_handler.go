@@ -6,11 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/r404r/insurance-tools/formula-service/backend/internal/auth"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/domain"
 	"github.com/r404r/insurance-tools/formula-service/backend/internal/store"
 )
@@ -19,11 +21,14 @@ import (
 // which is the format the calculation engine expects.
 func validateTableData(data json.RawMessage) error {
 	if len(data) == 0 {
-		return nil
+		return errors.New("data must be a JSON array of string-map objects")
 	}
 	var rows []map[string]string
 	if err := json.Unmarshal(data, &rows); err != nil {
 		return fmt.Errorf("data must be a JSON array of string-map objects: %w", err)
+	}
+	if rows == nil {
+		return errors.New("data must be a JSON array of string-map objects")
 	}
 	return nil
 }
@@ -87,6 +92,9 @@ func (h *TableHandler) Create(w http.ResponseWriter, r *http.Request) {
 		TableType: req.TableType,
 		Data:      req.Data,
 		CreatedAt: time.Now().UTC(),
+	}
+	if claims := auth.GetClaims(r.Context()); claims != nil && claims.Role == domain.RoleAdmin {
+		table.SeedKey = strings.TrimSpace(r.Header.Get("X-Seed-Key"))
 	}
 
 	if err := h.Tables.Create(r.Context(), table); err != nil {

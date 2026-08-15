@@ -1,11 +1,13 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -385,8 +387,8 @@ func (h *FormulaHandler) Export(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "ids is required and must be non-empty", Code: http.StatusBadRequest})
 		return
 	}
-	if len(req.IDs) > 500 {
-		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "too many ids (max 500)", Code: http.StatusBadRequest})
+	if len(req.IDs) > 10000 {
+		writeJSON(w, http.StatusBadRequest, ErrorResponse{Error: "too many ids (max 10000)", Code: http.StatusBadRequest})
 		return
 	}
 
@@ -490,6 +492,10 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 		Imported: []ImportedItem{},
 		Errors:   []ImportError{},
 	}
+	seedKey := ""
+	if claims.Role == domain.RoleAdmin {
+		seedKey = strings.TrimSpace(r.Header.Get("X-Seed-Key"))
+	}
 	now := time.Now().UTC()
 
 	for i, ef := range bundle.Formulas {
@@ -527,6 +533,7 @@ func (h *FormulaHandler) Import(w http.ResponseWriter, r *http.Request) {
 			CreatedBy:   claims.UserID,
 			CreatedAt:   now,
 			UpdatedAt:   now,
+			SeedKey:     seedKey,
 		}
 		if err := h.Formulas.Create(r.Context(), newFormula); err != nil {
 			result.Errors = append(result.Errors, ImportError{Index: i, Name: ef.Name, Error: "failed to create formula"})
@@ -606,6 +613,10 @@ func (h *FormulaHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.Formulas.Delete(r.Context(), id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, ErrorResponse{Error: "formula not found", Code: http.StatusNotFound})
+			return
+		}
 		writeJSON(w, http.StatusInternalServerError, ErrorResponse{Error: "failed to delete formula", Code: http.StatusInternalServerError})
 		return
 	}

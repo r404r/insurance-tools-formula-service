@@ -49,6 +49,11 @@ func TestSeedResetPreservesUserDataWithASeedName(t *testing.T) {
 	if err := s.Users().Create(ctx, user); err != nil {
 		t.Fatalf("create owner: %v", err)
 	}
+	if err := s.Categories().Create(ctx, &domain.Category{
+		ID: "user-category", Slug: "user-category", Name: "User Category", Color: "#000", CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatalf("create user category: %v", err)
+	}
 
 	formulaID := "user-formula-with-seed-name"
 	if err := s.Formulas().Create(ctx, &domain.Formula{
@@ -90,6 +95,45 @@ func TestSeedResetPreservesUserDataWithASeedName(t *testing.T) {
 	}
 }
 
+func TestSeedResetDeletesOnlyPersistedSeedOwnedData(t *testing.T) {
+	ctx := context.Background()
+	s, err := sqlite.New(":memory:")
+	if err != nil {
+		t.Fatalf("open sqlite: %v", err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+	if err := s.Migrate(ctx); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	now := time.Now().UTC()
+	if err := s.Categories().Create(ctx, &domain.Category{ID: "category", Slug: "seed-domain", Name: "Seed", Color: "#000", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatalf("create category: %v", err)
+	}
+	if err := s.Users().Create(ctx, &domain.User{ID: "seed-owner", Username: "seed", Password: "x", Role: domain.RoleAdmin, CreatedAt: now}); err != nil {
+		t.Fatalf("create owner: %v", err)
+	}
+	formula := &domain.Formula{ID: "seed-formula", Name: "Renamed Seed Formula", Domain: "seed-domain", CreatedBy: "seed-owner", CreatedAt: now, UpdatedAt: now, SeedKey: "bundled-v1/formula/001"}
+	if err := s.Formulas().Create(ctx, formula); err != nil {
+		t.Fatalf("create seed formula: %v", err)
+	}
+	table := &domain.LookupTable{ID: "seed-table", Name: "Renamed Seed Table", Domain: "seed-domain", TableType: "seed", Data: json.RawMessage(`[]`), CreatedAt: now, UpdatedAt: now, SeedKey: "bundled-v1/table/001"}
+	if err := s.Tables().Create(ctx, table); err != nil {
+		t.Fatalf("create seed table: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	makeSeedResetHandler(s, zerolog.Nop())(rr, httptest.NewRequest(http.MethodPost, "/api/v1/admin/reset-seed", nil))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("reset status = %d, body = %s", rr.Code, rr.Body.String())
+	}
+	if _, err := s.Formulas().GetByID(ctx, formula.ID); err == nil {
+		t.Fatal("seed-owned formula remains after reset")
+	}
+	if _, err := s.Tables().GetByID(ctx, table.ID); err == nil {
+		t.Fatal("seed-owned table remains after reset")
+	}
+}
+
 // TestSeedResetDoesNotReportSuccessWhenPersistenceFails guards the reset
 // command's operational contract: an incomplete deletion must not look like a
 // successful reset to an operator or automation invoking the endpoint.
@@ -110,7 +154,7 @@ func TestSeedResetDoesNotReportSuccessWhenPersistenceFails(t *testing.T) {
 		{
 			name: "formula delete fails",
 			formulas: &resetFormulaRepo{
-				formulas:  []*domain.Formula{{ID: "seed-formula", Name: firstSeedName(t, formulaNames)}},
+				formulas:  []*domain.Formula{{ID: "seed-formula", Name: firstSeedName(t, formulaNames), SeedKey: "bundled-v1/formula"}},
 				deleteErr: errors.New("formula delete denied"),
 			},
 		},

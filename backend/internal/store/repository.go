@@ -32,6 +32,17 @@ type FormulaRepository interface {
 	UpdateMeta(ctx context.Context, formulaID, updatedBy string, updatedAt time.Time) error
 }
 
+// FormulaVersionAtomicCreator persists a formula and its initial version in a
+// single database transaction. Production repositories implement this optional
+// capability for template instantiation.
+type FormulaVersionAtomicCreator interface {
+	CreateWithInitialVersion(ctx context.Context, f *domain.Formula, v *domain.FormulaVersion) error
+}
+
+type SeedResetter interface {
+	ResetSeedData(ctx context.Context) (formulasDeleted, tablesDeleted int64, err error)
+}
+
 // VersionRepository manages formula version persistence.
 type VersionRepository interface {
 	CreateVersion(ctx context.Context, v *domain.FormulaVersion) error

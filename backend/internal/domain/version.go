@@ -66,13 +66,15 @@ func (r Role) CanManageUsers() bool {
 
 // VersionDiff represents differences between two formula versions
 type VersionDiff struct {
-	FromVersion int            `json:"fromVersion"`
-	ToVersion   int            `json:"toVersion"`
-	AddedNodes  []FormulaNode  `json:"addedNodes"`
-	RemovedNodes []FormulaNode `json:"removedNodes"`
-	ModifiedNodes []NodeDiff   `json:"modifiedNodes"`
-	AddedEdges  []FormulaEdge  `json:"addedEdges"`
-	RemovedEdges []FormulaEdge `json:"removedEdges"`
+	FromVersion    int           `json:"fromVersion"`
+	ToVersion      int           `json:"toVersion"`
+	AddedNodes     []FormulaNode `json:"addedNodes"`
+	RemovedNodes   []FormulaNode `json:"removedNodes"`
+	ModifiedNodes  []NodeDiff    `json:"modifiedNodes"`
+	AddedEdges     []FormulaEdge `json:"addedEdges"`
+	RemovedEdges   []FormulaEdge `json:"removedEdges"`
+	AddedOutputs   []string      `json:"addedOutputs"`
+	RemovedOutputs []string      `json:"removedOutputs"`
 }
 
 // NodeDiff represents a change to a single node

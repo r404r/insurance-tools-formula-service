@@ -38,6 +38,17 @@ type RouterConfig struct {
 
 // NewRouter creates a chi.Mux with all API routes wired up.
 func NewRouter(cfg RouterConfig) *chi.Mux {
+	if cfg.TemplateHandler != nil && cfg.FormulaHandler != nil && cfg.VersionHandler != nil {
+		if cfg.TemplateHandler.Formulas == nil {
+			cfg.TemplateHandler.Formulas = cfg.FormulaHandler.Formulas
+		}
+		if cfg.TemplateHandler.Versions == nil {
+			cfg.TemplateHandler.Versions = cfg.VersionHandler.Versions
+		}
+		if cfg.TemplateHandler.Categories == nil {
+			cfg.TemplateHandler.Categories = cfg.FormulaHandler.Categories
+		}
+	}
 	r := chi.NewRouter()
 
 	// Global middleware stack.
@@ -81,6 +92,9 @@ func NewRouter(cfg RouterConfig) *chi.Mux {
 
 			// Current user.
 			r.Get("/auth/me", cfg.AuthHandler.Me)
+
+			r.With(auth.RequirePermission(auth.PermFormulaCreate)).
+				Post("/templates/{id}/instantiate", cfg.TemplateHandler.Instantiate)
 
 			// Formula CRUD.
 			r.Route("/formulas", func(r chi.Router) {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -69,6 +70,41 @@ func TestTemplateInstantiationIsOneBackendWorkflow(t *testing.T) {
 	if len(versions.versions) != 1 {
 		t.Fatalf("version count = %d, want 1; template creation must not leave a formula orphan", len(versions.versions))
 	}
+}
+
+func TestTemplateInstantiationRollsBackFormulaWhenInitialVersionFails(t *testing.T) {
+	formulas := newInMemoryFormulaRepo()
+	versions := &failingTemplateVersionRepo{inMemoryVersionRepo: newInMemoryVersionRepo()}
+	jwtMgr := auth.NewJWTManager("template-instantiation-test-secret-32b", time.Hour)
+	token, err := jwtMgr.Generate(&domain.User{ID: "template-user", Username: "editor", Role: domain.RoleEditor})
+	if err != nil {
+		t.Fatalf("generate token: %v", err)
+	}
+	router := NewRouter(RouterConfig{
+		AuthHandler:     &AuthHandler{Users: &templateUserRepo{}, JWTMgr: jwtMgr, CookieSecure: false},
+		FormulaHandler:  &FormulaHandler{Formulas: formulas, Versions: versions, Categories: &templateCategoryRepo{}},
+		VersionHandler:  &VersionHandler{Formulas: formulas, Versions: versions},
+		TemplateHandler: &TemplateHandler{}, JWTManager: jwtMgr, UserStore: &templateUserRepo{},
+		Logger: zerolog.Nop(), CORSOrigins: []string{"http://localhost:5173"}, CalcLimiter: NewDynamicConcurrencyLimiter(1),
+	})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/templates/tpl-life-term-risk/instantiate", bytes.NewBufferString(`{"name":"Atomic template formula","domain":"life"}`))
+	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Content-Type", "application/json")
+	rr := httptest.NewRecorder()
+	router.ServeHTTP(rr, req)
+
+	if rr.Code < http.StatusInternalServerError {
+		t.Fatalf("instantiate status = %d, want 5xx when initial version persistence fails", rr.Code)
+	}
+	if len(formulas.formulas) != 0 {
+		t.Fatalf("formula count = %d, want 0 after failed initial version", len(formulas.formulas))
+	}
+}
+
+type failingTemplateVersionRepo struct{ *inMemoryVersionRepo }
+
+func (*failingTemplateVersionRepo) CreateVersion(context.Context, *domain.FormulaVersion) error {
+	return errors.New("injected initial version failure")
 }
 
 type templateUserRepo struct{}
