@@ -115,6 +115,71 @@ func TestTypedStringLookupAndBooleanConditional(t *testing.T) {
 	})
 }
 
+func TestTypedTwoArgumentLookupSelectsOnlyUniqueValueColumn(t *testing.T) {
+	graph := func() *domain.FormulaGraph {
+		return &domain.FormulaGraph{
+			Nodes: []domain.FormulaNode{
+				{ID: "key", Type: domain.NodeVariable, Config: mustJSON(domain.VariableConfig{Name: "plan", DataType: "string"})},
+				{ID: "lookup", Type: domain.NodeTableLookup, Config: mustJSON(domain.TableLookupConfig{TableID: "plans", KeyColumns: []string{"key"}})},
+			},
+			Edges:   []domain.FormulaEdge{{Source: "key", Target: "lookup", TargetPort: "key"}},
+			Outputs: []string{"lookup"},
+		}
+	}
+
+	t.Run("one non-key column is selected", func(t *testing.T) {
+		resolver := typedRowsLookupResolver{
+			values: map[string]map[string]string{"plans|label": {"gold": "Preferred plan"}},
+			rows:   map[string][]map[string]string{"plans": {{"key": "gold", "label": "Preferred plan"}}},
+		}
+		result, err := NewEngine(EngineConfig{TableResolver: resolver}).Calculate(
+			context.Background(), graph(), map[string]string{"plan": "gold"},
+		)
+		if err != nil {
+			t.Fatalf("calculate typed two-argument lookup with unique value column: %v", err)
+		}
+		if got := result.Outputs["lookup"]; got != "Preferred plan" {
+			t.Fatalf("typed two-argument lookup output = %q, want %q", got, "Preferred plan")
+		}
+	})
+
+	t.Run("multiple non-key columns are rejected explicitly", func(t *testing.T) {
+		resolver := typedRowsLookupResolver{
+			rows: map[string][]map[string]string{"plans": {{"key": "gold", "net": "10", "gross": "20"}}},
+		}
+		_, err := NewEngine(EngineConfig{TableResolver: resolver}).Calculate(
+			context.Background(), graph(), map[string]string{"plan": "gold"},
+		)
+		if err == nil {
+			t.Fatal("typed two-argument lookup with multiple value columns succeeded; want a deterministic ambiguity error")
+		}
+		if !strings.Contains(err.Error(), "ambiguous lookup column") {
+			t.Fatalf("typed ambiguous lookup error = %q, want it to contain %q", err, "ambiguous lookup column")
+		}
+	})
+}
+
+func TestCacheSizeCapsMixedDecimalAndTypedEntries(t *testing.T) {
+	engine := NewEngine(EngineConfig{CacheSize: 1})
+	decimalGraph := &domain.FormulaGraph{
+		Nodes:   []domain.FormulaNode{{ID: "decimal", Type: domain.NodeConstant, Config: mustJSON(domain.ConstantConfig{Value: "1"})}},
+		Outputs: []string{"decimal"},
+	}
+	typedGraph := typedVariableOutputGraph("value", "string")
+
+	if _, err := engine.Calculate(context.Background(), decimalGraph, nil); err != nil {
+		t.Fatalf("calculate decimal graph: %v", err)
+	}
+	if _, err := engine.Calculate(context.Background(), typedGraph, map[string]string{"value": "gold"}); err != nil {
+		t.Fatalf("calculate typed graph: %v", err)
+	}
+
+	size, maxSize := engine.CacheStats()
+	if size > maxSize {
+		t.Fatalf("mixed cache size = %d, max size = %d; CacheSize must bound all calculation result entries", size, maxSize)
+	}
+}
+
 func TestTypedEqualityAndNumericTypeErrors(t *testing.T) {
 	t.Run("string eq and ne use exact string comparison", func(t *testing.T) {
 		for _, tc := range []struct {
@@ -192,4 +257,25 @@ func (r typedLookupResolver) ResolveTable(_ context.Context, tableID string, _ [
 
 func (typedLookupResolver) GetRows(context.Context, string) ([]map[string]string, error) {
 	return nil, nil
+}
+
+type typedRowsLookupResolver struct {
+	values map[string]map[string]string
+	rows   map[string][]map[string]string
+}
+
+func (r typedRowsLookupResolver) ResolveTable(_ context.Context, tableID string, _ []string, column string) (map[string]string, error) {
+	values, ok := r.values[tableID+"|"+column]
+	if !ok {
+		return nil, fmt.Errorf("missing fixture for %s.%s", tableID, column)
+	}
+	return values, nil
+}
+
+func (r typedRowsLookupResolver) GetRows(_ context.Context, tableID string) ([]map[string]string, error) {
+	rows, ok := r.rows[tableID]
+	if !ok {
+		return nil, fmt.Errorf("missing row fixture for %s", tableID)
+	}
+	return rows, nil
 }

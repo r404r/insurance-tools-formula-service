@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { useFormulaStore } from '../../store/formulaStore'
 import FormulaEditorPage from './FormulaEditorPage'
 
 const mocks = vi.hoisted(() => ({
@@ -26,7 +27,9 @@ const mocks = vi.hoisted(() => ({
 }))
 
 vi.mock('react-router-dom', () => ({
-  Link: ({ children }: { children: ReactNode }) => <a>{children}</a>,
+  Link: ({ children, to }: { children: ReactNode; to: string }) => (
+    <a href={to} onClick={(event) => event.preventDefault()}>{children}</a>
+  ),
   useNavigate: () => mocks.navigate,
   useParams: () => ({ id: 'formula-1' }),
   useSearchParams: () => [new URLSearchParams(), vi.fn()],
@@ -72,11 +75,19 @@ vi.mock('./FormulaCanvas', () => ({
 }))
 vi.mock('./NodePalette', () => ({ default: () => <div data-testid="node-palette" /> }))
 vi.mock('./NodePropertiesPanel', () => ({ default: () => <div data-testid="node-properties" /> }))
-vi.mock('./TextEditor', () => ({ default: () => <div data-testid="text-editor" /> }))
+vi.mock('./TextEditor', () => ({
+  default: ({ onDraftChange }: { onDraftChange?: (draft: string) => void }) => (
+    <div data-testid="text-editor">
+      <button onClick={() => onDraftChange?.('age + 1')}>simulate un-applied text draft</button>
+      <button onClick={() => onDraftChange?.('\\frac{age}{2}')}>simulate un-applied LaTex draft</button>
+    </div>
+  ),
+}))
 vi.mock('./hooks/useAutoLayout', () => ({ useAutoLayout: () => (nodes: unknown[]) => nodes }))
 
 afterEach(() => {
   cleanup()
+  useFormulaStore.getState().reset()
   mocks.post.mockClear()
   mocks.allFormulas = []
 })
@@ -106,5 +117,42 @@ describe('FormulaEditorPage test input validation', () => {
     view.rerender(<FormulaEditorPage />)
 
     expect(screen.getByTestId('formula-canvas').textContent).toBe('user-edit')
+  })
+
+  it('treats un-applied Text and LaTex editor drafts as dirty before the graph is applied', async () => {
+    render(<FormulaEditorPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('formula-canvas').textContent).toBe('age')
+    })
+    fireEvent.click(screen.getByTestId('mode-text'))
+    expect(screen.getByTestId('text-editor')).toBeTruthy()
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    fireEvent.click(screen.getByRole('button', { name: 'simulate un-applied text draft' }))
+    fireEvent.click(screen.getByRole('link', { name: '←' }))
+    expect(confirm).toHaveBeenCalledWith('editor.unsavedChangesPrompt')
+
+    fireEvent.click(screen.getByRole('button', { name: 'simulate un-applied LaTex draft' }))
+    fireEvent.click(screen.getByRole('link', { name: '←' }))
+    expect(confirm).toHaveBeenCalledTimes(2)
+    confirm.mockRestore()
+  })
+
+  it('keeps an edited graph in memory when a canceled browser history popstate arrives', async () => {
+    render(<FormulaEditorPage />)
+
+    await waitFor(() => {
+      expect(screen.getByTestId('formula-canvas').textContent).toBe('age')
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'simulate graph edit' }))
+    expect(screen.getByTestId('formula-canvas').textContent).toBe('user-edit')
+
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+
+    expect(confirm).toHaveBeenCalledWith('editor.unsavedChangesPrompt')
+    expect(screen.getByTestId('formula-canvas').textContent).toBe('user-edit')
+    confirm.mockRestore()
   })
 })
