@@ -37,4 +37,27 @@ describe('useUnsavedChangesGuard', () => {
     expect(confirm).not.toHaveBeenCalled()
     confirm.mockRestore()
   })
+
+  it('returns to the prior history entry when a canceled Forward popstate has a larger router index', () => {
+    const originalState = window.history.state
+    const originalURL = window.location.href
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(false)
+    const go = vi.spyOn(window.history, 'go').mockImplementation(() => undefined)
+
+    try {
+      // React Router records a monotonically increasing idx in history.state.
+      // The guard starts on entry 7, then receives a Forward navigation to 8.
+      window.history.replaceState({ idx: 7 }, '', '/formulas/formula-1')
+      render(<Guard dirty />)
+      window.history.replaceState({ idx: 8 }, '', '/formulas/formula-2')
+      window.dispatchEvent(new PopStateEvent('popstate', { state: { idx: 8 } }))
+
+      expect(confirm).toHaveBeenCalledWith('You have unsaved changes. Leave without saving?')
+      expect(go).toHaveBeenCalledWith(-1)
+    } finally {
+      window.history.replaceState(originalState, '', originalURL)
+      confirm.mockRestore()
+      go.mockRestore()
+    }
+  })
 })
